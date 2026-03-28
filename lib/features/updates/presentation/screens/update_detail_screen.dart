@@ -1,0 +1,661 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
+import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
+import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+
+class UpdateDetailResult {
+  const UpdateDetailResult({
+    required this.deleted,
+    required this.shouldRefresh,
+  });
+
+  final bool deleted;
+  final bool shouldRefresh;
+}
+
+class UpdateDetailScreen extends StatefulWidget {
+  const UpdateDetailScreen({
+    required this.updateId,
+    required this.currentUser,
+    required this.repository,
+    required this.profileRepository,
+    required this.messageRepository,
+    this.initialLiked = false,
+    super.key,
+  });
+
+  final int updateId;
+  final User? currentUser;
+  final UpdateRepository repository;
+  final ProfileRepository profileRepository;
+  final MessageRepository messageRepository;
+  final bool initialLiked;
+
+  @override
+  State<UpdateDetailScreen> createState() => _UpdateDetailScreenState();
+}
+
+class _UpdateDetailScreenState extends State<UpdateDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late Future<UpdateDetail> _future;
+  late AnimationController _likeController;
+  final TextEditingController _commentController = TextEditingController();
+  bool _liked = false;
+  bool _isSubmittingComment = false;
+  bool _shouldRefresh = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _liked = widget.initialLiked;
+    _future = widget.repository.fetchUpdate(widget.updateId);
+    _likeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+      lowerBound: 0.9,
+      upperBound: 1.15,
+    )..value = 1;
+  }
+
+  @override
+  void dispose() {
+    _likeController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = widget.repository.fetchUpdate(widget.updateId);
+    });
+    await _future;
+  }
+
+  Future<void> _toggleLike(UpdateDetail detail) async {
+    final result = await widget.repository.toggleLike(detail.id);
+    _shouldRefresh = true;
+    _likeController
+      ..forward()
+      ..reverse();
+    setState(() {
+      _liked = result.liked;
+      _future = Future.value(
+        UpdateDetail(
+          id: detail.id,
+          status: detail.status,
+          photoUrl: detail.photoUrl,
+          originalPhotoUrl: detail.originalPhotoUrl,
+          device: detail.device,
+          views: detail.views,
+          likesCount: result.count,
+          commentsCount: detail.commentsCount,
+          createdAt: detail.createdAt,
+          user: detail.user,
+          comments: detail.comments,
+        ),
+      );
+    });
+  }
+
+  Future<void> _submitComment(UpdateDetail detail) async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty || _isSubmittingComment) {
+      return;
+    }
+
+    setState(() {
+      _isSubmittingComment = true;
+    });
+
+    try {
+      final comment = await widget.repository.addComment(
+        updateId: detail.id,
+        comment: text,
+      );
+      _shouldRefresh = true;
+      _commentController.clear();
+      setState(() {
+        _future = Future.value(
+          UpdateDetail(
+            id: detail.id,
+            status: detail.status,
+            photoUrl: detail.photoUrl,
+            originalPhotoUrl: detail.originalPhotoUrl,
+            device: detail.device,
+            views: detail.views,
+            likesCount: detail.likesCount,
+            commentsCount: detail.commentsCount + 1,
+            createdAt: detail.createdAt,
+            user: detail.user,
+            comments: [comment, ...detail.comments],
+          ),
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingComment = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _shareUpdate() async {
+    await Clipboard.setData(
+      ClipboardData(text: 'HopefulMe update #${widget.updateId}'),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Update link copied to clipboard')),
+    );
+  }
+
+  Future<void> _editUpdate(UpdateDetail detail) async {
+    final controller = TextEditingController(text: detail.status);
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Update'),
+        content: TextField(
+          controller: controller,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            hintText: 'What is on your mind?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (updatedText == null || updatedText.isEmpty) {
+      return;
+    }
+
+    final updated = await widget.repository.updateStatus(
+      updateId: detail.id,
+      status: updatedText,
+    );
+    _shouldRefresh = true;
+    setState(() {
+      _future = Future.value(updated);
+    });
+  }
+
+  Future<void> _deleteUpdate(UpdateDetail detail) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete update?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
+    await widget.repository.deleteUpdate(detail.id);
+    if (!mounted) return;
+    Navigator.of(context).pop(
+      const UpdateDetailResult(deleted: true, shouldRefresh: true),
+    );
+  }
+
+  void _close() {
+    Navigator.of(context).pop(
+      UpdateDetailResult(deleted: false, shouldRefresh: _shouldRefresh),
+    );
+  }
+
+  Future<void> _openProfile(String username) async {
+    await openUserProfile(
+      context,
+      profileRepository: widget.profileRepository,
+      messageRepository: widget.messageRepository,
+      updateRepository: widget.repository,
+      currentUser: widget.currentUser,
+      username: username,
+    );
+  }
+
+  Future<void> _openFullImage(String imageUrl) {
+    return FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        _close();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: context.appColors.scaffold,
+        appBar: AppBar(
+          backgroundColor: context.appColors.surface,
+          surfaceTintColor: context.appColors.surface,
+          leading: IconButton(
+            onPressed: _close,
+            icon: const Icon(Icons.arrow_back),
+          ),
+        ),
+        body: FutureBuilder<UpdateDetail>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError && !snapshot.hasData) {
+              return AppStatusState.fromError(
+                error: snapshot.error ?? 'Unable to load this update.',
+                actionLabel: 'Try again',
+                onAction: _refresh,
+              );
+            }
+
+            final detail = snapshot.data;
+            if (detail == null) {
+              return const SizedBox.shrink();
+            }
+
+            final isOwner = widget.currentUser?.username == detail.user.username;
+            final colors = context.appColors;
+
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                          child: Row(
+                            children: [
+                              InkWell(
+                                onTap: () => _openProfile(detail.user.username),
+                                borderRadius: BorderRadius.circular(999),
+                                child: CircleAvatar(
+                                  radius: 22,
+                                  backgroundImage: detail.user.photoUrl.isNotEmpty
+                                      ? NetworkImage(detail.user.photoUrl)
+                                      : null,
+                                  child: detail.user.photoUrl.isEmpty
+                                      ? const Icon(Icons.person)
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _openProfile(detail.user.username),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        detail.user.displayName,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        detail.device.isNotEmpty
+                                            ? '${formatRelativeTimestamp(detail.createdAt)} · ${detail.device}'
+                                            : formatRelativeTimestamp(
+                                                detail.createdAt,
+                                              ),
+                                        style: TextStyle(
+                                          color: colors.textMuted,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (value) async {
+                                  switch (value) {
+                                    case 'share':
+                                      await _shareUpdate();
+                                      break;
+                                    case 'edit':
+                                      await _editUpdate(detail);
+                                      break;
+                                    case 'delete':
+                                      await _deleteUpdate(detail);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'share',
+                                    child: Text('Share To...'),
+                                  ),
+                                  if (isOwner)
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('Edit Update'),
+                                    ),
+                                  if (isOwner)
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete Update'),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (detail.status.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                            child: RichDisplayText(
+                              text: detail.status,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 15,
+                                height: 1.6,
+                              ),
+                              onMentionTap: _openProfile,
+                            ),
+                          ),
+                        if (detail.photoUrl.isNotEmpty)
+                          InkWell(
+                            onTap: () => _openFullImage(
+                              detail.originalPhotoUrl.isNotEmpty
+                                  ? detail.originalPhotoUrl
+                                  : detail.photoUrl,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: 260,
+                                maxHeight:
+                                    MediaQuery.of(context).size.height * 0.58,
+                              ),
+                              child: Image.network(
+                                detail.originalPhotoUrl.isNotEmpty
+                                    ? detail.originalPhotoUrl
+                                    : detail.photoUrl,
+                                width: double.infinity,
+                                fit: BoxFit.fitWidth,
+                                alignment: Alignment.topCenter,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox(
+                                  height: 220,
+                                  child: Center(
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                          child: Row(
+                            children: [
+                              ScaleTransition(
+                                scale: _likeController,
+                                child: FilledButton.tonalIcon(
+                                  onPressed: () => _toggleLike(detail),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _liked
+                                        ? colors.dangerSoft
+                                        : colors.surfaceMuted,
+                                  ),
+                                  icon: Icon(
+                                    _liked
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: colors.dangerText,
+                                  ),
+                                  label: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 220),
+                                    child: Text(
+                                      '${detail.likesCount}',
+                                      key: ValueKey(detail.likesCount),
+                                      style: TextStyle(
+                                        color: colors.dangerText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              FilledButton.tonalIcon(
+                                onPressed: () {},
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: colors.accentSoft,
+                                ),
+                                icon: Icon(
+                                  Icons.chat_bubble_outline,
+                                  color: colors.accentSoftText,
+                                ),
+                                label: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  child: Text(
+                                    '${detail.commentsCount}',
+                                    key: ValueKey(detail.commentsCount),
+                                    style: TextStyle(
+                                      color: colors.accentSoftText,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${detail.views} views',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Comments',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                minLines: 1,
+                                maxLines: 3,
+                                decoration: InputDecoration(
+                                  hintText: 'Share your thoughts...',
+                                  filled: true,
+                                  fillColor: colors.surfaceMuted,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            IconButton.filled(
+                              onPressed: _isSubmittingComment
+                                  ? null
+                                  : () => _submitComment(detail),
+                              icon: _isSubmittingComment
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (detail.comments.isEmpty)
+                          Text(
+                            'No comments yet.',
+                            style: TextStyle(color: colors.textMuted),
+                          )
+                        else
+                          ...detail.comments.map(
+                            (comment) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _CommentTile(
+                                comment: comment,
+                                onProfileTap: () =>
+                                    _openProfile(comment.user.username),
+                                onMentionTap: _openProfile,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentTile extends StatelessWidget {
+  const _CommentTile({
+    required this.comment,
+    required this.onProfileTap,
+    required this.onMentionTap,
+  });
+
+  final UpdateComment comment;
+  final VoidCallback onProfileTap;
+  final Future<void> Function(String username) onMentionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onProfileTap,
+          borderRadius: BorderRadius.circular(999),
+          child: CircleAvatar(
+            radius: 18,
+            backgroundImage: comment.user.photoUrl.isNotEmpty
+                ? NetworkImage(comment.user.photoUrl)
+                : null,
+            child: comment.user.photoUrl.isEmpty
+                ? const Icon(Icons.person)
+                : null,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colors.surfaceMuted,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: onProfileTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Text(
+                    comment.user.displayName,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                RichDisplayText(
+                  text: comment.comment,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 13.5,
+                    height: 1.45,
+                  ),
+                  onMentionTap: onMentionTap,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

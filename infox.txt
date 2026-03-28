@@ -1,0 +1,19 @@
+ flutter run -d chrome
+ 
+ flutter run -d emulator-5554
+
+flutter run -d 27be0f2b
+
+ or
+Press:
+
+Ctrl + Shift + P
+
+Then type:
+
+Flutter: Launch Emulator
+
+on andriod:
+php artisan serve --host=0.0.0.0 --port=8000
+
+flutter run --dart-define=API_BASE_URL=http://10.142.136.163:8000/api

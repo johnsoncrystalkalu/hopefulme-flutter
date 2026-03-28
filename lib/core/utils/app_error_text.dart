@@ -1,0 +1,46 @@
+import 'dart:async';
+
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
+
+class AppErrorText {
+  const AppErrorText._();
+
+  static bool isTimeout(Object? error) => error is TimeoutException;
+
+  static bool isOffline(Object? error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('socketexception') ||
+        text.contains('failed host lookup') ||
+        text.contains('connection closed') ||
+        text.contains('connection refused') ||
+        text.contains('network') ||
+        text.contains('internet') ||
+        text.contains('xmlhttprequest error');
+  }
+
+  static String title(Object? error) {
+    if (isTimeout(error)) {
+      return 'This page is taking too long';
+    }
+    if (isOffline(error)) {
+      return 'You are offline';
+    }
+    if (error is ApiException && error.statusCode == 401) {
+      return 'Your session needs attention';
+    }
+    return 'Something went wrong';
+  }
+
+  static String message(Object? error) {
+    if (isTimeout(error)) {
+      return 'The request did not finish in time. You can retry or come back in a moment.';
+    }
+    if (isOffline(error)) {
+      return 'HopefulMe can still open, but this page needs internet for fresh data. Retry when your connection is back.';
+    }
+    if (error is ApiException && error.message.trim().isNotEmpty) {
+      return error.message;
+    }
+    return 'We could not load this page right now. Please try again.';
+  }
+}
