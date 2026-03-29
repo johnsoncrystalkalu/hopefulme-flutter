@@ -34,22 +34,34 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     FocusScope.of(context).unfocus();
-    final success = await widget.authController.login(
-      login: _loginController.text.trim(),
-      password: _passwordController.text,
-    );
+    try {
+      final success = await widget.authController.login(
+        login: _loginController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    if (!success && widget.authController.errorMessage == null) {
+      if (success) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
+      }
+
+      if (widget.authController.errorMessage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed. Please try again.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            widget.authController.errorMessage ??
-                'Login failed. Please try again.',
-          ),
+          content: Text('Login error: $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

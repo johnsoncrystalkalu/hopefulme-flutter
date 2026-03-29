@@ -1,4 +1,5 @@
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 
 class UpdateDetail {
@@ -34,7 +35,7 @@ class UpdateDetail {
     );
 
     return UpdateDetail(
-      id: json['id'] as int? ?? 0,
+      id: parseInt(json['id']),
       status: _plainText(json['status']?.toString() ?? ''),
       photoUrl: ImageUrlResolver.resolve(
         json['photo_url']?.toString() ?? '',
@@ -45,9 +46,9 @@ class UpdateDetail {
         contextUrls: [user.photoUrl],
       ),
       device: json['device']?.toString() ?? '',
-      views: json['views'] as int? ?? 0,
-      likesCount: json['likes_count'] as int? ?? 0,
-      commentsCount: json['comments_count'] as int? ?? 0,
+      views: parseInt(json['views']),
+      likesCount: parseInt(json['likes_count']),
+      commentsCount: parseInt(json['comments_count']),
       createdAt: json['created_at']?.toString() ?? '',
       user: user,
       comments: (json['comments'] as List<dynamic>? ?? <dynamic>[])

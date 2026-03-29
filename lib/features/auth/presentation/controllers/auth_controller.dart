@@ -49,6 +49,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> login({required String login, required String password}) async {
+    debugPrint('Attempting login for: $login');
     return _runAuthAction(() async {
       try {
         _currentUser = await _authRepository.login(
@@ -56,6 +57,7 @@ class AuthController extends ChangeNotifier {
           password: password,
         );
         _isAuthenticated = true;
+        debugPrint('Login successful for: $login');
       } catch (e, stackTrace) {
         debugPrint('Login error: $e\n$stackTrace');
         rethrow;

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -127,7 +129,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
     try {
-      final notifications = await widget.notificationRepository.fetchPage(page: 1);
+      final notifications = await widget.notificationRepository.fetchPage(
+        page: 1,
+      );
       final conversations = await widget.messageRepository.fetchConversations();
       if (!mounted) {
         return;
@@ -528,6 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
         bool submitting = false;
         XFile? selectedPhoto;
         Uint8List? selectedPhotoBytes;
+        bool showEmojiPicker = false;
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -566,7 +571,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   dismissed = true;
                   Navigator.of(context).pop(true);
                 }
-              } catch (error) {
+              } catch (error, stack) {
+                // Debug logs to help diagnose post/update issues during development
+                if (kDebugMode) {
+                  debugPrint('Post update failed: $error');
+                  if (stack != null) debugPrint('Stack: $stack');
+                }
+                // Revert to graceful user-facing error handling
                 if (context.mounted) {
                   AppToast.error(context, _friendlyComposerError(error));
                 }
@@ -808,45 +819,73 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                         const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+                        Row(
                           children: [
-                            OutlinedButton.icon(
+                            IconButton.outlined(
                               onPressed: submitting ? null : pickPhoto,
-                              icon: const Icon(Icons.image_outlined),
-                              label: Text(
+                              icon: Icon(
                                 selectedPhoto == null
-                                    ? 'Add Photo'
-                                    : 'Change Photo',
+                                    ? Icons.image_outlined
+                                    : Icons.check_circle_outline,
+                                color: colors.brand,
                               ),
+                              tooltip: selectedPhoto == null
+                                  ? 'Add Photo'
+                                  : 'Photo added',
                             ),
-                            const SizedBox(width: 10),
-                            TextButton(
-                              onPressed: submitting
-                                  ? null
-                                  : () => Navigator.of(context).pop(false),
-                              child: const Text('Cancel'),
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              onPressed: () {
+                                setSheetState(() {
+                                  showEmojiPicker = !showEmojiPicker;
+                                });
+                              },
+                              icon: const Icon(Icons.emoji_emotions_outlined),
+                              tooltip: 'Feeling/Activity',
+                            ),
+                            const Spacer(),
+                            FilledButton(
+                              onPressed: submitting ? null : submit,
+                              child: submitting
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Post'),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: submitting ? null : submit,
-                            child: submitting
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Post Update'),
+                        if (showEmojiPicker) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 280,
+                            child: EmojiPicker(
+                              textEditingController: controller,
+                              config: Config(
+                                height: 280,
+                                checkPlatformCompatibility: true,
+                                emojiViewConfig: const EmojiViewConfig(
+                                  emojiSizeMax: 26,
+                                ),
+                                categoryViewConfig: CategoryViewConfig(
+                                  iconColor: colors.textMuted,
+                                  iconColorSelected: colors.brand,
+                                  backspaceColor: colors.brand,
+                                ),
+                                bottomActionBarConfig:
+                                    const BottomActionBarConfig(enabled: false),
+                                searchViewConfig: SearchViewConfig(
+                                  backgroundColor: colors.surface,
+                                  buttonIconColor: colors.textMuted,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -1166,11 +1205,13 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           destinations: [
             const NavigationDestination(
-              icon: Icon(Icons.home_rounded),
+              icon: Icon(CupertinoIcons.home),
+              selectedIcon: Icon(CupertinoIcons.home),
               label: 'Home',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.search_rounded),
+              icon: Icon(CupertinoIcons.search),
+              selectedIcon: Icon(CupertinoIcons.search),
               label: 'Search',
             ),
             NavigationDestination(
@@ -1181,16 +1222,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   gradient: colors.brandGradient,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
               label: '',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.groups_rounded),
+              icon: Icon(CupertinoIcons.group),
+              selectedIcon: Icon(CupertinoIcons.group),
               label: 'Groups',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
+              icon: Icon(CupertinoIcons.person),
+              selectedIcon: Icon(CupertinoIcons.person),
               label: 'Profile',
             ),
           ],
@@ -1257,7 +1304,7 @@ class _HomeTopBar extends StatelessWidget {
                   ? const SizedBox.shrink()
                   : IconButton(
                       onPressed: onMenuTap,
-                      icon: Icon(Icons.menu_rounded, color: colors.icon),
+                      icon: Icon(Icons.menu_outlined, color: colors.icon),
                       style: IconButton.styleFrom(
                         backgroundColor: colors.surfaceMuted.withValues(
                           alpha: 0.72,
@@ -1315,10 +1362,7 @@ class _HomeTopBar extends StatelessWidget {
                   value: 'theme_state',
                   child: Text(themeController.themeLabel(brightness)),
                 ),
-                const PopupMenuItem(
-                  value: 'home',
-                  child: Text('Go Home'),
-                ),
+                const PopupMenuItem(value: 'home', child: Text('Go Home')),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
               child: AppAvatar(
@@ -1397,7 +1441,7 @@ class _NotificationsDropdownButton extends StatelessWidget {
         ),
       ],
       child: _BadgeTopBarIcon(
-        icon: Icons.notifications_rounded,
+        icon: Icons.notifications_outlined,
         count: unreadCount,
       ),
     );
@@ -1457,7 +1501,10 @@ class _MessagesDropdownButton extends StatelessWidget {
           ),
         ),
       ],
-      child: _BadgeTopBarIcon(icon: Icons.chat_bubble_rounded, count: unreadCount),
+      child: _BadgeTopBarIcon(
+        icon: Icons.chat_bubble_outline,
+        count: unreadCount,
+      ),
     );
   }
 }
@@ -2250,7 +2297,7 @@ class _HomeContent extends StatelessWidget {
           const SizedBox(height: 18),
         ],
         _SectionHeader(
-          title: 'Random Quotes for you',
+          title: 'Random Quotes for you..',
           leading: Container(
             width: 34,
             height: 34,
@@ -2399,74 +2446,87 @@ class _ComposerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstName = (user?.displayName ?? 'there').split(' ').first;
 
-    return _SurfaceCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+return _SurfaceCard(
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      children: [
+        // Top Row: Avatar and Text Input Field
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center, // Centered for better vertical alignment
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Avatar(
-                  imageUrl: user?.photoUrl ?? '',
-                  label: user?.displayName ?? 'U',
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => onCreateUpdate(),
+            _Avatar(
+              imageUrl: user?.photoUrl ?? '',
+              label: user?.displayName ?? 'U',
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                onTap: () => onCreateUpdate(),
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: context.appColors.surfaceMuted,
                     borderRadius: BorderRadius.circular(18),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.appColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        "What's on your mind, $firstName?",
-                        style: TextStyle(
-                          color: context.appColors.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
+                  ),
+                  child: Text(
+                    "What's on your mind, $firstName?",
+                    style: TextStyle(
+                      color: context.appColors.textMuted,
+                      fontSize: 14, // Slightly increased for readability
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                _ComposerChip(
-                  icon: Icons.image_outlined,
-                  label: 'Photo',
-                  background: context.appColors.accentSoft,
-                  color: context.appColors.accentSoftText,
-                ),
-                SizedBox(width: 8),
-                _ComposerChip(
-                  icon: Icons.sentiment_satisfied_alt_outlined,
-                  label: 'Feeling',
-                  background: context.appColors.warningSoft,
-                  color: context.appColors.warningText,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () => onCreateUpdate(),
-                child: const Text('Post Update'),
               ),
             ),
           ],
         ),
-      ),
-    );
+        
+        const SizedBox(height: 16), // Increased spacing for a cleaner look
+
+        // Bottom Row: Chips and Publish Button
+        Row(
+          children: [
+            _ComposerChip(
+              icon: Icons.image_outlined,
+              label: 'Photo',
+              background: context.appColors.accentSoft,
+              color: context.appColors.accentSoftText,
+            ),
+            const SizedBox(width: 8),
+            _ComposerChip(
+              icon: Icons.sentiment_satisfied_alt_outlined,
+              label: 'Feeling',
+              background: context.appColors.warningSoft,
+              color: context.appColors.warningText,
+            ),
+            
+            const Spacer(), // This pushes the button to the far right
+
+            // The "Publish" Button (Inline)
+            SizedBox(
+              height: 40, // Match the height of the chips for symmetry
+              child: FilledButton.icon(
+                onPressed: () => onCreateUpdate(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF93A2F6), // Using that soft purple from your image
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                label: const Text('Post'),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                iconAlignment: IconAlignment.end, // Puts arrow on the right
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ),
+);
   }
 }
 

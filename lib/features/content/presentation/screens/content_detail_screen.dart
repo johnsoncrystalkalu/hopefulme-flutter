@@ -895,13 +895,23 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     final host = uri.host.toLowerCase();
     if (host.contains('youtu.be')) {
       videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
-    } else if (host.contains('youtube.com')) {
+    } else if (host.contains('youtube.com') || host.contains('youtube-nocookie.com')) {
       videoId = uri.queryParameters['v'];
-      if ((videoId == null || videoId.isEmpty) &&
-          uri.pathSegments.contains('shorts')) {
-        final index = uri.pathSegments.indexOf('shorts');
-        if (index != -1 && index + 1 < uri.pathSegments.length) {
-          videoId = uri.pathSegments[index + 1];
+
+      if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
+        if (uri.pathSegments.contains('shorts')) {
+          final index = uri.pathSegments.indexOf('shorts');
+          if (index != -1 && index + 1 < uri.pathSegments.length) {
+            videoId = uri.pathSegments[index + 1];
+          }
+        } else if (uri.pathSegments.contains('watch')) {
+          videoId = uri.queryParameters['v'];
+        } else {
+          // Path-based video in /embed/<id> or /v/<id>
+          final idSegment = uri.pathSegments.last;
+          if (idSegment.isNotEmpty) {
+            videoId = idSegment;
+          }
         }
       }
     }
@@ -961,7 +971,35 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     }
 
     if (_controller == null || _resolvedUrl == null) {
-      return const SizedBox.shrink();
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            color: colors.surfaceMuted,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_circle_outline_rounded,
+                      size: 44, color: colors.icon),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Video unavailable in preview',
+                    style: TextStyle(color: colors.textSecondary),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: _openInBrowser,
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Open in YouTube'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return ClipRRect(
