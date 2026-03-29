@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 
 class FullscreenNetworkImageScreen extends StatelessWidget {
-  const FullscreenNetworkImageScreen({
-    required this.imageUrl,
-    super.key,
-  });
+  const FullscreenNetworkImageScreen({required this.imageUrl, super.key});
 
   final String imageUrl;
 
-  static Future<void> show(
-    BuildContext context, {
-    required String imageUrl,
-  }) {
+  static Future<void> show(BuildContext context, {required String imageUrl}) {
     if (imageUrl.trim().isEmpty) {
       return Future<void>.value();
     }
@@ -35,24 +30,13 @@ class FullscreenNetworkImageScreen extends StatelessWidget {
         child: InteractiveViewer(
           minScale: 1,
           maxScale: 4,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Padding(
-              padding: EdgeInsets.all(24),
-              child: Icon(
-                Icons.broken_image_outlined,
-                color: Colors.white70,
-                size: 48,
-              ),
+          child: SizedBox.expand(
+            child: AppNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.contain,
+              backgroundColor: Colors.black,
+              placeholderIcon: Icons.photo_outlined,
             ),
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
-              }
-
-              return const CircularProgressIndicator(color: Colors.white);
-            },
           ),
         ),
       ),

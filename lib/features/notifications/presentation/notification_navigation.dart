@@ -8,6 +8,7 @@ import 'package:hopefulme_flutter/features/notifications/models/app_notification
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 
@@ -16,6 +17,7 @@ class NotificationNavigator {
     required this.profileRepository,
     required this.contentRepository,
     required this.messageRepository,
+    this.searchRepository,
     required this.updateRepository,
     required this.currentUser,
   });
@@ -23,19 +25,19 @@ class NotificationNavigator {
   final ProfileRepository profileRepository;
   final ContentRepository contentRepository;
   final MessageRepository messageRepository;
+  final SearchRepository? searchRepository;
   final UpdateRepository updateRepository;
   final User? currentUser;
 
-  Future<bool> open(
-    BuildContext context,
-    AppNotification notification,
-  ) async {
+  Future<bool> open(BuildContext context, AppNotification notification) async {
     final uri = Uri.tryParse(notification.url.trim());
     if (uri == null) {
       return false;
     }
 
-    final segments = uri.pathSegments.where((segment) => segment.isNotEmpty).toList();
+    final segments = uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
     if (segments.isEmpty) {
       return false;
     }
@@ -66,8 +68,10 @@ class NotificationNavigator {
             updateId: updateId,
             currentUser: currentUser,
             repository: updateRepository,
+            contentRepository: contentRepository,
             profileRepository: profileRepository,
             messageRepository: messageRepository,
+            searchRepository: searchRepository,
           ),
         ),
       );
@@ -81,6 +85,7 @@ class NotificationNavigator {
         contentRepository: contentRepository,
         profileRepository: profileRepository,
         messageRepository: messageRepository,
+        searchRepository: searchRepository,
         updateRepository: updateRepository,
         postId: notification.contentId,
         currentUsername: currentUser?.username,
@@ -95,6 +100,7 @@ class NotificationNavigator {
         contentRepository: contentRepository,
         profileRepository: profileRepository,
         messageRepository: messageRepository,
+        searchRepository: searchRepository,
         updateRepository: updateRepository,
         blogId: notification.contentId,
         currentUsername: currentUser?.username,
@@ -102,7 +108,8 @@ class NotificationNavigator {
       return true;
     }
 
-    if ((notification.type == 'inspiration' || _looksLikeInspirePath(segments)) &&
+    if ((notification.type == 'inspiration' ||
+            _looksLikeInspirePath(segments)) &&
         notification.inspirationId > 0) {
       await openInspirationDetail(
         context,
@@ -122,6 +129,9 @@ class NotificationNavigator {
         MaterialPageRoute<void>(
           builder: (context) => MessageThreadScreen(
             repository: messageRepository,
+            profileRepository: profileRepository,
+            updateRepository: updateRepository,
+            currentUser: currentUser,
             username: username,
             title: username,
           ),

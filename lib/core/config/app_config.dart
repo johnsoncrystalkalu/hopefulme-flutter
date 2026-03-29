@@ -8,6 +8,17 @@ class AppConfig {
 
   final String baseUrl;
 
+  String get webBaseUrl {
+    final normalized = baseUrl.trim();
+    if (normalized.endsWith('/api')) {
+      return normalized.substring(0, normalized.length - 4);
+    }
+    if (normalized.endsWith('/api/')) {
+      return normalized.substring(0, normalized.length - 5);
+    }
+    return normalized;
+  }
+
   factory AppConfig.fromEnvironment() {
     const configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 

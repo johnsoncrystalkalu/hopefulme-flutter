@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 
@@ -27,8 +29,9 @@ class ConversationListItem {
       otherUser: ConversationUser.fromJson(
         json['other_user'] as Map<String, dynamic>? ?? <String, dynamic>{},
       ),
-      latestMessage: (json['latest_message'] as Map<String, dynamic>?)
-          ?.let(ChatMessage.fromJson),
+      latestMessage: (json['latest_message'] as Map<String, dynamic>?)?.let(
+        ChatMessage.fromJson,
+      ),
     );
   }
 }
@@ -109,6 +112,7 @@ class ChatMessage {
     required this.createdAt,
     required this.sender,
     required this.recipient,
+    this.localImageBytes,
   });
 
   final int id;
@@ -121,6 +125,7 @@ class ChatMessage {
   final String createdAt;
   final ConversationUser? sender;
   final ConversationUser? recipient;
+  final Uint8List? localImageBytes;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
@@ -132,10 +137,12 @@ class ChatMessage {
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       status: json['status']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
-      sender: (json['sender'] as Map<String, dynamic>?)
-          ?.let(ConversationUser.fromJson),
-      recipient: (json['recipient'] as Map<String, dynamic>?)
-          ?.let(ConversationUser.fromJson),
+      sender: (json['sender'] as Map<String, dynamic>?)?.let(
+        ConversationUser.fromJson,
+      ),
+      recipient: (json['recipient'] as Map<String, dynamic>?)?.let(
+        ConversationUser.fromJson,
+      ),
     );
   }
 }

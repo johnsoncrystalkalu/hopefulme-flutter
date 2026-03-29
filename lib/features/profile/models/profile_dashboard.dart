@@ -46,7 +46,9 @@ class ProfileDashboard {
     final items = value as List<dynamic>? ?? <dynamic>[];
     return items
         .whereType<Map<String, dynamic>>()
-        .map((item) => ProfileContentItem.fromJson(item, contextUrls: contextUrls))
+        .map(
+          (item) => ProfileContentItem.fromJson(item, contextUrls: contextUrls),
+        )
         .toList();
   }
 }
@@ -122,10 +124,13 @@ class ProfileSummary {
     required this.quote,
     required this.hobby,
     required this.role1,
+    required this.role2,
+    required this.location,
     required this.city,
     required this.state,
     required this.phoneNumber,
     required this.theme,
+    required this.device,
     required this.verified,
     required this.photoUrl,
     required this.coverUrl,
@@ -143,10 +148,13 @@ class ProfileSummary {
   final String quote;
   final String hobby;
   final String role1;
+  final String role2;
+  final String location;
   final String city;
   final String state;
   final String phoneNumber;
   final String theme;
+  final String device;
   final String verified;
   final String photoUrl;
   final String coverUrl;
@@ -158,9 +166,10 @@ class ProfileSummary {
   String get displayName => fullname.isNotEmpty ? fullname : username;
 
   String get locationLabel {
-    final parts = <String>[city, state]
-        .where((part) => part.trim().isNotEmpty)
-        .toList();
+    final parts = <String>[
+      location,
+      state,
+    ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
   }
 
@@ -176,10 +185,13 @@ class ProfileSummary {
       quote: _plainText(json['quote']?.toString() ?? ''),
       hobby: json['hobby']?.toString() ?? '',
       role1: json['role1']?.toString() ?? '',
+      role2: json['role2']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
       phoneNumber: json['phone_number']?.toString() ?? '',
       theme: json['theme']?.toString() ?? '',
+      device: json['device']?.toString() ?? '',
       verified: json['verified']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       coverUrl: ImageUrlResolver.resolve(json['cover_url']?.toString() ?? ''),
@@ -187,6 +199,26 @@ class ProfileSummary {
       followingCount: parseInt(json['following_count']),
       views: parseInt(json['views']),
       lastSeen: json['last_seen']?.toString() ?? '',
+    );
+  }
+}
+
+class ProfileEditOptions {
+  const ProfileEditOptions({required this.roles, required this.countries});
+
+  final List<String> roles;
+  final List<String> countries;
+
+  factory ProfileEditOptions.fromJson(Map<String, dynamic> json) {
+    return ProfileEditOptions(
+      roles: (json['roles'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(),
+      countries: (json['countries'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(),
     );
   }
 }

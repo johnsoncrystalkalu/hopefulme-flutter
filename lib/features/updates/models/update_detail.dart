@@ -64,6 +64,37 @@ class UpdateComment {
     required this.comment,
     required this.createdAt,
     required this.user,
+    required this.replies,
+  });
+
+  final int id;
+  final String comment;
+  final String createdAt;
+  final FeedUser user;
+  final List<UpdateCommentReply> replies;
+
+  factory UpdateComment.fromJson(Map<String, dynamic> json) {
+    return UpdateComment(
+      id: json['id'] as int? ?? 0,
+      comment: _plainText(json['comment']?.toString() ?? ''),
+      createdAt: json['created_at']?.toString() ?? '',
+      user: FeedUser.fromJson(
+        json['user'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      ),
+      replies: (json['replies'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(UpdateCommentReply.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class UpdateCommentReply {
+  const UpdateCommentReply({
+    required this.id,
+    required this.comment,
+    required this.createdAt,
+    required this.user,
   });
 
   final int id;
@@ -71,8 +102,8 @@ class UpdateComment {
   final String createdAt;
   final FeedUser user;
 
-  factory UpdateComment.fromJson(Map<String, dynamic> json) {
-    return UpdateComment(
+  factory UpdateCommentReply.fromJson(Map<String, dynamic> json) {
+    return UpdateCommentReply(
       id: json['id'] as int? ?? 0,
       comment: _plainText(json['comment']?.toString() ?? ''),
       createdAt: json['created_at']?.toString() ?? '',

@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
 
 class InspirationInboxScreen extends StatefulWidget {
-  const InspirationInboxScreen({
-    required this.repository,
-    super.key,
-  });
+  const InspirationInboxScreen({required this.repository, super.key});
 
   final ContentRepository repository;
 
@@ -123,7 +121,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
               onRefresh: _loadInitial,
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index >= _items.length) {
@@ -136,58 +134,158 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                   final item = _items[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: InkWell(
+                    child: _InspirationInboxTile(
+                      item: item,
                       onTap: () => openInspirationDetail(
                         context,
                         contentRepository: widget.repository,
                         inspirationId: item.id,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.senderName,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              item.message,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 14,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              item.createdAt,
-                              style: TextStyle(
-                                color: colors.textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   );
                 },
               ),
             ),
+    );
+  }
+}
+
+class _InspirationInboxTile extends StatelessWidget {
+  const _InspirationInboxTile({required this.item, required this.onTap});
+
+  final InspirationDetail item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final sender = item.isAnonymous ? 'Anonymous' : item.senderName;
+
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colors.surface,
+                colors.accentSoft.withValues(alpha: 0.42),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: colors.borderStrong),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: item.isAnonymous
+                      ? LinearGradient(
+                          colors: [colors.warningSoft, colors.accentSoft],
+                        )
+                      : colors.brandGradient,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  item.isAnonymous
+                      ? Icons.auto_awesome_outlined
+                      : Icons.mail_outline_rounded,
+                  color: item.isAnonymous ? colors.warningText : Colors.white,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            sender,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            item.isPublic ? 'Public' : 'Private',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.message,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 14,
+                          color: colors.textMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            formatDetailedTimestamp(item.createdAt),
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Open',
+                          style: TextStyle(
+                            color: colors.brand,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

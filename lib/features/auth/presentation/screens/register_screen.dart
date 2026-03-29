@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({required this.authController, super.key});
@@ -136,7 +137,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               decoration: BoxDecoration(
                                 color: colors.dangerSoft,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: colors.dangerText.withOpacity(0.35)),
+                                border: Border.all(
+                                  color: colors.dangerText.withOpacity(0.35),
+                                ),
                               ),
                               child: Text(
                                 errorText,
@@ -164,8 +167,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Username is required.';
                               }
-                              final cleaned = value.trim().replaceFirst('@', '');
-                              if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(cleaned)) {
+                              final cleaned = value.trim().replaceFirst(
+                                '@',
+                                '',
+                              );
+                              if (!RegExp(
+                                r'^[a-zA-Z0-9_-]+$',
+                              ).hasMatch(cleaned)) {
                                 return 'Letters, numbers, _ and - only.';
                               }
                               return null;
@@ -194,7 +202,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               }
                               return null;
                             },
-                            decoration: _inputDecoration(hintText: 'Your full name'),
+                            decoration: _inputDecoration(
+                              hintText: 'Your full name',
+                            ),
                           ),
                           const SizedBox(height: 18),
                           Text(
@@ -219,7 +229,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               }
                               return null;
                             },
-                            decoration: _inputDecoration(hintText: 'you@example.com'),
+                            decoration: _inputDecoration(
+                              hintText: 'you@example.com',
+                            ),
                           ),
                           const SizedBox(height: 18),
                           Text(
@@ -325,7 +337,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 18,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                   ),
@@ -347,6 +361,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         ),
                                       ),
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          Center(
+                            child: Wrap(
+                              children: [
+                                Text(
+                                  'Already have an account? ',
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: widget.authController.isSubmitting
+                                      ? null
+                                      : () {
+                                          widget.authController.clearError();
+                                          Navigator.of(
+                                            context,
+                                          ).pushReplacementNamed(
+                                            LoginScreen.routeName,
+                                          );
+                                        },
+                                  child: Text(
+                                    'Sign in',
+                                    style: TextStyle(
+                                      color: colors.brand,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
+import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
+import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
+import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 
@@ -27,8 +34,10 @@ class UpdateDetailScreen extends StatefulWidget {
     required this.updateId,
     required this.currentUser,
     required this.repository,
+    this.contentRepository,
     required this.profileRepository,
     required this.messageRepository,
+    this.searchRepository,
     this.initialLiked = false,
     super.key,
   });
@@ -36,8 +45,10 @@ class UpdateDetailScreen extends StatefulWidget {
   final int updateId;
   final User? currentUser;
   final UpdateRepository repository;
+  final ContentRepository? contentRepository;
   final ProfileRepository profileRepository;
   final MessageRepository messageRepository;
+  final SearchRepository? searchRepository;
   final bool initialLiked;
 
   @override
@@ -149,14 +160,115 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     }
   }
 
+  Future<void> _replyToComment(
+    UpdateDetail detail,
+    UpdateComment target,
+  ) async {
+    final controller = TextEditingController();
+    final replyText = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final colors = context.appColors;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            18,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 18,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reply',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: 'Write your reply...',
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(controller.text.trim()),
+                  child: const Text('Send reply'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+
+    if (replyText == null || replyText.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      final reply = await widget.repository.addCommentReply(
+        commentId: target.id,
+        comment: replyText.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _future = Future.value(
+          UpdateDetail(
+            id: detail.id,
+            status: detail.status,
+            photoUrl: detail.photoUrl,
+            originalPhotoUrl: detail.originalPhotoUrl,
+            device: detail.device,
+            views: detail.views,
+            likesCount: detail.likesCount,
+            commentsCount: detail.commentsCount,
+            createdAt: detail.createdAt,
+            user: detail.user,
+            comments: detail.comments
+                .map(
+                  (comment) => comment.id == target.id
+                      ? UpdateComment(
+                          id: comment.id,
+                          comment: comment.comment,
+                          createdAt: comment.createdAt,
+                          user: comment.user,
+                          replies: [reply, ...comment.replies],
+                        )
+                      : comment,
+                )
+                .toList(),
+          ),
+        );
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    }
+  }
+
   Future<void> _shareUpdate() async {
     await Clipboard.setData(
       ClipboardData(text: 'HopefulMe update #${widget.updateId}'),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Update link copied to clipboard')),
-    );
+    AppToast.info(context, 'Update link copied to clipboard');
   }
 
   Future<void> _editUpdate(UpdateDetail detail) async {
@@ -168,9 +280,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         content: TextField(
           controller: controller,
           maxLines: 6,
-          decoration: const InputDecoration(
-            hintText: 'What is on your mind?',
-          ),
+          decoration: const InputDecoration(hintText: 'What is on your mind?'),
         ),
         actions: [
           TextButton(
@@ -225,15 +335,15 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
     await widget.repository.deleteUpdate(detail.id);
     if (!mounted) return;
-    Navigator.of(context).pop(
-      const UpdateDetailResult(deleted: true, shouldRefresh: true),
-    );
+    Navigator.of(
+      context,
+    ).pop(const UpdateDetailResult(deleted: true, shouldRefresh: true));
   }
 
   void _close() {
-    Navigator.of(context).pop(
-      UpdateDetailResult(deleted: false, shouldRefresh: _shouldRefresh),
-    );
+    Navigator.of(
+      context,
+    ).pop(UpdateDetailResult(deleted: false, shouldRefresh: _shouldRefresh));
   }
 
   Future<void> _openProfile(String username) async {
@@ -251,8 +361,28 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     return FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
   }
 
+  Future<void> _openSearchQuery(String query) {
+    if (widget.searchRepository == null || widget.contentRepository == null) {
+      return Future<void>.value();
+    }
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SearchScreen(
+          repository: widget.searchRepository!,
+          contentRepository: widget.contentRepository!,
+          messageRepository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.repository,
+          currentUser: widget.currentUser,
+          initialQuery: query,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return WillPopScope(
       onWillPop: () async {
         _close();
@@ -289,7 +419,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
               return const SizedBox.shrink();
             }
 
-            final isOwner = widget.currentUser?.username == detail.user.username;
+            final isOwner =
+                widget.currentUser?.username == detail.user.username;
             final colors = context.appColors;
 
             return RefreshIndicator(
@@ -315,7 +446,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 borderRadius: BorderRadius.circular(999),
                                 child: CircleAvatar(
                                   radius: 22,
-                                  backgroundImage: detail.user.photoUrl.isNotEmpty
+                                  backgroundImage:
+                                      detail.user.photoUrl.isNotEmpty
                                       ? NetworkImage(detail.user.photoUrl)
                                       : null,
                                   child: detail.user.photoUrl.isEmpty
@@ -326,14 +458,16 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => _openProfile(detail.user.username),
+                                  onTap: () =>
+                                      _openProfile(detail.user.username),
                                   borderRadius: BorderRadius.circular(10),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        detail.user.displayName,
+                                      VerifiedNameText(
+                                        name: detail.user.displayName,
+                                        verified: detail.user.isVerified,
                                         style: TextStyle(
                                           color: colors.textPrimary,
                                           fontSize: 15,
@@ -401,6 +535,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 height: 1.6,
                               ),
                               onMentionTap: _openProfile,
+                              onHashtagTap: _openSearchQuery,
                             ),
                           ),
                         if (detail.photoUrl.isNotEmpty)
@@ -416,20 +551,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 maxHeight:
                                     MediaQuery.of(context).size.height * 0.58,
                               ),
-                              child: Image.network(
-                                detail.originalPhotoUrl.isNotEmpty
+                              child: AppNetworkImage(
+                                imageUrl: detail.originalPhotoUrl.isNotEmpty
                                     ? detail.originalPhotoUrl
                                     : detail.photoUrl,
-                                width: double.infinity,
-                                fit: BoxFit.fitWidth,
-                                alignment: Alignment.topCenter,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const SizedBox(
-                                  height: 220,
-                                  child: Center(
-                                    child: Icon(Icons.broken_image_outlined),
-                                  ),
-                                ),
+                                fit: BoxFit.cover,
+                                backgroundColor: colors.surfaceMuted,
+                                placeholderLabel: detail.user.displayName,
                               ),
                             ),
                           ),
@@ -442,9 +570,15 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 child: FilledButton.tonalIcon(
                                   onPressed: () => _toggleLike(detail),
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: _liked
+                                    backgroundColor: isDark
+                                        ? Colors.transparent
+                                        : _liked
                                         ? colors.dangerSoft
                                         : colors.surfaceMuted,
+                                    side: isDark
+                                        ? BorderSide(color: colors.borderStrong)
+                                        : null,
+                                    elevation: 0,
                                   ),
                                   icon: Icon(
                                     _liked
@@ -469,7 +603,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               FilledButton.tonalIcon(
                                 onPressed: () {},
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: colors.accentSoft,
+                                  backgroundColor: isDark
+                                      ? Colors.transparent
+                                      : colors.accentSoft,
+                                  side: isDark
+                                      ? BorderSide(color: colors.borderStrong)
+                                      : null,
+                                  elevation: 0,
                                 ),
                                 icon: Icon(
                                   Icons.chat_bubble_outline,
@@ -541,19 +681,11 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               ),
                             ),
                             const SizedBox(width: 10),
-                            IconButton.filled(
+                            AppSendActionButton(
                               onPressed: _isSubmittingComment
                                   ? null
                                   : () => _submitComment(detail),
-                              icon: _isSubmittingComment
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.send),
+                              isBusy: _isSubmittingComment,
                             ),
                           ],
                         ),
@@ -572,6 +704,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 onProfileTap: () =>
                                     _openProfile(comment.user.username),
                                 onMentionTap: _openProfile,
+                                onHashtagTap: _openSearchQuery,
+                                onReplyTap: () =>
+                                    _replyToComment(detail, comment),
                               ),
                             ),
                           ),
@@ -593,11 +728,15 @@ class _CommentTile extends StatelessWidget {
     required this.comment,
     required this.onProfileTap,
     required this.onMentionTap,
+    required this.onHashtagTap,
+    required this.onReplyTap,
   });
 
   final UpdateComment comment;
   final VoidCallback onProfileTap;
   final Future<void> Function(String username) onMentionTap;
+  final Future<void> Function(String hashtag) onHashtagTap;
+  final VoidCallback onReplyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -632,8 +771,9 @@ class _CommentTile extends StatelessWidget {
                 InkWell(
                   onTap: onProfileTap,
                   borderRadius: BorderRadius.circular(8),
-                  child: Text(
-                    comment.user.displayName,
+                  child: VerifiedNameText(
+                    name: comment.user.displayName,
+                    verified: comment.user.isVerified,
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 13,
@@ -650,12 +790,89 @@ class _CommentTile extends StatelessWidget {
                     height: 1.45,
                   ),
                   onMentionTap: onMentionTap,
+                  onHashtagTap: onHashtagTap,
                 ),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: onReplyTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Text(
+                    'Reply',
+                    style: TextStyle(
+                      color: colors.brand,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (comment.replies.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ...comment.replies.map(
+                    (reply) => Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: _ReplyTile(
+                        reply: reply,
+                        onMentionTap: onMentionTap,
+                        onHashtagTap: onHashtagTap,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ReplyTile extends StatelessWidget {
+  const _ReplyTile({
+    required this.reply,
+    required this.onMentionTap,
+    required this.onHashtagTap,
+  });
+
+  final UpdateCommentReply reply;
+  final Future<void> Function(String username) onMentionTap;
+  final Future<void> Function(String hashtag) onHashtagTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          VerifiedNameText(
+            name: reply.user.displayName,
+            verified: reply.user.isVerified,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          RichDisplayText(
+            text: reply.comment,
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 12.5,
+              height: 1.45,
+            ),
+            onMentionTap: onMentionTap,
+            onHashtagTap: onHashtagTap,
+          ),
+        ],
+      ),
     );
   }
 }

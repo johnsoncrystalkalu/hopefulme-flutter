@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
@@ -113,6 +114,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
       MaterialPageRoute<void>(
         builder: (context) => MessageThreadScreen(
           repository: widget.repository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
           username: item.otherUser.username,
           title: item.otherUser.displayName,
         ),
@@ -154,7 +158,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final onlineItems = _allItems.where((item) => item.otherUser.isOnline).toList();
+    final onlineItems = _allItems
+        .where((item) => item.otherUser.isOnline)
+        .toList();
     final unreadTotal = _allItems.fold<int>(
       0,
       (sum, item) => sum + item.unreadCount,
@@ -241,7 +247,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                         radius: 26,
                                         backgroundImage:
                                             item.otherUser.photoUrl.isNotEmpty
-                                            ? NetworkImage(item.otherUser.photoUrl)
+                                            ? NetworkImage(
+                                                item.otherUser.photoUrl,
+                                              )
                                             : null,
                                         child: item.otherUser.photoUrl.isEmpty
                                             ? const Icon(Icons.person)
@@ -284,7 +292,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: _ConversationTile(
                         item: item,
                         onTap: () => _openConversation(item),
-                        onProfileTap: () => _openProfile(item.otherUser.username),
+                        onProfileTap: () =>
+                            _openProfile(item.otherUser.username),
                       ),
                     ),
                   ),
@@ -381,7 +390,7 @@ class _ConversationTile extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          item.updatedAt,
+                          formatConversationListTimestamp(item.updatedAt),
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: 11,
@@ -404,6 +413,19 @@ class _ConversationTile extends StatelessWidget {
                         fontWeight: item.unreadCount > 0
                             ? FontWeight.w700
                             : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.otherUser.isOnline
+                          ? 'Online now'
+                          : '@${item.otherUser.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted.withValues(alpha: 0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

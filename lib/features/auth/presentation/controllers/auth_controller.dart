@@ -50,11 +50,16 @@ class AuthController extends ChangeNotifier {
 
   Future<bool> login({required String login, required String password}) async {
     return _runAuthAction(() async {
-      _currentUser = await _authRepository.login(
-        login: login,
-        password: password,
-      );
-      _isAuthenticated = true;
+      try {
+        _currentUser = await _authRepository.login(
+          login: login,
+          password: password,
+        );
+        _isAuthenticated = true;
+      } catch (e, stackTrace) {
+        debugPrint('Login error: $e\n$stackTrace');
+        rethrow;
+      }
     });
   }
 

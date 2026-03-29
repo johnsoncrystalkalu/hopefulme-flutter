@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,10 +34,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     FocusScope.of(context).unfocus();
-    await widget.authController.login(
+    final success = await widget.authController.login(
       login: _loginController.text.trim(),
       password: _passwordController.text,
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!success && widget.authController.errorMessage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.authController.errorMessage ??
+                'Login failed. Please try again.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -72,7 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (!showHero)
                                   Center(
                                     child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 24),
+                                      padding: const EdgeInsets.only(
+                                        bottom: 24,
+                                      ),
                                       child: Text(
                                         'HopefulMe.',
                                         style: TextStyle(
@@ -84,18 +103,36 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
                                   ),
-                                Row(
-                                  children: [
-                                    Icon(Icons.arrow_back, size: 18, color: colors.textMuted),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Back to home',
-                                      style: TextStyle(
-                                        color: colors.textMuted,
-                                        fontWeight: FontWeight.w700,
+                                InkWell(
+                                  onTap: () => Navigator.of(context)
+                                      .pushNamedAndRemoveUntil(
+                                        AuthWelcomeScreen.routeName,
+                                        (route) => route.isFirst,
                                       ),
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
                                     ),
-                                  ],
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_back,
+                                          size: 18,
+                                          color: colors.textMuted,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Back to welcome',
+                                          style: TextStyle(
+                                            color: colors.textMuted,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 20),
                                 Container(
@@ -114,7 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: Form(
                                     key: _formKey,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Welcome back!',
@@ -140,8 +178,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                             padding: const EdgeInsets.all(16),
                                             decoration: BoxDecoration(
                                               color: colors.dangerSoft,
-                                              borderRadius: BorderRadius.circular(20),
-                                              border: Border.all(color: colors.dangerText.withOpacity(0.35)),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: colors.dangerText
+                                                    .withOpacity(0.35),
+                                              ),
                                             ),
                                             child: Text(
                                               errorText,
@@ -166,13 +208,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                         TextFormField(
                                           controller: _loginController,
                                           validator: (value) {
-                                            if (value == null || value.trim().isEmpty) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
                                               return 'Please enter your email address or username.';
                                             }
                                             return null;
                                           },
                                           decoration: _inputDecoration(
-                                            hintText: 'Username, email or phone',
+                                            hintText:
+                                                'Username, email or phone',
                                           ),
                                         ),
                                         const SizedBox(height: 18),
@@ -204,7 +248,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           controller: _passwordController,
                                           obscureText: !_showPassword,
                                           validator: (value) {
-                                            if (value == null || value.isEmpty) {
+                                            if (value == null ||
+                                                value.isEmpty) {
                                               return 'Please enter your password.';
                                             }
                                             return null;
@@ -214,12 +259,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                             suffixIcon: IconButton(
                                               onPressed: () {
                                                 setState(() {
-                                                  _showPassword = !_showPassword;
+                                                  _showPassword =
+                                                      !_showPassword;
                                                 });
                                               },
                                               icon: Icon(
                                                 _showPassword
-                                                    ? Icons.visibility_off_outlined
+                                                    ? Icons
+                                                          .visibility_off_outlined
                                                     : Icons.visibility_outlined,
                                                 color: colors.textMuted,
                                               ),
@@ -234,7 +281,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               onChanged: (_) {},
                                               activeColor: colors.brand,
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(6),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
                                               ),
                                             ),
                                             Text(
@@ -252,41 +300,56 @@ class _LoginScreenState extends State<LoginScreen> {
                                           child: DecoratedBox(
                                             decoration: BoxDecoration(
                                               gradient: colors.brandGradient,
-                                              borderRadius: BorderRadius.circular(20),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: colors.brand.withOpacity(0.28),
+                                                  color: colors.brand
+                                                      .withOpacity(0.28),
                                                   blurRadius: 30,
                                                   offset: Offset(0, 10),
                                                 ),
                                               ],
                                             ),
                                             child: ElevatedButton(
-                                              onPressed: widget.authController.isSubmitting
+                                              onPressed:
+                                                  widget
+                                                      .authController
+                                                      .isSubmitting
                                                   ? null
                                                   : _submit,
                                               style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.transparent,
+                                                backgroundColor:
+                                                    Colors.transparent,
                                                 shadowColor: Colors.transparent,
                                                 foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 18,
+                                                    ),
                                                 shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(20),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
                                                 ),
                                               ),
-                                              child: widget.authController.isSubmitting
+                                              child:
+                                                  widget
+                                                      .authController
+                                                      .isSubmitting
                                                   ? const SizedBox(
                                                       width: 20,
                                                       height: 20,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Colors.white,
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: Colors.white,
+                                                          ),
                                                     )
                                                   : const Text(
                                                       'Sign In',
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         fontSize: 15,
                                                       ),
                                                     ),
@@ -305,12 +368,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 ),
                                               ),
                                               GestureDetector(
-                                                onTap: widget.authController.isSubmitting
+                                                onTap:
+                                                    widget
+                                                        .authController
+                                                        .isSubmitting
                                                     ? null
                                                     : () {
-                                                        widget.authController.clearError();
-                                                        Navigator.of(context).pushNamed(
-                                                          RegisterScreen.routeName,
+                                                        widget.authController
+                                                            .clearError();
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pushNamed(
+                                                          RegisterScreen
+                                                              .routeName,
                                                         );
                                                       },
                                                 child: Text(
@@ -387,10 +457,7 @@ class _AuthHeroPanel extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070&auto=format&fit=crop',
-          fit: BoxFit.cover,
-        ),
+        Image.asset('assets/images/login-community.jpg', fit: BoxFit.cover),
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -411,7 +478,10 @@ class _AuthHeroPanel extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF4F46E5),
                   borderRadius: BorderRadius.circular(999),

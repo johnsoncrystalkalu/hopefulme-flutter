@@ -27,10 +27,14 @@ class AuthRepository {
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
   }) => _apiClient.postMultipart(path, fields: fields, files: files);
 
-  Future<Map<String, dynamic>> put(
+  Future<Map<String, dynamic>> putMultipart(
     String path, {
-    Map<String, dynamic>? body,
-  }) => _apiClient.put(path, body: body);
+    Map<String, String>? fields,
+    List<ApiMultipartFile> files = const <ApiMultipartFile>[],
+  }) => _apiClient.putMultipart(path, fields: fields, files: files);
+
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
+      _apiClient.put(path, body: body);
 
   Future<Map<String, dynamic>> delete(String path) => _apiClient.delete(path);
 
@@ -94,19 +98,28 @@ class AuthRepository {
   }
 
   Future<User> _persistAuthResponse(Map<String, dynamic> response) async {
-    final token =
-        response['token']?.toString() ??
-        response['access_token']?.toString() ??
-        response['data']?['token']?.toString();
+    String? token;
+    token ??= response['token']?.toString();
+    token ??= response['access_token']?.toString();
+    token ??= response['data']?['token']?.toString();
+    token ??= response['data']?['access_token']?.toString();
+    token ??= (response['data'] is Map)
+        ? (response['data'] as Map)['token']?.toString()
+        : null;
+    token ??= (response['data'] is Map)
+        ? (response['data'] as Map)['access_token']?.toString()
+        : null;
 
     if (token != null && token.isNotEmpty) {
       await _apiClient.saveToken(token);
     }
 
-    final userJson =
-        response['user'] as Map<String, dynamic>? ??
-        response['data']?['user'] as Map<String, dynamic>? ??
-        response['data'] as Map<String, dynamic>?;
+    Map<String, dynamic>? userJson;
+    userJson ??= response['user'] as Map<String, dynamic>?;
+    userJson ??= response['data']?['user'] as Map<String, dynamic>?;
+    if (response['data'] is Map<String, dynamic>) {
+      userJson ??= response['data'] as Map<String, dynamic>;
+    }
 
     return User.fromJson(userJson ?? <String, dynamic>{});
   }

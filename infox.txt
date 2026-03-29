@@ -17,3 +17,4 @@ on andriod:
 php artisan serve --host=0.0.0.0 --port=8000
 
 flutter run --dart-define=API_BASE_URL=http://10.142.136.163:8000/api
+flutter run -d 27be0f2b --dart-define=API_BASE_URL=http://10.142.136.163:8000/api

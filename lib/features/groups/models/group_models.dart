@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -91,10 +93,7 @@ class AppGroup {
 }
 
 class GroupMessagePage {
-  const GroupMessagePage({
-    required this.messages,
-    required this.hasMore,
-  });
+  const GroupMessagePage({required this.messages, required this.hasMore});
 
   final List<GroupMessage> messages;
   final bool hasMore;
@@ -118,11 +117,13 @@ class GroupMessage {
     required this.userId,
     required this.message,
     required this.photoUrl,
+    required this.status,
     required this.replyId,
     required this.createdAt,
     required this.time,
     required this.sender,
     required this.replyTo,
+    this.localImageBytes,
   });
 
   final int id;
@@ -130,11 +131,13 @@ class GroupMessage {
   final int userId;
   final String message;
   final String photoUrl;
+  final String status;
   final int? replyId;
   final String createdAt;
   final String time;
   final ConversationUser? sender;
   final GroupReply? replyTo;
+  final Uint8List? localImageBytes;
 
   factory GroupMessage.fromJson(Map<String, dynamic> json) {
     return GroupMessage(
@@ -143,6 +146,7 @@ class GroupMessage {
       userId: parseInt(json['user_id']),
       message: json['message']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      status: json['status']?.toString() ?? '',
       replyId: json['reply_id'] == null ? null : parseInt(json['reply_id']),
       createdAt: json['created_at']?.toString() ?? '',
       time: json['time']?.toString() ?? '',

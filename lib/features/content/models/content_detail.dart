@@ -8,6 +8,7 @@ class ContentDetail {
     required this.kind,
     required this.title,
     required this.body,
+    required this.videoUrl,
     required this.photoUrl,
     required this.originalPhotoUrl,
     required this.secondaryPhotoUrl,
@@ -26,6 +27,7 @@ class ContentDetail {
   final String kind;
   final String title;
   final String body;
+  final String videoUrl;
   final String photoUrl;
   final String originalPhotoUrl;
   final String secondaryPhotoUrl;
@@ -43,7 +45,9 @@ class ContentDetail {
     Map<String, dynamic> json, {
     required String kind,
   }) {
-    final user = (json['user'] as Map<String, dynamic>?)?.let(FeedUser.fromJson);
+    final user = (json['user'] as Map<String, dynamic>?)?.let(
+      FeedUser.fromJson,
+    );
     return ContentDetail(
       id: parseInt(json['id']),
       kind: kind,
@@ -54,6 +58,7 @@ class ContentDetail {
             json['message']?.toString() ??
             '',
       ),
+      videoUrl: json['video_url']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(
         json['photo_url']?.toString() ?? '',
         contextUrls: [if (user != null) user.photoUrl],
@@ -83,10 +88,70 @@ class ContentDetail {
           .toList(),
     );
   }
+
+  FeedEntry toFeedEntry() {
+    return FeedEntry(
+      id: id,
+      type: kind,
+      title: title,
+      body: body,
+      photoUrl: photoUrl,
+      originalPhotoUrl: originalPhotoUrl,
+      device: '',
+      user: user,
+      likesCount: likesCount,
+      commentsCount: commentsCount,
+      views: views,
+      createdAt: createdAt,
+    );
+  }
+}
+
+class BlogActionResult {
+  const BlogActionResult.updated(this.detail)
+    : deletedBlogId = null,
+      isDeleted = false;
+
+  const BlogActionResult.deleted(this.deletedBlogId)
+    : detail = null,
+      isDeleted = true;
+
+  final ContentDetail? detail;
+  final int? deletedBlogId;
+  final bool isDeleted;
 }
 
 class ContentComment {
   const ContentComment({
+    required this.id,
+    required this.body,
+    required this.createdAt,
+    required this.user,
+    required this.replies,
+  });
+
+  final int id;
+  final String body;
+  final String createdAt;
+  final FeedUser? user;
+  final List<ContentCommentReply> replies;
+
+  factory ContentComment.fromJson(Map<String, dynamic> json) {
+    return ContentComment(
+      id: parseInt(json['id']),
+      body: _plainText(json['comment']?.toString() ?? ''),
+      createdAt: json['created_at']?.toString() ?? '',
+      user: (json['user'] as Map<String, dynamic>?)?.let(FeedUser.fromJson),
+      replies: (json['replies'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(ContentCommentReply.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class ContentCommentReply {
+  const ContentCommentReply({
     required this.id,
     required this.body,
     required this.createdAt,
@@ -98,8 +163,8 @@ class ContentComment {
   final String createdAt;
   final FeedUser? user;
 
-  factory ContentComment.fromJson(Map<String, dynamic> json) {
-    return ContentComment(
+  factory ContentCommentReply.fromJson(Map<String, dynamic> json) {
+    return ContentCommentReply(
       id: parseInt(json['id']),
       body: _plainText(json['comment']?.toString() ?? ''),
       createdAt: json['created_at']?.toString() ?? '',
@@ -138,7 +203,9 @@ class InspirationDetail {
       isAnonymous: parseBool(json['is_anonymous']),
       isPublic: parseBool(json['is_public']),
       sender: (json['sender'] as Map<String, dynamic>?)?.let(FeedUser.fromJson),
-      receiver: (json['receiver'] as Map<String, dynamic>?)?.let(FeedUser.fromJson),
+      receiver: (json['receiver'] as Map<String, dynamic>?)?.let(
+        FeedUser.fromJson,
+      ),
     );
   }
 }

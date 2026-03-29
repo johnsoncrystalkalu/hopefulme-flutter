@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
 
@@ -73,15 +74,11 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
         preset: _selectedPreset,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your inspiration has been sent.')),
-      );
+      AppToast.success(context, 'Your inspiration has been sent.');
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      AppToast.error(context, error);
     } finally {
       if (mounted) {
         setState(() {
@@ -125,10 +122,7 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Write something kind, honest, and uplifting.',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: colors.textMuted, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -162,8 +156,9 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                             selected: _selectedPreset == preset,
                             onSelected: (_) {
                               setState(() {
-                                _selectedPreset =
-                                    _selectedPreset == preset ? null : preset;
+                                _selectedPreset = _selectedPreset == preset
+                                    ? null
+                                    : preset;
                               });
                             },
                           ),

@@ -1,17 +1,18 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
-import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
+import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
+import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -19,17 +20,21 @@ import 'package:hopefulme_flutter/features/updates/presentation/widgets/interact
 class UpdatesFeedScreen extends StatefulWidget {
   const UpdatesFeedScreen({
     required this.feedRepository,
+    required this.contentRepository,
     required this.updateRepository,
     required this.profileRepository,
     required this.messageRepository,
+    required this.searchRepository,
     required this.currentUser,
     super.key,
   });
 
   final FeedRepository feedRepository;
+  final ContentRepository contentRepository;
   final UpdateRepository updateRepository;
   final ProfileRepository profileRepository;
   final MessageRepository messageRepository;
+  final SearchRepository searchRepository;
   final User? currentUser;
 
   @override
@@ -140,8 +145,10 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
           updateId: entry.id,
           currentUser: widget.currentUser,
           repository: widget.updateRepository,
+          contentRepository: widget.contentRepository,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
         ),
       ),
     );
@@ -149,6 +156,22 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
     if (result?.shouldRefresh == true) {
       await _loadInitial();
     }
+  }
+
+  Future<void> _openSearchQuery(String query) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SearchScreen(
+          repository: widget.searchRepository,
+          contentRepository: widget.contentRepository,
+          messageRepository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
+          initialQuery: query,
+        ),
+      ),
+    );
   }
 
   Future<void> _openCreateUpdate() async {
@@ -205,12 +228,9 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                 }
               } catch (error) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'We could not post your update right now. Please try again.',
-                      ),
-                    ),
+                  AppToast.error(
+                    context,
+                    'We could not post your update right now. Please try again.',
                   );
                 }
               } finally {
@@ -248,17 +268,20 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                             CircleAvatar(
                               radius: 22,
                               backgroundImage:
-                                  widget.currentUser?.photoUrl.isNotEmpty == true
+                                  widget.currentUser?.photoUrl.isNotEmpty ==
+                                      true
                                   ? NetworkImage(widget.currentUser!.photoUrl)
                                   : null,
-                              child: widget.currentUser?.photoUrl.isEmpty ?? true
+                              child:
+                                  widget.currentUser?.photoUrl.isEmpty ?? true
                                   ? const Icon(Icons.person)
                                   : null,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                widget.currentUser?.displayName ?? 'Share an update',
+                                widget.currentUser?.displayName ??
+                                    'Share an update',
                                 style: TextStyle(
                                   color: colors.textPrimary,
                                   fontSize: 16,
@@ -403,6 +426,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                     ownerUsername: entry.user?.username,
                     onOpenProfile: _openProfile,
                     onOpenUpdate: () => _openUpdate(entry),
+                    onOpenHashtag: _openSearchQuery,
                   );
                 },
               ),
@@ -412,10 +436,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
 }
 
 class _ActivitiesComposerCard extends StatelessWidget {
-  const _ActivitiesComposerCard({
-    required this.user,
-    required this.onTap,
-  });
+  const _ActivitiesComposerCard({required this.user, required this.onTap});
 
   final User? user;
   final Future<void> Function() onTap;
@@ -437,14 +458,20 @@ class _ActivitiesComposerCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundImage:
-                  user?.photoUrl.isNotEmpty == true ? NetworkImage(user!.photoUrl) : null,
-              child: user?.photoUrl.isEmpty ?? true ? const Icon(Icons.person) : null,
+              backgroundImage: user?.photoUrl.isNotEmpty == true
+                  ? NetworkImage(user!.photoUrl)
+                  : null,
+              child: user?.photoUrl.isEmpty ?? true
+                  ? const Icon(Icons.person)
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(18),
@@ -475,5 +502,3 @@ class _ActivitiesComposerCard extends StatelessWidget {
     );
   }
 }
-
-

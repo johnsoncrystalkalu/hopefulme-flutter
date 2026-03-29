@@ -146,6 +146,7 @@ class ProfileRepository {
     required String quote,
     required String hobby,
     required String role1,
+    required String location,
     required String city,
     required String state,
     required String phoneNumber,
@@ -162,6 +163,7 @@ class ProfileRepository {
         'quote': quote,
         'hobby': hobby,
         'role1': role1,
+        'location': location,
         'city': city,
         'state': state,
         'phone_number': phoneNumber,
@@ -175,5 +177,26 @@ class ProfileRepository {
     return ProfileSummary.fromJson(
       response['user'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
+  }
+
+  Future<ProfileEditOptions> fetchEditOptions() async {
+    final response = await _authRepository.get('profile/edit/options');
+    return ProfileEditOptions.fromJson(response);
+  }
+
+  Future<List<String>> fetchStatesForCountry(String country) async {
+    if (country.trim().isEmpty) {
+      return const <String>[];
+    }
+
+    final response = await _authRepository.get(
+      'profile/edit/states',
+      queryParameters: {'country': country},
+    );
+
+    return (response['states'] as List<dynamic>? ?? const <dynamic>[])
+        .map((item) => item.toString())
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
   }
 }

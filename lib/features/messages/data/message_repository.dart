@@ -1,5 +1,7 @@
-import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
+import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
 
 class MessageRepository {
@@ -36,21 +38,45 @@ class MessageRepository {
     String username, {
     int page = 1,
   }) async {
-    final response = await _authRepository.get(
-      'messages/$username',
-      queryParameters: {'page': page},
-    );
-    return ConversationThread.fromJson(response);
+    final key = 'message-thread:$username:$page';
+    try {
+      final response = await _authRepository.get(
+        'messages/$username',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ConversationThread.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ConversationThread.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<ChatMessage> sendMessage(
     String username, {
     required String message,
+    XFile? photo,
   }) async {
-    final response = await _authRepository.post(
-      'messages/$username',
-      body: {'message': message},
-    );
+    final trimmed = message.trim();
+    final response = photo == null
+        ? await _authRepository.post(
+            'messages/$username',
+            body: {'message': trimmed},
+          )
+        : await _authRepository.postMultipart(
+            'messages/$username',
+            fields: {if (trimmed.isNotEmpty) 'message': trimmed},
+            files: [
+              ApiMultipartFile(
+                field: 'photo',
+                filename: photo.name,
+                bytes: await photo.readAsBytes(),
+              ),
+            ],
+          );
     return ChatMessage.fromJson(
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );

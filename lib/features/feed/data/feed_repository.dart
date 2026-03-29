@@ -28,23 +28,35 @@ class FeedRepository {
   Future<List<Post>> fetchPosts() async {
     final page = await fetchPostsPage();
     return page.items
-        .map((entry) => Post(id: entry.id, title: entry.title, body: entry.body))
+        .map(
+          (entry) => Post(id: entry.id, title: entry.title, body: entry.body),
+        )
         .toList();
   }
 
-  Future<FeedEntryPage> fetchPostsPage({int page = 1}) async {
-    final key = 'posts:$page';
+  Future<FeedEntryPage> fetchPostsPage({int page = 1, String? category}) async {
+    final normalizedCategory =
+        category == null || category.trim().isEmpty || category == 'All'
+        ? null
+        : category.trim();
+    final key = normalizedCategory == null
+        ? 'posts:$page'
+        : 'posts:$normalizedCategory:$page';
+    final queryParameters = <String, dynamic>{'page': page};
+    if (normalizedCategory != null) {
+      queryParameters['category'] = normalizedCategory;
+    }
     try {
       final response = await _authRepository.get(
         'posts',
-        queryParameters: {'page': page},
+        queryParameters: queryParameters,
       );
       await _cache.save(key, response);
       return FeedEntryPage.fromJson(response);
     } catch (error) {
       final cached = await _cache.read(key);
-      if (cached != null) {
-        return FeedEntryPage.fromJson(cached);
+      if (cached case final value?) {
+        return FeedEntryPage.fromJson(value);
       }
       rethrow;
     }
@@ -73,6 +85,24 @@ class FeedRepository {
     try {
       final response = await _authRepository.get(
         'community/meet-new-friends',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return FeedUserPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return FeedUserPage.fromJson(cached);
+      }
+      rethrow;
+    }
+  }
+
+  Future<FeedUserPage> fetchTodayBirthdays({int page = 1}) async {
+    final key = 'today-birthdays:$page';
+    try {
+      final response = await _authRepository.get(
+        'community/birthdays',
         queryParameters: {'page': page},
       );
       await _cache.save(key, response);

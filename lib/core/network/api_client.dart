@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:hopefulme_flutter/core/config/app_config.dart';
@@ -68,6 +66,31 @@ class ApiClient {
     return http.Response.fromStream(streamed);
   });
 
+  Future<Map<String, dynamic>> putMultipart(
+    String path, {
+    Map<String, String>? fields,
+    List<ApiMultipartFile> files = const <ApiMultipartFile>[],
+  }) => _sendJsonRequest(() async {
+    final request = http.MultipartRequest('POST', await _buildUri(path));
+    request.headers.addAll(await _multipartHeaders());
+    request.fields['_method'] = 'PUT';
+    if (fields != null && fields.isNotEmpty) {
+      request.fields.addAll(fields);
+    }
+    for (final file in files) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          file.field,
+          file.bytes,
+          filename: file.filename,
+        ),
+      );
+    }
+
+    final streamed = await request.send().timeout(AppConfig.requestTimeout);
+    return http.Response.fromStream(streamed);
+  });
+
   Future<Map<String, dynamic>> patch(
     String path, {
     Map<String, dynamic>? body,
@@ -81,25 +104,20 @@ class ApiClient {
         .timeout(AppConfig.requestTimeout),
   );
 
-  Future<Map<String, dynamic>> put(
-    String path, {
-    Map<String, dynamic>? body,
-  }) => _sendJsonRequest(
-    () async => _httpClient
-        .put(
-          await _buildUri(path),
-          headers: await _headers(),
-          body: jsonEncode(body ?? <String, dynamic>{}),
-        )
-        .timeout(AppConfig.requestTimeout),
-  );
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
+      _sendJsonRequest(
+        () async => _httpClient
+            .put(
+              await _buildUri(path),
+              headers: await _headers(),
+              body: jsonEncode(body ?? <String, dynamic>{}),
+            )
+            .timeout(AppConfig.requestTimeout),
+      );
 
   Future<Map<String, dynamic>> delete(String path) => _sendJsonRequest(
     () async => _httpClient
-        .delete(
-          await _buildUri(path),
-          headers: await _headers(),
-        )
+        .delete(await _buildUri(path), headers: await _headers())
         .timeout(AppConfig.requestTimeout),
   );
 
@@ -153,11 +171,15 @@ class ApiClient {
       final response = await request();
       return _decodeResponse(response);
     } on TimeoutException {
-      throw ApiException(_transportErrorMessage('The server took too long to respond.'));
+      throw ApiException(
+        _transportErrorMessage('The server took too long to respond.'),
+      );
     } on http.ClientException catch (error) {
       throw ApiException(_transportErrorMessage(error.message));
     } on FormatException {
-      throw ApiException('The server response could not be read. Please check the API response format.');
+      throw ApiException(
+        'The server response could not be read. Please check the API response format.',
+      );
     } catch (error) {
       throw ApiException(_transportErrorMessage(error.toString()));
     }
@@ -188,9 +210,7 @@ class ApiClient {
   Map<String, dynamic> _decodeResponse(http.Response response) {
     final rawBody = _readResponseBody(response);
     final hasBody = rawBody.trim().isNotEmpty;
-    final dynamic decoded = hasBody
-        ? jsonDecode(rawBody)
-        : <String, dynamic>{};
+    final dynamic decoded = hasBody ? jsonDecode(rawBody) : <String, dynamic>{};
     final data = decoded is Map<String, dynamic>
         ? decoded
         : <String, dynamic>{'data': decoded};

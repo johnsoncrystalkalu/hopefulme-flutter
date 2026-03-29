@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
@@ -15,7 +16,8 @@ class InspirationDetailScreen extends StatefulWidget {
   final ContentRepository repository;
 
   @override
-  State<InspirationDetailScreen> createState() => _InspirationDetailScreenState();
+  State<InspirationDetailScreen> createState() =>
+      _InspirationDetailScreenState();
 }
 
 class _InspirationDetailScreenState extends State<InspirationDetailScreen> {
@@ -95,7 +97,7 @@ class _InspirationDetailScreenState extends State<InspirationDetailScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      detail.createdAt,
+                      formatDetailedTimestamp(detail.createdAt),
                       style: const TextStyle(
                         color: Color.fromRGBO(255, 255, 255, 0.72),
                         fontSize: 12,

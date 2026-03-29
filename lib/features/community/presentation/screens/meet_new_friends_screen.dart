@@ -95,7 +95,9 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
     });
     try {
       final nextPage = _page + 1;
-      final page = await widget.feedRepository.fetchMeetNewFriends(page: nextPage);
+      final page = await widget.feedRepository.fetchMeetNewFriends(
+        page: nextPage,
+      );
       if (!mounted) return;
       setState(() {
         _page = nextPage;
@@ -134,6 +136,9 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
       MaterialPageRoute<void>(
         builder: (context) => MessageThreadScreen(
           repository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
           username: user.username,
           title: user.displayName,
         ),
@@ -169,34 +174,31 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                   _MeetHeader(newMembers: _newMembers, onTap: _openProfile),
                   const SizedBox(height: 24),
                   if (showRail)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _MeetMainColumn(
-                          featured: featured,
-                          items: _items,
-                          isLoadingMore: _isLoadingMore,
-                          onProfileTap: _openProfile,
-                          onHelloTap: _openChat,
-                        )),
-                        const SizedBox(width: 22),
-                        SizedBox(
-                          width: 340,
-                          child: Column(
-                            children: [
-                              if (_onlineUsers.isNotEmpty)
-                                _OnlinePanel(users: _onlineUsers, onTap: _openProfile),
-                              const SizedBox(height: 18),
-                              if (_newMembers.isNotEmpty)
-                                _NewestHeartsPanel(users: _newMembers, onTap: _openProfile),
-                            ],
-                          ),
-                        ),
-                      ],
-                    )
-                  else
                     Column(
                       children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_onlineUsers.isNotEmpty)
+                              Expanded(
+                                child: _OnlinePanel(
+                                  users: _onlineUsers,
+                                  onTap: _openProfile,
+                                ),
+                              ),
+                            if (_onlineUsers.isNotEmpty &&
+                                _newMembers.isNotEmpty)
+                              const SizedBox(width: 18),
+                            if (_newMembers.isNotEmpty)
+                              Expanded(
+                                child: _NewestHeartsPanel(
+                                  users: _newMembers,
+                                  onTap: _openProfile,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
                         _MeetMainColumn(
                           featured: featured,
                           items: _items,
@@ -204,12 +206,31 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                           onProfileTap: _openProfile,
                           onHelloTap: _openChat,
                         ),
-                        const SizedBox(height: 20),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
                         if (_onlineUsers.isNotEmpty)
-                          _OnlinePanel(users: _onlineUsers, onTap: _openProfile),
-                        const SizedBox(height: 18),
+                          _OnlinePanel(
+                            users: _onlineUsers,
+                            onTap: _openProfile,
+                          ),
+                        if (_onlineUsers.isNotEmpty && _newMembers.isNotEmpty)
+                          const SizedBox(height: 18),
                         if (_newMembers.isNotEmpty)
-                          _NewestHeartsPanel(users: _newMembers, onTap: _openProfile),
+                          _NewestHeartsPanel(
+                            users: _newMembers,
+                            onTap: _openProfile,
+                          ),
+                        const SizedBox(height: 20),
+                        _MeetMainColumn(
+                          featured: featured,
+                          items: _items,
+                          isLoadingMore: _isLoadingMore,
+                          onProfileTap: _openProfile,
+                          onHelloTap: _openChat,
+                        ),
                       ],
                     ),
                 ],
@@ -261,11 +282,7 @@ class _MeetMainColumn extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Divider(
-                color: colors.border,
-                thickness: 1,
-                height: 1,
-              ),
+              child: Divider(color: colors.border, thickness: 1, height: 1),
             ),
           ],
         ),
@@ -300,10 +317,7 @@ class _MeetMainColumn extends StatelessWidget {
 }
 
 class _MeetHeader extends StatelessWidget {
-  const _MeetHeader({
-    required this.newMembers,
-    required this.onTap,
-  });
+  const _MeetHeader({required this.newMembers, required this.onTap});
 
   final List<FeedUser> newMembers;
   final Future<void> Function(String username) onTap;
@@ -458,7 +472,10 @@ class _FriendOfDayCard extends StatelessWidget {
                         gradient: colors.brandGradient,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: Colors.white),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -570,7 +587,9 @@ class _FriendOfDayCard extends StatelessWidget {
                                   runSpacing: 8,
                                   children: [
                                     _TagPill(
-                                      label: user.isOnline ? 'ONLINE' : 'COMMUNITY',
+                                      label: user.isOnline
+                                          ? 'ONLINE'
+                                          : 'COMMUNITY',
                                       bright: true,
                                     ),
                                     _TagPill(
@@ -678,7 +697,11 @@ class _FriendSuggestionCard extends StatelessWidget {
                     color: colors.avatarPlaceholder,
                   ),
                   child: user.photoUrl.isEmpty
-                      ? Icon(Icons.person, size: 34, color: colors.accentSoftText)
+                      ? Icon(
+                          Icons.person,
+                          size: 34,
+                          color: colors.accentSoftText,
+                        )
                       : null,
                 ),
                 if (user.isOnline)
@@ -742,10 +765,7 @@ class _FriendSuggestionCard extends StatelessWidget {
 }
 
 class _OnlinePanel extends StatelessWidget {
-  const _OnlinePanel({
-    required this.users,
-    required this.onTap,
-  });
+  const _OnlinePanel({required this.users, required this.onTap});
 
   final List<FeedUser> users;
   final Future<void> Function(String username) onTap;
@@ -795,68 +815,75 @@ class _OnlinePanel extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: colors.border),
-          ...users.take(5).map(
-            (user) => InkWell(
-              onTap: () => onTap(user.username),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                child: Row(
-                  children: [
-                    Stack(
+          ...users
+              .take(5)
+              .map(
+                (user) => InkWell(
+                  onTap: () => onTap(user.username),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                    child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundImage: user.photoUrl.isNotEmpty
-                              ? NetworkImage(user.photoUrl)
-                              : null,
-                          child: user.photoUrl.isEmpty
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        Positioned(
-                          right: 1,
-                          bottom: 1,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: colors.success,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundImage: user.photoUrl.isNotEmpty
+                                  ? NetworkImage(user.photoUrl)
+                                  : null,
+                              child: user.photoUrl.isEmpty
+                                  ? const Icon(Icons.person)
+                                  : null,
                             ),
+                            Positioned(
+                              right: 1,
+                              bottom: 1,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: colors.success,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.displayName,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                user.lastSeen.isEmpty
+                                    ? 'Active recently'
+                                    : user.lastSeen,
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.displayName,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            user.lastSeen.isEmpty ? 'Active recently' : user.lastSeen,
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
         ],
       ),
     );
@@ -864,10 +891,7 @@ class _OnlinePanel extends StatelessWidget {
 }
 
 class _NewestHeartsPanel extends StatelessWidget {
-  const _NewestHeartsPanel({
-    required this.users,
-    required this.onTap,
-  });
+  const _NewestHeartsPanel({required this.users, required this.onTap});
 
   final List<FeedUser> users;
   final Future<void> Function(String username) onTap;
@@ -963,10 +987,7 @@ class _NewestHeartsPanel extends StatelessWidget {
 }
 
 class _TagPill extends StatelessWidget {
-  const _TagPill({
-    required this.label,
-    this.bright = false,
-  });
+  const _TagPill({required this.label, this.bright = false});
 
   final String label;
   final bool bright;

@@ -1,11 +1,10 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
 
@@ -77,16 +76,15 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       return;
     }
 
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
+    final file = await _pickAndCropImage(
       maxWidth: 2200,
-      imageQuality: kIsWeb ? null : 88,
+      filenameFallback: 'profile.jpg',
     );
     if (file == null) {
       return;
     }
 
-    final bytes = await file.readAsBytes();
+    final bytes = file.bytes;
     if (!mounted) {
       return;
     }
@@ -99,19 +97,13 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
 
     try {
       await widget.repository.updateProfilePhoto(
-        ApiMultipartFile(
-          field: 'photo',
-          filename: file.name.isNotEmpty ? file.name : 'profile.jpg',
-          bytes: bytes,
-        ),
+        ApiMultipartFile(field: 'photo', filename: file.filename, bytes: bytes),
       );
       await _load();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile photo updated.')),
-      );
+      AppToast.success(context, 'Profile photo updated.');
     } catch (error) {
       if (!mounted) {
         return;
@@ -134,16 +126,15 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       return;
     }
 
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
+    final file = await _pickAndCropImage(
       maxWidth: 2600,
-      imageQuality: kIsWeb ? null : 88,
+      filenameFallback: 'cover.jpg',
     );
     if (file == null) {
       return;
     }
 
-    final bytes = await file.readAsBytes();
+    final bytes = file.bytes;
     if (!mounted) {
       return;
     }
@@ -158,7 +149,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       await widget.repository.updateCoverPhoto(
         ApiMultipartFile(
           field: 'cover_photo',
-          filename: file.name.isNotEmpty ? file.name : 'cover.jpg',
+          filename: file.filename,
           bytes: bytes,
         ),
       );
@@ -166,9 +157,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cover photo updated.')),
-      );
+      AppToast.success(context, 'Cover photo updated.');
     } catch (error) {
       if (!mounted) {
         return;
@@ -184,6 +173,24 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
         });
       }
     }
+  }
+
+  Future<_PreparedUploadFile?> _pickAndCropImage({
+    required int maxWidth,
+    required String filenameFallback,
+  }) async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: maxWidth.toDouble(),
+      imageQuality: kIsWeb ? null : 88,
+    );
+    if (picked == null) {
+      return null;
+    }
+
+    final bytes = await picked.readAsBytes();
+    final filename = picked.name.isNotEmpty ? picked.name : filenameFallback;
+    return _PreparedUploadFile(bytes: bytes, filename: filename);
   }
 
   Future<void> _removePhoto() async {
@@ -202,9 +209,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile photo removed.')),
-      );
+      AppToast.success(context, 'Profile photo removed.');
     } catch (error) {
       if (!mounted) {
         return;
@@ -237,9 +242,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cover photo removed.')),
-      );
+      AppToast.success(context, 'Cover photo removed.');
     } catch (error) {
       if (!mounted) {
         return;
@@ -288,7 +291,9 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                         ? 'Uploading...'
                         : 'Change Cover',
                     primaryIcon: Icons.landscape_outlined,
-                    onPrimaryTap: _isUploadingCover ? null : _pickAndUploadCover,
+                    onPrimaryTap: _isUploadingCover
+                        ? null
+                        : _pickAndUploadCover,
                     secondaryLabel: _isRemovingCover
                         ? 'Removing...'
                         : 'Remove Cover',
@@ -297,7 +302,8 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                   const SizedBox(height: 16),
                   _MediaCard(
                     title: 'Profile Photo',
-                    subtitle: 'Shown on your profile, feed, comments, and chats.',
+                    subtitle:
+                        'Shown on your profile, feed, comments, and chats.',
                     preview: _MediaPreview.avatar(
                       imageUrl: profile?.photoUrl ?? '',
                       bytes: _pendingPhotoBytes,
@@ -307,7 +313,9 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                         ? 'Uploading...'
                         : 'Change Photo',
                     primaryIcon: Icons.photo_camera_outlined,
-                    onPrimaryTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                    onPrimaryTap: _isUploadingPhoto
+                        ? null
+                        : _pickAndUploadPhoto,
                     secondaryLabel: _isRemovingPhoto
                         ? 'Removing...'
                         : 'Remove Photo',
@@ -328,6 +336,13 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
             ),
     );
   }
+}
+
+class _PreparedUploadFile {
+  const _PreparedUploadFile({required this.bytes, required this.filename});
+
+  final Uint8List bytes;
+  final String filename;
 }
 
 class _MediaCard extends StatelessWidget {
@@ -375,10 +390,7 @@ class _MediaCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colors.textMuted, fontSize: 13),
           ),
           const SizedBox(height: 16),
           preview,
@@ -409,15 +421,15 @@ class _MediaPreview extends StatelessWidget {
     required this.imageUrl,
     required this.fallbackImageUrl,
     this.bytes,
-  })  : fallbackLabel = '',
-        isAvatar = false;
+  }) : fallbackLabel = '',
+       isAvatar = false;
 
   const _MediaPreview.avatar({
     required this.imageUrl,
     required this.fallbackLabel,
     this.bytes,
-  })  : fallbackImageUrl = '',
-        isAvatar = true;
+  }) : fallbackImageUrl = '',
+       isAvatar = true;
 
   final String imageUrl;
   final String fallbackImageUrl;

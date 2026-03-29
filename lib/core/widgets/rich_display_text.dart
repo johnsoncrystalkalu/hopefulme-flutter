@@ -6,25 +6,29 @@ class RichDisplayText extends StatefulWidget {
     required this.text,
     required this.style,
     this.mentionStyle,
+    this.hashtagStyle,
     this.maxLines,
     this.overflow = TextOverflow.clip,
     this.onMentionTap,
+    this.onHashtagTap,
     super.key,
   });
 
   final String text;
   final TextStyle style;
   final TextStyle? mentionStyle;
+  final TextStyle? hashtagStyle;
   final int? maxLines;
   final TextOverflow overflow;
   final Future<void> Function(String username)? onMentionTap;
+  final Future<void> Function(String hashtag)? onHashtagTap;
 
   @override
   State<RichDisplayText> createState() => _RichDisplayTextState();
 }
 
 class _RichDisplayTextState extends State<RichDisplayText> {
-  static final RegExp _pattern = RegExp(r'(@[A-Za-z0-9_]+)');
+  static final RegExp _pattern = RegExp(r'(@[A-Za-z0-9_]+|#[A-Za-z0-9_]+)');
   final List<TapGestureRecognizer> _recognizers = <TapGestureRecognizer>[];
 
   @override
@@ -60,26 +64,22 @@ class _RichDisplayTextState extends State<RichDisplayText> {
         );
       }
 
-      final mention = match.group(0)!;
-      final username = mention.substring(1);
-      if (widget.onMentionTap != null) {
-        final recognizer = TapGestureRecognizer()
-          ..onTap = () => widget.onMentionTap!(username);
+      final token = match.group(0)!;
+      final isMention = token.startsWith('@');
+      final value = token.substring(1);
+      final onTap = isMention ? widget.onMentionTap : widget.onHashtagTap;
+      final tokenStyle = isMention
+          ? widget.mentionStyle ?? _defaultInteractiveStyle(context)
+          : widget.hashtagStyle ?? _defaultInteractiveStyle(context);
+
+      if (onTap != null) {
+        final recognizer = TapGestureRecognizer()..onTap = () => onTap(value);
         _recognizers.add(recognizer);
         spans.add(
-          TextSpan(
-            text: mention,
-            style: widget.mentionStyle ?? _defaultMentionStyle(context),
-            recognizer: recognizer,
-          ),
+          TextSpan(text: token, style: tokenStyle, recognizer: recognizer),
         );
       } else {
-        spans.add(
-          TextSpan(
-            text: mention,
-            style: widget.mentionStyle ?? _defaultMentionStyle(context),
-          ),
-        );
+        spans.add(TextSpan(text: token, style: tokenStyle));
       }
 
       start = match.end;
@@ -87,10 +87,7 @@ class _RichDisplayTextState extends State<RichDisplayText> {
 
     if (start < widget.text.length) {
       spans.add(
-        TextSpan(
-          text: widget.text.substring(start),
-          style: widget.style,
-        ),
+        TextSpan(text: widget.text.substring(start), style: widget.style),
       );
     }
 
@@ -101,7 +98,7 @@ class _RichDisplayTextState extends State<RichDisplayText> {
     );
   }
 
-  TextStyle _defaultMentionStyle(BuildContext context) {
+  TextStyle _defaultInteractiveStyle(BuildContext context) {
     return widget.style.copyWith(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w700,

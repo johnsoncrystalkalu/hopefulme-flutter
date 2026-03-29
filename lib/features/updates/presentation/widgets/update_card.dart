@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
+import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 
 class UpdateCardData {
@@ -28,8 +30,10 @@ class ReusableUpdateCard extends StatelessWidget {
   const ReusableUpdateCard({
     required this.data,
     this.onHeaderTap,
+    this.onCardTap,
     this.onImageTap,
     this.onMentionTap,
+    this.onHashtagTap,
     this.headerTrailing,
     this.footer,
     super.key,
@@ -37,8 +41,10 @@ class ReusableUpdateCard extends StatelessWidget {
 
   final UpdateCardData data;
   final VoidCallback? onHeaderTap;
+  final VoidCallback? onCardTap;
   final VoidCallback? onImageTap;
   final Future<void> Function(String username)? onMentionTap;
+  final Future<void> Function(String hashtag)? onHashtagTap;
   final Widget? headerTrailing;
   final Widget? footer;
 
@@ -82,15 +88,16 @@ class ReusableUpdateCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (data.metaLeading.isNotEmpty && data.metaTrailing.isNotEmpty)
+                    if (data.metaLeading.isNotEmpty &&
+                        data.metaTrailing.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text(
-                          '·',
-                          style: TextStyle(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
                             color: colors.textMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            shape: BoxShape.circle,
                           ),
                         ),
                       ),
@@ -120,7 +127,7 @@ class ReusableUpdateCard extends StatelessWidget {
             ],
           ),
         ),
-        if (headerTrailing != null) headerTrailing!,
+        if (headerTrailing != null) ...[headerTrailing!],
       ],
     );
 
@@ -131,7 +138,7 @@ class ReusableUpdateCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withOpacity(0.035),
+            color: colors.shadow.withValues(alpha: 0.035),
             blurRadius: 14,
             offset: const Offset(0, 4),
             spreadRadius: -6,
@@ -151,44 +158,53 @@ class ReusableUpdateCard extends StatelessWidget {
                     child: header,
                   ),
           ),
-          if (data.body.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-              child: RichDisplayText(
-                text: data.body,
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 14,
-                  height: 1.55,
-                ),
-                onMentionTap: onMentionTap,
-              ),
-            ),
-          if (data.photoUrl.isNotEmpty) ...[
-            const SizedBox(height: 14),
+          if (data.body.isNotEmpty || data.photoUrl.isNotEmpty)
             InkWell(
-              onTap: onImageTap,
-              child: ClipRect(
-                child: Image.network(
-                  data.photoUrl,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(
-                    height: 180,
-                    child: Center(child: Icon(Icons.broken_image_outlined)),
-                  ),
-                ),
+              onTap: onCardTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (data.body.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+                      child: RichDisplayText(
+                        text: data.body,
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 14,
+                          height: 1.55,
+                        ),
+                        onMentionTap: onMentionTap,
+                        onHashtagTap: onHashtagTap,
+                      ),
+                    ),
+                  if (data.photoUrl.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    InkWell(
+                      onTap: onImageTap,
+                      child: ClipRect(
+                        child: SizedBox(
+                          height: 240,
+                          width: double.infinity,
+                          child: AppNetworkImage(
+                            imageUrl: data.photoUrl,
+                            fit: BoxFit.cover,
+                            backgroundColor: colors.surfaceMuted,
+                            placeholderLabel: data.fallbackLabel,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
           if (footer != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
               decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: colors.border),
-                ),
+                border: Border(top: BorderSide(color: colors.border)),
               ),
               child: footer,
             ),
@@ -214,28 +230,17 @@ class _CardAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final parts = label.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+    final parts = label
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty);
     final initials = parts.take(2).map((part) => part[0].toUpperCase()).join();
 
-    if (imageUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(imageUrl),
-        backgroundColor: colors.avatarPlaceholder,
-      );
-    }
-
-    return CircleAvatar(
+    return AppAvatar(
+      imageUrl: imageUrl,
+      label: initials.isEmpty ? label : initials,
       radius: radius,
       backgroundColor: colors.avatarPlaceholder,
-      child: Text(
-        initials.isEmpty ? 'U' : initials,
-        style: TextStyle(
-          color: colors.accentSoftText,
-          fontSize: radius * 0.55,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
     );
   }
 }

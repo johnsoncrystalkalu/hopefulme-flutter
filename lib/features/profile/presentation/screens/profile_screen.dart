@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -14,6 +15,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/inspire_
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_articles_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_connections_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -127,10 +129,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               quote: dashboard.profile.quote,
               hobby: dashboard.profile.hobby,
               role1: dashboard.profile.role1,
+              role2: dashboard.profile.role2,
+              location: dashboard.profile.location,
               city: dashboard.profile.city,
               state: dashboard.profile.state,
               phoneNumber: dashboard.profile.phoneNumber,
               theme: dashboard.profile.theme,
+              device: dashboard.profile.device,
               verified: dashboard.profile.verified,
               photoUrl: dashboard.profile.photoUrl,
               coverUrl: dashboard.profile.coverUrl,
@@ -163,6 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute<void>(
         builder: (context) => MessageThreadScreen(
           repository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
           username: profile.username,
           title: profile.displayName,
         ),
@@ -291,7 +299,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             profile: dashboard.profile,
                             isFollowing: dashboard.isFollowing,
                             updatesCount: dashboard.updatesCount,
-                            isCurrentUser: widget.currentUser?.username ==
+                            isCurrentUser:
+                                widget.currentUser?.username ==
                                 dashboard.profile.username,
                             onEditProfile: _openEditProfile,
                             onEditMedia: _openEditMedia,
@@ -363,11 +372,11 @@ class _ProfileHero extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (imageUrl.isNotEmpty)
-            Image.network(
-              imageUrl,
+            AppNetworkImage(
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  ColoredBox(color: colors.heroFallback),
+              backgroundColor: colors.heroFallback,
+              placeholderLabel: profile.displayName,
             )
           else
             ColoredBox(color: colors.heroFallback),
@@ -447,21 +456,17 @@ class _ProfileHeaderCard extends StatelessWidget {
           spacing: 10,
           runSpacing: 8,
           children: [
-            Text(
-              profile.displayName,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
+            VerifiedNameText(
+              name: profile.displayName,
+              verified: profile.isVerified,
+              style: TextStyle(
+                color: context.appColors.textPrimary,
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.8,
               ),
+              badgeSize: 22,
             ),
-            if (profile.isVerified)
-              const Icon(
-                Icons.verified,
-                color: Color(0xFF2563EB),
-                size: 26,
-              ),
           ],
         ),
         const SizedBox(height: 6),
@@ -472,8 +477,8 @@ class _ProfileHeaderCard extends StatelessWidget {
           children: [
             Text(
               '@${profile.username}',
-              style: const TextStyle(
-                color: Color(0xFF64748B),
+              style: TextStyle(
+                color: context.appColors.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -514,7 +519,9 @@ class _ProfileHeaderCard extends StatelessWidget {
             if (profile.lastSeen.isNotEmpty)
               _MetaInline(
                 icon: Icons.schedule_outlined,
-                label: 'Last seen ${profile.lastSeen}',
+                label: profile.device.trim().isNotEmpty
+                    ? 'Last seen ${profile.lastSeen} | on ${profile.device}'
+                    : 'Last seen ${profile.lastSeen}',
               ),
           ],
         ),
@@ -717,10 +724,7 @@ class _ProfileBody extends StatelessWidget {
         Expanded(child: _buildPrimaryContent()),
         if (isWide) ...[
           const SizedBox(width: 18),
-          SizedBox(
-            width: 300,
-            child: _ProfileRail(profile: dashboard.profile),
-          ),
+          SizedBox(width: 300, child: _ProfileRail(profile: dashboard.profile)),
         ],
       ],
     );
@@ -783,11 +787,7 @@ class _ProfileTimeline extends StatelessWidget {
             children: [
               const Text(
                 'Profile Overview',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 16),
               if (isCurrentUser && dashboard.profile.email.trim().isNotEmpty)
@@ -795,10 +795,10 @@ class _ProfileTimeline extends StatelessWidget {
                   icon: Icons.email_outlined,
                   label: dashboard.profile.email,
                 ),
-              if (dashboard.profile.gender.isNotEmpty)
+              if (dashboard.profile.role2.isNotEmpty)
                 _OverviewRow(
                   icon: Icons.person_outline,
-                  label: _capitalized(dashboard.profile.gender),
+                  label: dashboard.profile.role2,
                 ),
               if (dashboard.profile.hobby.isNotEmpty)
                 _OverviewRow(
@@ -811,14 +811,14 @@ class _ProfileTimeline extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: context.appColors.surfaceMuted,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: context.appColors.border),
                   ),
                   child: Text(
                     '"${dashboard.profile.quote}"',
-                    style: const TextStyle(
-                      color: Color(0xFF334155),
+                    style: TextStyle(
+                      color: context.appColors.textSecondary,
                       fontSize: 14,
                       height: 1.6,
                       fontStyle: FontStyle.italic,
@@ -833,34 +833,32 @@ class _ProfileTimeline extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 2, bottom: 14),
               child: Text(
                 'Updates',
                 style: TextStyle(
-                  color: Color(0xFF0F172A),
+                  color: context.appColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             if (dashboard.updates.isEmpty)
-              const _PanelCard(
-                child: _EmptyState(label: 'No updates yet'),
-              )
+              const _PanelCard(child: _EmptyState(label: 'No updates yet'))
             else
-                ...dashboard.updates.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _UpdateCard(
-                      item: item,
-                      profile: dashboard.profile,
-                      currentUser: currentUser,
-                      updateRepository: updateRepository,
-                      onOpenUpdate: () => onOpenUpdate(item),
-                    ),
+              ...dashboard.updates.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _UpdateCard(
+                    item: item,
+                    profile: dashboard.profile,
+                    currentUser: currentUser,
+                    updateRepository: updateRepository,
+                    onOpenUpdate: () => onOpenUpdate(item),
                   ),
                 ),
+              ),
             if (dashboard.updates.isNotEmpty)
               Align(
                 alignment: Alignment.centerLeft,
@@ -881,10 +879,7 @@ class _ProfileTimeline extends StatelessWidget {
 }
 
 class _AboutTab extends StatelessWidget {
-  const _AboutTab({
-    required this.profile,
-    required this.isCurrentUser,
-  });
+  const _AboutTab({required this.profile, required this.isCurrentUser});
 
   final ProfileSummary profile;
   final bool isCurrentUser;
@@ -893,12 +888,17 @@ class _AboutTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = <MapEntry<String, String>>[
       if (isCurrentUser) MapEntry('Email', profile.email),
-      MapEntry('Gender', _capitalized(profile.gender)),
+      MapEntry('Identity', profile.role2),
       MapEntry('Role', profile.role1),
       MapEntry('Location', profile.locationLabel),
       MapEntry('Hobbies', profile.hobby),
       if (isCurrentUser) MapEntry('Phone', profile.phoneNumber),
-      MapEntry('Theme', _capitalized(profile.theme)),
+      MapEntry(
+        'Last seen',
+        profile.device.trim().isNotEmpty
+            ? '${profile.lastSeen} | on ${profile.device}'
+            : profile.lastSeen,
+      ),
       MapEntry('Quote', profile.quote),
     ].where((entry) => entry.value.trim().isNotEmpty).toList();
 
@@ -908,8 +908,8 @@ class _AboutTab extends StatelessWidget {
         children: [
           Text(
             'About ${profile.displayName}',
-            style: const TextStyle(
-              color: Color(0xFF0F172A),
+            style: TextStyle(
+              color: context.appColors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -925,17 +925,17 @@ class _AboutTab extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.appColors.surfaceMuted,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: context.appColors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             entry.key,
-                            style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                            style: TextStyle(
+                              color: context.appColors.textMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.6,
@@ -944,8 +944,8 @@ class _AboutTab extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             entry.value,
-                            style: const TextStyle(
-                              color: Color(0xFF1E293B),
+                            style: TextStyle(
+                              color: context.appColors.textPrimary,
                               fontSize: 14,
                               height: 1.5,
                               fontWeight: FontWeight.w600,
@@ -965,10 +965,7 @@ class _AboutTab extends StatelessWidget {
 }
 
 class _PhotosTab extends StatelessWidget {
-  const _PhotosTab({
-    required this.items,
-    required this.totalCount,
-  });
+  const _PhotosTab({required this.items, required this.totalCount});
 
   final List<ProfileContentItem> items;
   final int totalCount;
@@ -983,17 +980,13 @@ class _PhotosTab extends StatelessWidget {
         children: [
           const Text(
             'Photos',
-            style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 16),
           Text(
             '$totalCount photos',
-            style: const TextStyle(
-              color: Color(0xFF64748B),
+            style: TextStyle(
+              color: context.appColors.textMuted,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -1042,10 +1035,7 @@ class _PhotosTab extends StatelessWidget {
 }
 
 class _ArticlesTab extends StatelessWidget {
-  const _ArticlesTab({
-    required this.items,
-    required this.onSeeAll,
-  });
+  const _ArticlesTab({required this.items, required this.onSeeAll});
 
   final List<ProfileContentItem> items;
   final Future<void> Function() onSeeAll;
@@ -1067,23 +1057,22 @@ class _ArticlesTab extends StatelessWidget {
           const SizedBox(height: 16),
           if (items.isEmpty)
             const _EmptyState(label: 'No articles yet')
-          else
-            ...[
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _BlogCard(item: item),
-                ),
+          else ...[
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _BlogCard(item: item),
               ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () => onSeeAll(),
-                  icon: const Icon(Icons.menu_book_outlined),
-                  label: const Text('Read all articles'),
-                ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => onSeeAll(),
+                icon: const Icon(Icons.menu_book_outlined),
+                label: const Text('Read all articles'),
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );
@@ -1117,20 +1106,23 @@ class _ProfileRail extends StatelessWidget {
                 borderRadius: 18,
               ),
               const SizedBox(height: 12),
-              Text(
-                profile.displayName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+              Align(
+                child: VerifiedNameText(
+                  name: profile.displayName,
+                  verified: profile.isVerified,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: context.appColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 '@${profile.username}',
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
+                style: TextStyle(
+                  color: context.appColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1140,8 +1132,8 @@ class _ProfileRail extends StatelessWidget {
                 Text(
                   profile.locationLabel,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
+                  style: TextStyle(
+                    color: context.appColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -1156,11 +1148,7 @@ class _ProfileRail extends StatelessWidget {
             children: [
               const Text(
                 'Quick Details',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
               _OverviewRow(
@@ -1171,11 +1159,8 @@ class _ProfileRail extends StatelessWidget {
                 icon: Icons.people_outline,
                 label: '${profile.followersCount} followers',
               ),
-              if (profile.theme.isNotEmpty)
-                _OverviewRow(
-                  icon: Icons.palette_outlined,
-                  label: '${_capitalized(profile.theme)} theme',
-                ),
+              if (profile.role2.isNotEmpty)
+                _OverviewRow(icon: Icons.badge_outlined, label: profile.role2),
             ],
           ),
         ),
@@ -1240,7 +1225,9 @@ class _BlogCard extends StatelessWidget {
         children: [
           if (item.photoUrl.isNotEmpty)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
               child: AspectRatio(
                 aspectRatio: 16 / 8.5,
                 child: Image.network(
@@ -1315,10 +1302,7 @@ class _BlogCard extends StatelessWidget {
 }
 
 class _ProfileErrorState extends StatelessWidget {
-  const _ProfileErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ProfileErrorState({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -1340,10 +1324,7 @@ class _ProfileErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF475569),
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Color(0xFF475569), fontSize: 14),
             ),
             const SizedBox(height: 14),
             FilledButton(
@@ -1426,19 +1407,11 @@ class _LargeAvatar extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
+                ? AppNetworkImage(
+                    imageUrl: imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Center(
-                      child: Text(
-                        initials.isEmpty ? 'U' : initials,
-                        style: TextStyle(
-                          color: context.appColors.accentSoftText,
-                          fontSize: size * 0.44,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
+                    backgroundColor: context.appColors.avatarPlaceholder,
+                    placeholderLabel: label,
                   )
                 : Center(
                     child: Text(
@@ -1498,11 +1471,10 @@ class _LargeAvatar extends StatelessWidget {
     }
 
     return InkWell(
-      onTap: () =>
-          FullscreenNetworkImageScreen.show(
-            context,
-            imageUrl: ImageUrlResolver.resolveOriginal(imageUrl),
-          ),
+      onTap: () => FullscreenNetworkImageScreen.show(
+        context,
+        imageUrl: ImageUrlResolver.resolveOriginal(imageUrl),
+      ),
       borderRadius: BorderRadius.circular(borderRadius),
       child: avatar,
     );
@@ -1510,10 +1482,7 @@ class _LargeAvatar extends StatelessWidget {
 }
 
 class _MetaInline extends StatelessWidget {
-  const _MetaInline({
-    required this.icon,
-    required this.label,
-  });
+  const _MetaInline({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1560,9 +1529,7 @@ class _ActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          gradient: highlighted
-              ? context.appColors.brandGradient
-              : null,
+          gradient: highlighted ? context.appColors.brandGradient : null,
           color: highlighted ? null : context.appColors.surfaceMuted,
           border: highlighted
               ? null
@@ -1574,13 +1541,17 @@ class _ActionButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: highlighted ? Colors.white : context.appColors.textSecondary,
+              color: highlighted
+                  ? Colors.white
+                  : context.appColors.textSecondary,
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: highlighted ? Colors.white : context.appColors.textPrimary,
+                color: highlighted
+                    ? Colors.white
+                    : context.appColors.textPrimary,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
               ),
@@ -1593,11 +1564,7 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.value,
-    required this.label,
-    this.onTap,
-  });
+  const _StatCard({required this.value, required this.label, this.onTap});
 
   final String value;
   final String label;
@@ -1690,7 +1657,9 @@ class _TabButton extends StatelessWidget {
                 child: Text(
                   badge!,
                   style: TextStyle(
-                    color: selected ? Colors.white : context.appColors.textMuted,
+                    color: selected
+                        ? Colors.white
+                        : context.appColors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1705,10 +1674,7 @@ class _TabButton extends StatelessWidget {
 }
 
 class _OverviewRow extends StatelessWidget {
-  const _OverviewRow({
-    required this.icon,
-    required this.label,
-  });
+  const _OverviewRow({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1777,15 +1743,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-String _capitalized(String value) {
-  if (value.trim().isEmpty) {
-    return '';
-  }
-
-  final normalized = value.trim();
-  return normalized[0].toUpperCase() + normalized.substring(1);
-}
-
 String _formatCount(int value) {
   if (value >= 1000000) {
     return '${(value / 1000000).toStringAsFixed(1)}M';
@@ -1795,5 +1752,3 @@ String _formatCount(int value) {
   }
   return '$value';
 }
-
-

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -8,6 +10,7 @@ import 'package:hopefulme_flutter/features/notifications/data/notification_repos
 import 'package:hopefulme_flutter/features/notifications/models/app_notification.dart';
 import 'package:hopefulme_flutter/features/notifications/presentation/notification_navigation.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -16,6 +19,7 @@ class NotificationsScreen extends StatefulWidget {
     required this.profileRepository,
     required this.contentRepository,
     required this.messageRepository,
+    required this.searchRepository,
     required this.updateRepository,
     required this.currentUser,
     super.key,
@@ -25,6 +29,7 @@ class NotificationsScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final ContentRepository contentRepository;
   final MessageRepository messageRepository;
+  final SearchRepository searchRepository;
   final UpdateRepository updateRepository;
   final User? currentUser;
 
@@ -50,6 +55,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       profileRepository: widget.profileRepository,
       contentRepository: widget.contentRepository,
       messageRepository: widget.messageRepository,
+      searchRepository: widget.searchRepository,
       updateRepository: widget.updateRepository,
       currentUser: widget.currentUser,
     );
@@ -183,11 +189,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final opened = await _notificationNavigator.open(context, item);
     if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This notification still points to a web-only page.'),
-        ),
-      );
+      AppToast.info(context, 'This notification can be viewed on our website.');
     }
   }
 
@@ -198,9 +200,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      AppToast.error(context, error);
     }
   }
 
@@ -281,10 +281,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({
-    required this.item,
-    required this.onTap,
-  });
+  const _NotificationTile({required this.item, required this.onTap});
 
   final AppNotification item;
   final VoidCallback onTap;
@@ -351,11 +348,8 @@ class _NotificationTile extends StatelessWidget {
                     ],
                     const SizedBox(height: 10),
                     Text(
-                      item.createdAt,
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 11,
-                      ),
+                      formatDetailedTimestamp(item.createdAt),
+                      style: TextStyle(color: colors.textMuted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -363,10 +357,7 @@ class _NotificationTile extends StatelessWidget {
               if (!item.isRead)
                 Padding(
                   padding: EdgeInsets.only(left: 10, top: 4),
-                  child: CircleAvatar(
-                    radius: 4,
-                    backgroundColor: colors.brand,
-                  ),
+                  child: CircleAvatar(radius: 4, backgroundColor: colors.brand),
                 ),
             ],
           ),

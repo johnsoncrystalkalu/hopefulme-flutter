@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_card.dart';
@@ -23,6 +24,7 @@ class InteractiveUpdateCard extends StatefulWidget {
     this.currentUser,
     this.ownerUsername,
     this.onOpenProfile,
+    this.onOpenHashtag,
     super.key,
   });
 
@@ -42,6 +44,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   final User? currentUser;
   final String? ownerUsername;
   final Future<void> Function(String username)? onOpenProfile;
+  final Future<void> Function(String hashtag)? onOpenHashtag;
 
   @override
   State<InteractiveUpdateCard> createState() => _InteractiveUpdateCardState();
@@ -51,8 +54,10 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     with SingleTickerProviderStateMixin {
   late int _likesCount;
   late int _commentsCount;
+  late String _body;
   bool _liked = false;
   bool _busy = false;
+  bool _isDeleted = false;
   late AnimationController _likeController;
 
   bool get _isOwner => widget.currentUser?.username == widget.ownerUsername;
@@ -62,6 +67,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     super.initState();
     _likesCount = widget.likesCount;
     _commentsCount = widget.commentsCount;
+    _body = widget.body;
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -100,15 +106,128 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     }
   }
 
+  Future<void> _editUpdate() async {
+    final controller = TextEditingController(text: _body);
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Update'),
+        content: TextField(
+          controller: controller,
+          maxLines: 6,
+          decoration: const InputDecoration(hintText: 'What is on your mind?'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (updatedText == null || updatedText.isEmpty || updatedText == _body) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+    });
+
+    try {
+      final updated = await widget.updateRepository.updateStatus(
+        updateId: widget.updateId,
+        status: updatedText,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _body = updated.status;
+      });
+      AppToast.success(context, 'Update edited successfully.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteUpdate() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete update?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+    });
+
+    try {
+      await widget.updateRepository.deleteUpdate(widget.updateId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isDeleted = true;
+      });
+      AppToast.success(context, 'Update deleted.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isDeleted) {
+      return const SizedBox.shrink();
+    }
+
     return ReusableUpdateCard(
       data: UpdateCardData(
         title: widget.title,
         subtitle: 'UPDATE',
         metaLeading: widget.device.isEmpty ? 'UPDATE' : widget.device,
         metaTrailing: formatRelativeTimestamp(widget.createdAt),
-        body: widget.body,
+        body: _body,
         photoUrl: widget.photoUrl,
         avatarUrl: widget.avatarUrl,
         fallbackLabel: widget.fallbackLabel,
@@ -116,47 +235,31 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       onHeaderTap: widget.ownerUsername == null || widget.onOpenProfile == null
           ? null
           : () => widget.onOpenProfile!(widget.ownerUsername!),
+      onCardTap: () => widget.onOpenUpdate(),
       onImageTap: () => widget.onOpenUpdate(),
       onMentionTap: widget.onOpenProfile,
+      onHashtagTap: widget.onOpenHashtag,
       headerTrailing: PopupMenuButton<String>(
         icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8)),
         onSelected: (value) async {
           switch (value) {
             case 'view':
-            case 'edit':
-            case 'delete':
               await widget.onOpenUpdate();
               break;
-            case 'share':
-              await Clipboard.setData(
-                ClipboardData(text: 'HopefulMe update #${widget.updateId}'),
-              );
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Update link copied to clipboard')),
-              );
+            case 'edit':
+              await _editUpdate();
+              break;
+            case 'delete':
+              await _deleteUpdate();
               break;
           }
         },
         itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'view',
-            child: Text('View Full Post'),
-          ),
-          const PopupMenuItem(
-            value: 'share',
-            child: Text('Share To...'),
-          ),
+          const PopupMenuItem(value: 'view', child: Text('View Post')),
           if (_isOwner)
-            const PopupMenuItem(
-              value: 'edit',
-              child: Text('Edit Update'),
-            ),
+            const PopupMenuItem(value: 'edit', child: Text('Edit Update')),
           if (_isOwner)
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('Delete Update'),
-            ),
+            const PopupMenuItem(value: 'delete', child: Text('Delete Update')),
         ],
       ),
       footer: Row(
@@ -225,11 +328,16 @@ class _ActionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: background,
+        color: isDark ? Colors.transparent : background,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? colors.borderStrong : Colors.transparent,
+        ),
       ),
       child: Row(
         children: [

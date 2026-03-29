@@ -81,8 +81,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color heroFallback;
   final Color shadow;
 
-  LinearGradient get brandGradient =>
-      LinearGradient(colors: [brand, accent]);
+  LinearGradient get brandGradient => LinearGradient(colors: [brand, accent]);
 
   static const light = AppThemeColors(
     brand: AppColors.brand,
@@ -258,10 +257,8 @@ extension AppThemeContext on BuildContext {
 }
 
 class AppTheme {
-  static ThemeData light() => _buildTheme(
-    brightness: Brightness.light,
-    colors: AppThemeColors.light,
-  );
+  static ThemeData light() =>
+      _buildTheme(brightness: Brightness.light, colors: AppThemeColors.light);
 
   static ThemeData dark() =>
       _buildTheme(brightness: Brightness.dark, colors: AppThemeColors.dark);
@@ -270,18 +267,19 @@ class AppTheme {
     required Brightness brightness,
     required AppThemeColors colors,
   }) {
-    final colorScheme = ColorScheme.fromSeed(
-      brightness: brightness,
-      seedColor: colors.brand,
-    ).copyWith(
-      primary: colors.brand,
-      secondary: colors.accent,
-      surface: colors.surface,
-      onSurface: colors.textPrimary,
-      onPrimary: Colors.white,
-      outline: colors.border,
-      error: colors.dangerText,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          brightness: brightness,
+          seedColor: colors.brand,
+        ).copyWith(
+          primary: colors.brand,
+          secondary: colors.accent,
+          surface: colors.surface,
+          onSurface: colors.textPrimary,
+          onPrimary: Colors.white,
+          outline: colors.border,
+          error: colors.dangerText,
+        );
 
     return ThemeData(
       brightness: brightness,
@@ -296,9 +294,7 @@ class AppTheme {
         bodyColor: colors.textPrimary,
         displayColor: colors.textPrimary,
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: colors.brand,
-      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
@@ -307,8 +303,18 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: colors.surfaceRaised,
-        contentTextStyle: TextStyle(color: colors.textPrimary),
+        backgroundColor: colors.surface,
+        elevation: 0,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.borderStrong),
+        ),
+        contentTextStyle: TextStyle(
+          color: colors.textPrimary,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: colors.surface,
@@ -376,9 +382,7 @@ class AppTheme {
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          foregroundColor: colors.icon,
-        ),
+        style: IconButton.styleFrom(foregroundColor: colors.icon),
       ),
       cardTheme: CardThemeData(
         elevation: 0,

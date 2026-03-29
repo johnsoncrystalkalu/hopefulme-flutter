@@ -20,10 +20,7 @@ class UpdateRepository {
     XFile? photo,
   }) async {
     final response = photo == null
-        ? await _authRepository.post(
-            'updates',
-            body: {'status': status},
-          )
+        ? await _authRepository.post('updates', body: {'status': status})
         : await _authRepository.postMultipart(
             'updates',
             fields: {'status': status},
@@ -65,6 +62,19 @@ class UpdateRepository {
     );
   }
 
+  Future<UpdateCommentReply> addCommentReply({
+    required int commentId,
+    required String comment,
+  }) async {
+    final response = await _authRepository.post(
+      'comments/$commentId/replies',
+      body: {'comment': comment},
+    );
+    return UpdateCommentReply.fromJson(
+      response['reply'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<UpdateDetail> updateStatus({
     required int updateId,
     required String status,
@@ -84,10 +94,7 @@ class UpdateRepository {
 }
 
 class LikeResult {
-  const LikeResult({
-    required this.liked,
-    required this.count,
-  });
+  const LikeResult({required this.liked, required this.count});
 
   final bool liked;
   final int count;

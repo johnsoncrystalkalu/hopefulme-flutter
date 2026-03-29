@@ -1,10 +1,15 @@
+import 'package:image_picker/image_picker.dart';
+import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
 
 class GroupRepository {
-  GroupRepository(this._authRepository);
+  GroupRepository(this._authRepository, {PageCache? cache})
+    : _cache = cache ?? PageCache();
 
   final AuthRepository _authRepository;
+  final PageCache _cache;
 
   Future<GroupPage> fetchGroups({int page = 1}) async {
     final response = await _authRepository.get(
@@ -15,10 +20,22 @@ class GroupRepository {
   }
 
   Future<AppGroup> fetchGroup(int groupId) async {
-    final response = await _authRepository.get('groups/$groupId');
-    return AppGroup.fromJson(
-      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
-    );
+    final key = 'group:$groupId';
+    try {
+      final response = await _authRepository.get('groups/$groupId');
+      await _cache.save(key, response);
+      return AppGroup.fromJson(
+        response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      );
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return AppGroup.fromJson(
+          cached['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<AppGroup> joinGroup(int groupId) async {
@@ -33,6 +50,7 @@ class GroupRepository {
     int? beforeId,
     int? afterId,
   }) async {
+    final key = 'group-messages:$groupId';
     final query = <String, dynamic>{};
     if (beforeId != null) {
       query['before_id'] = beforeId;
@@ -40,25 +58,55 @@ class GroupRepository {
     if (afterId != null) {
       query['after_id'] = afterId;
     }
-    final response = await _authRepository.get(
-      'groups/$groupId/messages',
-      queryParameters: query,
-    );
-    return GroupMessagePage.fromJson(response);
+    try {
+      final response = await _authRepository.get(
+        'groups/$groupId/messages',
+        queryParameters: query,
+      );
+      if (beforeId == null && afterId == null) {
+        await _cache.save(key, response);
+      }
+      return GroupMessagePage.fromJson(response);
+    } catch (error) {
+      if (beforeId == null && afterId == null) {
+        final cached = await _cache.read(key);
+        if (cached != null) {
+          return GroupMessagePage.fromJson(cached);
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<GroupMessage> sendMessage(
     int groupId, {
     required String message,
     int? replyId,
+    XFile? photo,
   }) async {
-    final response = await _authRepository.post(
-      'groups/$groupId/messages',
-      body: {
-        'message': message,
-        if (replyId != null) 'reply_id': replyId,
-      },
-    );
+    final trimmed = message.trim();
+    final response = photo == null
+        ? await _authRepository.post(
+            'groups/$groupId/messages',
+            body: {
+              'message': trimmed,
+              if (replyId != null) 'reply_id': replyId,
+            },
+          )
+        : await _authRepository.postMultipart(
+            'groups/$groupId/messages',
+            fields: {
+              if (trimmed.isNotEmpty) 'message': trimmed,
+              if (replyId case final value?) 'reply_id': '$value',
+            },
+            files: [
+              ApiMultipartFile(
+                field: 'photo',
+                filename: photo.name,
+                bytes: await photo.readAsBytes(),
+              ),
+            ],
+          );
     return GroupMessage.fromJson(
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );

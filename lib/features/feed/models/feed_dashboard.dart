@@ -7,6 +7,7 @@ class FeedDashboard {
     required this.following,
     required this.suggested,
     required this.onlineUsers,
+    required this.todayBirthdays,
     required this.trendingQuotes,
   });
 
@@ -14,6 +15,7 @@ class FeedDashboard {
   final List<FeedUser> following;
   final List<FeedUser> suggested;
   final List<FeedUser> onlineUsers;
+  final List<FeedUser> todayBirthdays;
   final List<QuoteCard> trendingQuotes;
 
   factory FeedDashboard.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,13 @@ class FeedDashboard {
       following: _mapList(json['following'], FeedUser.fromJson),
       suggested: _mapList(json['suggested'], FeedUser.fromJson),
       onlineUsers: _mapList(json['online_users'], FeedUser.fromJson),
+      todayBirthdays: _mapList(
+        json['today_birthdays'] ??
+            json['todays_birthdays'] ??
+            json['birthdays_today'] ??
+            json['todays_birthdays_users'],
+        FeedUser.fromJson,
+      ),
       trendingQuotes: _mapList(json['trending_quotes'], QuoteCard.fromJson),
     );
   }
@@ -99,7 +108,10 @@ class FeedUserPage {
 
   static List<FeedUser> _mapUsers(dynamic value) {
     final items = value as List<dynamic>? ?? const <dynamic>[];
-    return items.whereType<Map<String, dynamic>>().map(FeedUser.fromJson).toList();
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(FeedUser.fromJson)
+        .toList();
   }
 }
 
@@ -139,7 +151,8 @@ class FeedEntry {
     return FeedEntry(
       id: parseInt(json['id']),
       type: json['type']?.toString() ?? 'post',
-      title: json['title']?.toString() ??
+      title:
+          json['title']?.toString() ??
           userJson?['fullname']?.toString() ??
           'Untitled',
       body: _plainText(
@@ -147,15 +160,11 @@ class FeedEntry {
       ),
       photoUrl: ImageUrlResolver.resolve(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [
-          if (user != null) user.photoUrl,
-        ],
+        contextUrls: [if (user != null) user.photoUrl],
       ),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [
-          if (user != null) user.photoUrl,
-        ],
+        contextUrls: [if (user != null) user.photoUrl],
       ),
       device: json['device']?.toString() ?? '',
       user: user,
@@ -184,6 +193,7 @@ class FeedUser {
     required this.username,
     required this.fullname,
     required this.photoUrl,
+    required this.verified,
     required this.isOnline,
     required this.lastSeen,
     required this.city,
@@ -194,12 +204,14 @@ class FeedUser {
   final String username;
   final String fullname;
   final String photoUrl;
+  final String verified;
   final bool isOnline;
   final String lastSeen;
   final String city;
   final String state;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
+  bool get isVerified => verified.toLowerCase() == 'yes';
   String get cityState {
     final parts = <String>[
       if (city.trim().isNotEmpty) city.trim(),
@@ -214,6 +226,7 @@ class FeedUser {
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      verified: json['verified']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
       lastSeen: json['last_seen']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
@@ -244,9 +257,7 @@ class QuoteCard {
       title: json['title']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [
-          if (user != null) user.photoUrl,
-        ],
+        contextUrls: [if (user != null) user.photoUrl],
       ),
       user: user,
     );

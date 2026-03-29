@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
+import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/community/presentation/screens/meet_new_friends_screen.dart';
@@ -18,6 +22,7 @@ import 'package:hopefulme_flutter/features/content/presentation/screens/inspirat
 import 'package:hopefulme_flutter/features/content/presentation/screens/posts_feed_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_screen.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -36,7 +41,9 @@ import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/updates_feed_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
-import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_card.dart';
+import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
+import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -50,6 +57,7 @@ class HomeScreen extends StatefulWidget {
     required this.profileRepository,
     required this.searchRepository,
     required this.updateRepository,
+    required this.libraryRepository,
     super.key,
   });
 
@@ -63,21 +71,25 @@ class HomeScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final SearchRepository searchRepository;
   final UpdateRepository updateRepository;
+  final LibraryRepository libraryRepository;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late Future<FeedDashboard> _dashboardFuture;
   late final NotificationNavigator _notificationNavigator;
   Timer? _pollingTimer;
   List<AppNotification> _latestNotifications = const <AppNotification>[];
-  List<ConversationListItem> _latestConversations = const <ConversationListItem>[];
+  List<ConversationListItem> _latestConversations =
+      const <ConversationListItem>[];
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
   int _selectedBottomNav = 0;
+  bool _inAppNotificationsEnabled = true;
 
   @override
   void initState() {
@@ -87,9 +99,11 @@ class _HomeScreenState extends State<HomeScreen> {
       profileRepository: widget.profileRepository,
       contentRepository: widget.contentRepository,
       messageRepository: widget.messageRepository,
+      searchRepository: widget.searchRepository,
       updateRepository: widget.updateRepository,
       currentUser: widget.authController.currentUser,
     );
+    _loadShellPreferences();
     _refreshTopbarData();
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 10),
@@ -134,6 +148,40 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadShellPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(_inAppNotificationsPrefKey) ?? true;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _inAppNotificationsEnabled = enabled;
+    });
+  }
+
+  Future<void> _setInAppNotificationsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_inAppNotificationsPrefKey, enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _inAppNotificationsEnabled = enabled;
+      if (!enabled) {
+        _latestNotifications = const <AppNotification>[];
+        _unreadNotifications = 0;
+      }
+    });
+    if (enabled) {
+      await _refreshTopbarData(silent: true);
+      if (mounted) {
+        AppToast.success(context, 'In-app notifications enabled.');
+      }
+    } else {
+      AppToast.info(context, 'In-app notifications muted.');
+    }
+  }
+
   Future<void> _openProfile() async {
     await openUserProfile(
       context,
@@ -169,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
           profileRepository: widget.profileRepository,
           contentRepository: widget.contentRepository,
           messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
           updateRepository: widget.updateRepository,
           currentUser: widget.authController.currentUser,
         ),
@@ -217,6 +266,9 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute<void>(
         builder: (context) => MessageThreadScreen(
           repository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
           username: item.otherUser.username,
           title: item.otherUser.displayName,
         ),
@@ -249,8 +301,10 @@ class _HomeScreenState extends State<HomeScreen> {
           updateId: entry.id,
           currentUser: widget.authController.currentUser,
           repository: widget.updateRepository,
+          contentRepository: widget.contentRepository,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
         ),
       ),
     );
@@ -265,6 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
       contentRepository: widget.contentRepository,
       profileRepository: widget.profileRepository,
       messageRepository: widget.messageRepository,
+      searchRepository: widget.searchRepository,
       updateRepository: widget.updateRepository,
       postId: entry.id,
       currentUsername: widget.authController.currentUser?.username,
@@ -277,6 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
       contentRepository: widget.contentRepository,
       profileRepository: widget.profileRepository,
       messageRepository: widget.messageRepository,
+      searchRepository: widget.searchRepository,
       updateRepository: widget.updateRepository,
       blogId: entry.id,
       currentUsername: widget.authController.currentUser?.username,
@@ -304,21 +360,45 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _openSearchQuery(String query) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SearchScreen(
+          repository: widget.searchRepository,
+          contentRepository: widget.contentRepository,
+          messageRepository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+          initialQuery: query,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedBottomNav = 0;
+    });
+  }
+
   Future<void> _openActivities() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => UpdatesFeedScreen(
           feedRepository: widget.feedRepository,
+          contentRepository: widget.contentRepository,
           updateRepository: widget.updateRepository,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
           currentUser: widget.authController.currentUser,
         ),
       ),
     );
   }
 
-  Future<void> _openPostsFeed() async {
+  Future<void> _openPostsFeed({String initialCategory = 'All'}) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => PostsFeedScreen(
@@ -327,10 +407,25 @@ class _HomeScreenState extends State<HomeScreen> {
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
+          searchRepository: widget.searchRepository,
           currentUser: widget.authController.currentUser,
           currentUsername: widget.authController.currentUser?.username,
+          initialCategory: initialCategory,
         ),
       ),
+    );
+  }
+
+  Future<void> _openPostById(int postId) {
+    return openPostDetail(
+      context,
+      contentRepository: widget.contentRepository,
+      profileRepository: widget.profileRepository,
+      messageRepository: widget.messageRepository,
+      searchRepository: widget.searchRepository,
+      updateRepository: widget.updateRepository,
+      postId: postId,
+      currentUsername: widget.authController.currentUser?.username,
     );
   }
 
@@ -343,6 +438,7 @@ class _HomeScreenState extends State<HomeScreen> {
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
+          searchRepository: widget.searchRepository,
           currentUsername: widget.authController.currentUser?.username,
         ),
       ),
@@ -352,18 +448,63 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openInspirations() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => InspirationInboxScreen(
-          repository: widget.contentRepository,
-        ),
+        builder: (context) =>
+            InspirationInboxScreen(repository: widget.contentRepository),
       ),
     );
   }
+
+  Future<void> _openLibrary() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            LibraryScreen(repository: widget.libraryRepository),
+      ),
+    );
+  }
+
+  Future<void> _openWebPage(String title, String path) async {
+    final base = AppConfig.fromEnvironment().webBaseUrl;
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            WebPageScreen(title: title, url: '$base$normalizedPath'),
+      ),
+    );
+  }
+
+  Future<void> _openStorePage() => _openWebPage('Marketplace', '/store/home');
+
+  Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv/home');
+
+  Future<void> _openOutreachPage() => _openWebPage('Outreach', '/outreach');
+
+  Future<void> _openPrivacyPolicyPage() =>
+      _openWebPage('Privacy Policy', '/privacy');
+
+  Future<void> _openTermsPage() => _openWebPage('Terms', '/terms');
 
   Future<void> _openMeetNewFriends() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => MeetNewFriendsScreen(
           feedRepository: widget.feedRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTodayBirthdays(List<FeedUser> users) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => TodayBirthdaysScreen(
+          feedRepository: widget.feedRepository,
+          initialUsers: users,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
@@ -427,11 +568,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               } catch (error) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_friendlyComposerError(error)),
-                    ),
-                  );
+                  AppToast.error(context, _friendlyComposerError(error));
                 }
               } finally {
                 if (context.mounted && !dismissed) {
@@ -451,11 +588,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: SingleChildScrollView(
                 child: Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
                   decoration: BoxDecoration(
                     color: colors.surface,
                     borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: colors.border),
+                    border: Border.all(color: colors.borderStrong),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.shadow.withValues(alpha: 0.1),
+                        blurRadius: 26,
+                        offset: const Offset(0, 16),
+                        spreadRadius: -18,
+                      ),
+                    ],
                   ),
                   child: Form(
                     key: formKey,
@@ -463,61 +608,95 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _Avatar(
-                              imageUrl:
-                                  widget.authController.currentUser?.photoUrl ?? '',
-                              label:
-                                  widget.authController.currentUser?.displayName ??
-                                      'You',
-                              radius: 22,
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                colors.brand.withValues(alpha: 0.14),
+                                colors.accentSoft.withValues(alpha: 0.3),
+                                colors.surfaceMuted.withValues(alpha: 0.94),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.authController.currentUser?.displayName ??
-                                        'Share an update',
-                                    style: TextStyle(
-                                      color: colors.textPrimary,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: colors.surfaceMuted,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      'Post to feed',
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: colors.brand.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _Avatar(
+                                imageUrl:
+                                    widget
+                                        .authController
+                                        .currentUser
+                                        ?.photoUrl ??
+                                    '',
+                                label:
+                                    widget
+                                        .authController
+                                        .currentUser
+                                        ?.displayName ??
+                                    'You',
+                                radius: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget
+                                              .authController
+                                              .currentUser
+                                              ?.displayName ??
+                                          'Share an update',
                                       style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
+                                        color: colors.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.surface.withValues(
+                                          alpha: 0.82,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Post to feed',
+                                        style: TextStyle(
+                                          color: colors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: submitting
-                                  ? null
-                                  : () => Navigator.of(context).pop(false),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
+                              IconButton(
+                                onPressed: submitting
+                                    ? null
+                                    : () => Navigator.of(context).pop(false),
+                                icon: const Icon(Icons.close),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         Text(
                           'Create update',
                           style: TextStyle(
@@ -532,6 +711,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: 13,
+                            height: 1.45,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -627,14 +807,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        Row(
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
                           children: [
                             OutlinedButton.icon(
                               onPressed: submitting ? null : pickPhoto,
                               icon: const Icon(Icons.image_outlined),
                               label: Text(
-                                selectedPhoto == null ? 'Add Photo' : 'Change Photo',
+                                selectedPhoto == null
+                                    ? 'Add Photo'
+                                    : 'Change Photo',
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -644,21 +828,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : () => Navigator.of(context).pop(false),
                               child: const Text('Cancel'),
                             ),
-                            const Spacer(),
-                            FilledButton(
-                              onPressed: submitting ? null : submit,
-                              child: submitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Post Update'),
-                            ),
                           ],
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: submitting ? null : submit,
+                            child: submitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Post Update'),
+                          ),
                         ),
                       ],
                     ),
@@ -727,11 +914,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final opened = await _notificationNavigator.open(context, item);
     if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This notification still points to a web-only page.'),
-        ),
-      );
+      AppToast.info(context, 'This notification can be viewed on our website.');
     }
   }
 
@@ -812,7 +995,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 onBlogsTap: _openBlogsFeed,
                 onActivitiesTap: _openActivities,
                 onGroupsTap: _openGroups,
+                onLibraryTap: _openLibrary,
                 onInspirationsTap: _openInspirations,
+                onStoreTap: _openStorePage,
+                onTvTap: _openTvPage,
+                onOutreachTap: _openOutreachPage,
                 onMeetNewFriendsTap: _openMeetNewFriends,
                 onLogoutTap: _handleLogout,
               ),
@@ -833,7 +1020,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   onBlogsTap: _openBlogsFeed,
                   onActivitiesTap: _openActivities,
                   onGroupsTap: _openGroups,
+                  onLibraryTap: _openLibrary,
                   onInspirationsTap: _openInspirations,
+                  onStoreTap: _openStorePage,
+                  onTvTap: _openTvPage,
+                  onOutreachTap: _openOutreachPage,
                   onMeetNewFriendsTap: _openMeetNewFriends,
                   onLogoutTap: _handleLogout,
                 ),
@@ -879,7 +1070,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Expanded(
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 900),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 900,
+                                  ),
                                   child: _HomeContent(
                                     user: user,
                                     dashboard: dashboard,
@@ -887,9 +1080,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onOpenProfile: _openUserProfile,
                                     onOpenUpdate: _openUpdateDetail,
                                     onOpenPost: _openPostDetail,
+                                    onOpenPostById: _openPostById,
                                     onOpenBlog: _openBlogDetail,
+                                    onOpenUpdatesFeed: _openActivities,
+                                    onOpenPostsFeed: _openPostsFeed,
+                                    onOpenBlogsFeed: _openBlogsFeed,
+                                    onOpenHashtag: _openSearchQuery,
+                                    onOpenTodayBirthdays: _openTodayBirthdays,
                                     updateRepository: widget.updateRepository,
-                                    isLoading: snapshot.connectionState ==
+                                    isLoading:
+                                        snapshot.connectionState ==
                                             ConnectionState.waiting &&
                                         dashboard == null,
                                     error: snapshot.error?.toString(),
@@ -1046,23 +1246,27 @@ class _HomeTopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: colors.surface.withOpacity(0.96),
-          border: Border(
-            bottom: BorderSide(color: colors.borderStrong),
-          ),
+          border: Border(bottom: BorderSide(color: colors.borderStrong)),
         ),
         child: Row(
           children: [
-            IconButton(
-              onPressed: onMenuTap,
-              icon: Icon(Icons.menu, color: colors.icon),
+            SizedBox(
+              width: 46,
+              height: 46,
+              child: onMenuTap == null
+                  ? const SizedBox.shrink()
+                  : IconButton(
+                      onPressed: onMenuTap,
+                      icon: Icon(Icons.menu_rounded, color: colors.icon),
+                      style: IconButton.styleFrom(
+                        backgroundColor: colors.surfaceMuted.withValues(
+                          alpha: 0.72,
+                        ),
+                        side: BorderSide(color: colors.border),
+                      ),
+                    ),
             ),
             const Spacer(),
-            InkWell(
-              onTap: () => onHomeTap(),
-              borderRadius: BorderRadius.circular(14),
-              child: const _TopBarIcon(icon: Icons.home_outlined),
-            ),
-            const SizedBox(width: 8),
             _MessagesDropdownButton(
               conversations: latestConversations,
               unreadCount: unreadMessages,
@@ -1086,6 +1290,9 @@ class _HomeTopBar extends StatelessWidget {
                 if (value == 'theme') {
                   await themeController.cycleThemeMode();
                 }
+                if (value == 'home') {
+                  await onHomeTap();
+                }
                 if (value == 'logout' && onLogout != null) {
                   await onLogout!();
                 }
@@ -1108,48 +1315,21 @@ class _HomeTopBar extends StatelessWidget {
                   value: 'theme_state',
                   child: Text(themeController.themeLabel(brightness)),
                 ),
+                const PopupMenuItem(
+                  value: 'home',
+                  child: Text('Go Home'),
+                ),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colors.border),
-                ),
-                child: Center(
-                  child: _Avatar(
-                    imageUrl: user?.photoUrl ?? '',
-                    label: user?.displayName ?? 'U',
-                  ),
-                ),
+              child: AppAvatar(
+                imageUrl: user?.photoUrl ?? '',
+                label: user?.displayName ?? 'User',
+                radius: 18,
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TopBarIcon extends StatelessWidget {
-  const _TopBarIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.border),
-      ),
-      child: Icon(icon, size: 20, color: colors.icon),
     );
   }
 }
@@ -1217,7 +1397,7 @@ class _NotificationsDropdownButton extends StatelessWidget {
         ),
       ],
       child: _BadgeTopBarIcon(
-        icon: Icons.notifications_none,
+        icon: Icons.notifications_rounded,
         count: unreadCount,
       ),
     );
@@ -1277,44 +1457,55 @@ class _MessagesDropdownButton extends StatelessWidget {
           ),
         ),
       ],
-      child: _BadgeTopBarIcon(
-        icon: Icons.chat_bubble_outline,
-        count: unreadCount,
-      ),
+      child: _BadgeTopBarIcon(icon: Icons.chat_bubble_rounded, count: unreadCount),
     );
   }
 }
 
 class _BadgeTopBarIcon extends StatelessWidget {
-  const _BadgeTopBarIcon({
-    required this.icon,
-    required this.count,
-  });
+  const _BadgeTopBarIcon({required this.icon, required this.count});
 
   final IconData icon;
   final int count;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        const SizedBox(
-          width: 40,
-          height: 40,
+        SizedBox(
+          width: 46,
+          height: 46,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-              border: Border.fromBorderSide(
-                BorderSide(color: Color(0xFFE2E8F0)),
+              gradient: LinearGradient(
+                colors: [
+                  isDark ? colors.surfaceRaised : colors.surface,
+                  isDark
+                      ? colors.surfaceMuted.withValues(alpha: 0.96)
+                      : colors.accentSoft.withValues(alpha: 0.26),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: const BorderRadius.all(Radius.circular(14)),
+              border: Border.fromBorderSide(
+                BorderSide(color: colors.borderStrong),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.045),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -10,
+                ),
+              ],
             ),
           ),
         ),
-        Positioned.fill(
-          child: Icon(icon, size: 20, color: const Color(0xFF64748B)),
-        ),
+        Positioned.fill(child: Icon(icon, size: 22, color: colors.icon)),
         if (count > 0)
           Positioned(
             top: -4,
@@ -1362,18 +1553,23 @@ class _DropdownShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: colors.surface,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(22),
       child: Container(
         decoration: BoxDecoration(
+          color: isDark
+              ? colors.surfaceRaised.withValues(alpha: 0.98)
+              : colors.surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: colors.border),
+          border: Border.all(color: colors.borderStrong),
           boxShadow: [
             BoxShadow(
-              color: colors.shadow.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: colors.shadow.withValues(alpha: isDark ? 0.28 : 0.08),
+              blurRadius: isDark ? 24 : 28,
+              offset: const Offset(0, 16),
+              spreadRadius: -20,
             ),
           ],
         ),
@@ -1386,8 +1582,8 @@ class _DropdownShell extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1424,11 +1620,9 @@ class _DropdownShell extends StatelessWidget {
             ),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 360),
-              child: SingleChildScrollView(
-                child: child,
-              ),
+              child: SingleChildScrollView(child: child),
             ),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            Divider(height: 1, color: colors.border),
             InkWell(
               onTap: () => onFooterTap(),
               borderRadius: const BorderRadius.vertical(
@@ -1439,8 +1633,8 @@ class _DropdownShell extends StatelessWidget {
                 child: Center(
                   child: Text(
                     footerLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF3D5AFE),
+                    style: TextStyle(
+                      color: colors.brand,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1456,23 +1650,26 @@ class _DropdownShell extends StatelessWidget {
 }
 
 class _NotificationDropdownRow extends StatelessWidget {
-  const _NotificationDropdownRow({
-    required this.item,
-    required this.onTap,
-  });
+  const _NotificationDropdownRow({required this.item, required this.onTap});
 
   final AppNotification item;
   final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () => onTap(),
       child: Container(
-        color: item.isRead ? Colors.white : const Color(0xFFF5F8FF),
+        color: item.isRead
+            ? (isDark ? colors.surfaceRaised : colors.surface)
+            : (isDark
+                  ? colors.accentSoft.withValues(alpha: 0.42)
+                  : colors.accentSoft.withValues(alpha: 0.2)),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             CircleAvatar(
               radius: 18,
@@ -1490,8 +1687,8 @@ class _NotificationDropdownRow extends StatelessWidget {
                     item.message,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 12.5,
                       height: 1.45,
                       fontWeight: FontWeight.w600,
@@ -1499,11 +1696,8 @@ class _NotificationDropdownRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.createdAt,
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 11,
-                    ),
+                    formatConversationListTimestamp(item.createdAt),
+                    style: TextStyle(color: colors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
@@ -1524,22 +1718,26 @@ class _NotificationDropdownRow extends StatelessWidget {
 }
 
 class _MessageDropdownRow extends StatelessWidget {
-  const _MessageDropdownRow({
-    required this.item,
-    required this.onTap,
-  });
+  const _MessageDropdownRow({required this.item, required this.onTap});
 
   final ConversationListItem item;
   final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () => onTap(),
       child: Container(
-        color: item.unreadCount > 0 ? const Color(0xFFF8FAFF) : Colors.white,
+        color: item.unreadCount > 0
+            ? (isDark
+                  ? colors.accentSoft.withValues(alpha: 0.42)
+                  : colors.accentSoft.withValues(alpha: 0.2))
+            : (isDark ? colors.surfaceRaised : colors.surface),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Stack(
               children: [
@@ -1568,14 +1766,33 @@ class _MessageDropdownRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.otherUser.displayName,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.otherUser.displayName,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatConversationListTimestamp(
+                          item.latestMessage?.createdAt.isNotEmpty == true
+                              ? item.latestMessage!.createdAt
+                              : item.updatedAt,
+                        ),
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1584,20 +1801,14 @@ class _MessageDropdownRow extends StatelessWidget {
                         : 'Open conversation',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 11.5,
-                    ),
+                    style: TextStyle(color: colors.textMuted, fontSize: 11.5),
                   ),
                 ],
               ),
             ),
             if (item.unreadCount > 0)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFF3D5AFE),
                   borderRadius: BorderRadius.circular(999),
@@ -1630,8 +1841,8 @@ class _DropdownEmptyState extends StatelessWidget {
       child: Center(
         child: Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
+          style: TextStyle(
+            color: context.appColors.textMuted,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -1650,7 +1861,11 @@ class _HomeSidebar extends StatelessWidget {
     required this.onBlogsTap,
     required this.onActivitiesTap,
     required this.onGroupsTap,
+    required this.onLibraryTap,
     required this.onInspirationsTap,
+    required this.onStoreTap,
+    required this.onTvTap,
+    required this.onOutreachTap,
     required this.onMeetNewFriendsTap,
     required this.onLogoutTap,
   });
@@ -1662,7 +1877,11 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onBlogsTap;
   final Future<void> Function() onActivitiesTap;
   final Future<void> Function() onGroupsTap;
+  final Future<void> Function() onLibraryTap;
   final Future<void> Function() onInspirationsTap;
+  final Future<void> Function() onStoreTap;
+  final Future<void> Function() onTvTap;
+  final Future<void> Function() onOutreachTap;
   final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function() onLogoutTap;
 
@@ -1671,9 +1890,7 @@ class _HomeSidebar extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       width: 256,
-      decoration: BoxDecoration(
-        color: colors.sidebar,
-      ),
+      decoration: BoxDecoration(color: colors.sidebar),
       child: Column(
         children: [
           Padding(
@@ -1724,7 +1941,12 @@ class _HomeSidebar extends StatelessWidget {
           _SidebarSection(
             title: 'Community',
             items: [
-              _SidebarItemData(Icons.home_outlined, 'Home', true, onTap: onHomeTap),
+              _SidebarItemData(
+                Icons.home_outlined,
+                'Home',
+                true,
+                onTap: onHomeTap,
+              ),
               _SidebarItemData(
                 Icons.article_outlined,
                 'Post & News',
@@ -1760,16 +1982,45 @@ class _HomeSidebar extends StatelessWidget {
                 false,
                 onTap: onBlogsTap,
               ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Discover',
-            items: [
               _SidebarItemData(
                 Icons.auto_awesome_outlined,
                 'Inspirations',
                 false,
                 onTap: onInspirationsTap,
+              ),
+            ],
+          ),
+          _SidebarSection(
+            title: 'Resources',
+            items: [
+              _SidebarItemData(
+                Icons.local_library_outlined,
+                'Library',
+                false,
+                onTap: onLibraryTap,
+              ),
+            ],
+          ),
+          _SidebarSection(
+            title: 'Web',
+            items: [
+              _SidebarItemData(
+                Icons.storefront_outlined,
+                'Marketplace',
+                false,
+                onTap: onStoreTap,
+              ),
+              _SidebarItemData(
+                Icons.live_tv_outlined,
+                'HopefulMe TV',
+                false,
+                onTap: onTvTap,
+              ),
+              _SidebarItemData(
+                Icons.volunteer_activism_outlined,
+                'Outreach',
+                false,
+                onTap: onOutreachTap,
               ),
             ],
           ),
@@ -1779,12 +2030,15 @@ class _HomeSidebar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colors.sidebarSurface.withOpacity(0.88),
+                color: colors.sidebarSurface.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
-                  _Avatar(imageUrl: user?.photoUrl ?? '', label: user?.displayName ?? 'U'),
+                  _Avatar(
+                    imageUrl: user?.photoUrl ?? '',
+                    label: user?.displayName ?? 'U',
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1833,10 +2087,7 @@ class _HomeSidebar extends StatelessWidget {
 }
 
 class _SidebarSection extends StatelessWidget {
-  const _SidebarSection({
-    required this.title,
-    required this.items,
-  });
+  const _SidebarSection({required this.title, required this.items});
 
   final String title;
   final List<_SidebarItemData> items;
@@ -1868,12 +2119,7 @@ class _SidebarSection extends StatelessWidget {
 }
 
 class _SidebarItemData {
-  const _SidebarItemData(
-    this.icon,
-    this.label,
-    this.active, {
-    this.onTap,
-  });
+  const _SidebarItemData(this.icon, this.label, this.active, {this.onTap});
 
   final IconData icon;
   final String label;
@@ -1889,9 +2135,7 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gradient = item.active
-        ? const LinearGradient(
-            colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
-          )
+        ? const LinearGradient(colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)])
         : null;
 
     return Container(
@@ -1936,7 +2180,13 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenProfile,
     required this.onOpenUpdate,
     required this.onOpenPost,
+    required this.onOpenPostById,
     required this.onOpenBlog,
+    required this.onOpenUpdatesFeed,
+    required this.onOpenPostsFeed,
+    required this.onOpenBlogsFeed,
+    required this.onOpenHashtag,
+    required this.onOpenTodayBirthdays,
     required this.updateRepository,
     required this.isLoading,
     required this.error,
@@ -1948,7 +2198,13 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenPost;
+  final Future<void> Function(int postId) onOpenPostById;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
+  final Future<void> Function() onOpenUpdatesFeed;
+  final Future<void> Function({String initialCategory}) onOpenPostsFeed;
+  final Future<void> Function() onOpenBlogsFeed;
+  final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final UpdateRepository updateRepository;
   final bool isLoading;
   final String? error;
@@ -1977,32 +2233,67 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StoriesRow(users: data.onlineUsers, onUserTap: onOpenProfile),
+        _StoriesRow(
+          users: data.onlineUsers,
+          onUserTap: onOpenProfile,
+          onCreateUpdate: onCreateUpdate,
+        ),
         const SizedBox(height: 18),
         _ComposerCard(user: user, onCreateUpdate: onCreateUpdate),
         const SizedBox(height: 18),
-        const _SectionHeader(
+        if (data.todayBirthdays.isNotEmpty) ...[
+          _BirthdayCelebrationStrip(
+            users: data.todayBirthdays,
+            onOpenProfile: onOpenProfile,
+            onViewAll: () => onOpenTodayBirthdays(data.todayBirthdays),
+          ),
+          const SizedBox(height: 18),
+        ],
+        _SectionHeader(
           title: 'Random Quotes for you',
-          accent: '*',
-          action: 'See all',
+          leading: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: context.appColors.brand.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.format_quote_rounded,
+              color: context.appColors.brand,
+              size: 18,
+            ),
+          ),
+          action: 'See more',
+          onActionTap: () => onOpenPostsFeed(initialCategory: 'Quote'),
         ),
-        const SizedBox(height: 12),
-        _QuoteGrid(quotes: data.trendingQuotes),
-        const SizedBox(height: 22),
+        const SizedBox(height: 8),
+        _QuoteGrid(quotes: data.trendingQuotes, onOpenQuote: onOpenPostById),
+        const SizedBox(height: 16),
         ...data.feed.map(
           (entry) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
-                    child: _FeedEntryCard(
-                      entry: entry,
-                      currentUser: user,
-                      onOpenProfile: onOpenProfile,
-                      onOpenUpdate: onOpenUpdate,
-                      onOpenPost: onOpenPost,
-                      onOpenBlog: onOpenBlog,
-                      updateRepository: updateRepository,
-                    ),
+            child: _FeedEntryCard(
+              entry: entry,
+              currentUser: user,
+              onOpenProfile: onOpenProfile,
+              onOpenUpdate: onOpenUpdate,
+              onOpenPost: onOpenPost,
+              onOpenBlog: onOpenBlog,
+              onOpenHashtag: onOpenHashtag,
+              updateRepository: updateRepository,
+            ),
           ),
         ),
+        if (data.feed.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _FeedExploreMoreCard(
+              onOpenUpdatesFeed: onOpenUpdatesFeed,
+              onOpenPostsFeed: onOpenPostsFeed,
+              onOpenBlogsFeed: onOpenBlogsFeed,
+            ),
+          ),
       ],
     );
   }
@@ -2012,10 +2303,12 @@ class _StoriesRow extends StatelessWidget {
   const _StoriesRow({
     required this.users,
     required this.onUserTap,
+    required this.onCreateUpdate,
   });
 
   final List<FeedUser> users;
   final Future<void> Function(String username) onUserTap;
+  final Future<void> Function() onCreateUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -2027,23 +2320,30 @@ class _StoriesRow extends StatelessWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return Column(
-              children: const [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Color(0xFFEEF2FF),
-                  child: Icon(Icons.add, color: Color(0xFF3D5AFE)),
+            return InkWell(
+              onTap: () => onCreateUpdate(),
+              borderRadius: BorderRadius.circular(999),
+              child: const SizedBox(
+                width: 70,
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Color(0xFFEEF2FF),
+                      child: Icon(Icons.add, color: Color(0xFF3D5AFE)),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Post',
+                      style: TextStyle(
+                        color: Color(0xFF3D5AFE),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Post',
-                  style: TextStyle(
-                    color: Color(0xFF3D5AFE),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              ),
             );
           }
 
@@ -2090,10 +2390,7 @@ class _StoriesRow extends StatelessWidget {
 }
 
 class _ComposerCard extends StatelessWidget {
-  const _ComposerCard({
-    required this.user,
-    required this.onCreateUpdate,
-  });
+  const _ComposerCard({required this.user, required this.onCreateUpdate});
 
   final User? user;
   final Future<void> Function() onCreateUpdate;
@@ -2110,14 +2407,20 @@ class _ComposerCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Avatar(imageUrl: user?.photoUrl ?? '', label: user?.displayName ?? 'U'),
+                _Avatar(
+                  imageUrl: user?.photoUrl ?? '',
+                  label: user?.displayName ?? 'U',
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: InkWell(
                     onTap: () => onCreateUpdate(),
                     borderRadius: BorderRadius.circular(18),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: context.appColors.surfaceMuted,
                         borderRadius: BorderRadius.circular(18),
@@ -2207,9 +2510,10 @@ class _ComposerChip extends StatelessWidget {
 }
 
 class _QuoteGrid extends StatelessWidget {
-  const _QuoteGrid({required this.quotes});
+  const _QuoteGrid({required this.quotes, required this.onOpenQuote});
 
   final List<QuoteCard> quotes;
+  final Future<void> Function(int postId) onOpenQuote;
 
   @override
   Widget build(BuildContext context) {
@@ -2230,46 +2534,322 @@ class _QuoteGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final quote = quotes[index];
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (quote.photoUrl.isNotEmpty)
-                Image.network(quote.photoUrl, fit: BoxFit.cover)
-              else
-                Container(color: const Color(0xFF3D5AFE)),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Color.fromRGBO(0, 0, 0, 0.82),
-                      Color.fromRGBO(0, 0, 0, 0.12),
-                    ],
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => onOpenQuote(quote.id),
+            borderRadius: BorderRadius.circular(18),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (quote.photoUrl.isNotEmpty)
+                    AppNetworkImage(
+                      imageUrl: quote.photoUrl,
+                      fit: BoxFit.cover,
+                      backgroundColor: context.appColors.surfaceMuted,
+                      placeholderLabel: quote.title,
+                    )
+                  else
+                    Container(color: const Color(0xFF3D5AFE)),
+                  Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Color.fromRGBO(0, 0, 0, 0.82),
+                          Color.fromRGBO(0, 0, 0, 0.12),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: Text(
-                  quote.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Text(
+                      quote.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+// ignore: unused_element
+class _BirthdayCelebrationCard extends StatelessWidget {
+  const _BirthdayCelebrationCard({
+    required this.users,
+    required this.onOpenProfile,
+    required this.onViewAll,
+  });
+
+  final List<FeedUser> users;
+  final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function() onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final previewUsers = users.take(5).toList();
+    return _SurfaceCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: 'Today Birthday Celebrations',
+              accent: '🎂',
+              action: 'View all',
+              onActionTap: () => onViewAll(),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              users.length == 1
+                  ? 'Someone in the HopefulMe community is celebrating today.'
+                  : '${users.length} people in the HopefulMe community are celebrating today.',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: previewUsers
+                  .map(
+                    (user) => InkWell(
+                      onTap: () => onOpenProfile(user.username),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        width: 150,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundImage: user.photoUrl.isNotEmpty
+                                  ? NetworkImage(user.photoUrl)
+                                  : null,
+                              child: user.photoUrl.isEmpty
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              user.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              user.cityState.isNotEmpty
+                                  ? user.cityState
+                                  : '@${user.username}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BirthdayCelebrationStrip extends StatelessWidget {
+  const _BirthdayCelebrationStrip({
+    required this.users,
+    required this.onOpenProfile,
+    required this.onViewAll,
+  });
+
+  final List<FeedUser> users;
+  final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function() onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final previewUsers = users.take(9).toList();
+    final leadName = users.first.displayName;
+    final othersCount = users.length - 1;
+
+    return _SurfaceCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text('🎈', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Today's Birthdays",
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => onViewAll(),
+                  borderRadius: BorderRadius.circular(999),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF3D5AFE),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: Stack(
+                children: [
+                  for (var index = 0; index < previewUsers.length; index++)
+                    Positioned(
+                      left: index * 32,
+                      child: InkWell(
+                        onTap: () =>
+                            onOpenProfile(previewUsers[index].username),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colors.surface, width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.shadow.withOpacity(0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                            color: colors.surfaceMuted,
+                          ),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: colors.surfaceMuted,
+                            backgroundImage:
+                                previewUsers[index].photoUrl.isNotEmpty
+                                ? NetworkImage(previewUsers[index].photoUrl)
+                                : null,
+                            child: previewUsers[index].photoUrl.isEmpty
+                                ? const Icon(Icons.person, size: 18)
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (users.length >= 5)
+                    Positioned(
+                      left: previewUsers.length * 32,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colors.surface, width: 4),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '+',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+                children: [
+                  const TextSpan(text: "It's "),
+                  TextSpan(
+                    text: leadName,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (othersCount > 0)
+                    TextSpan(text: ' and $othersCount others'),
+                  const TextSpan(text: "' birthday! 🎉"),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2282,6 +2862,7 @@ class _FeedEntryCard extends StatelessWidget {
     required this.onOpenUpdate,
     required this.onOpenPost,
     required this.onOpenBlog,
+    required this.onOpenHashtag,
     required this.updateRepository,
   });
 
@@ -2291,6 +2872,7 @@ class _FeedEntryCard extends StatelessWidget {
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
+  final Future<void> Function(String hashtag) onOpenHashtag;
   final UpdateRepository updateRepository;
 
   @override
@@ -2301,16 +2883,20 @@ class _FeedEntryCard extends StatelessWidget {
         currentUser: currentUser,
         onOpenProfile: onOpenProfile,
         onOpenUpdate: onOpenUpdate,
+        onOpenHashtag: onOpenHashtag,
         updateRepository: updateRepository,
       ),
       'blog' => _BlogFeedCard(
         entry: entry,
         onOpenProfile: onOpenProfile,
         onOpenBlog: onOpenBlog,
+        onOpenHashtag: onOpenHashtag,
       ),
       _ => _PostFeedCard(
         entry: entry,
         onOpenPost: onOpenPost,
+        onOpenProfile: onOpenProfile,
+        onOpenHashtag: onOpenHashtag,
       ),
     };
   }
@@ -2320,81 +2906,93 @@ class _PostFeedCard extends StatelessWidget {
   const _PostFeedCard({
     required this.entry,
     required this.onOpenPost,
+    required this.onOpenProfile,
+    required this.onOpenHashtag,
   });
 
   final FeedEntry entry;
   final Future<void> Function(FeedEntry entry) onOpenPost;
+  final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function(String hashtag) onOpenHashtag;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return InkWell(
       onTap: () => onOpenPost(entry),
       borderRadius: BorderRadius.circular(26),
       child: _SurfaceCard(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (entry.photoUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-              child: Image.network(
-                entry.photoUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(
-                  height: 180,
-                  child: Center(child: Icon(Icons.broken_image_outlined)),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (entry.photoUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
+                child: Image.network(
+                  entry.photoUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                    height: 180,
+                    child: Center(child: Icon(Icons.broken_image_outlined)),
+                  ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.title,
-                  style: const TextStyle(
-                    color: Color(0xFF0A0F1E),
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (entry.body.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    entry.body,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                      height: 1.55,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'View Post',
+                    entry.title,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
+                      color: colors.textPrimary,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-              ],
+                  if (entry.body.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    RichDisplayText(
+                      text: entry.body,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                      onMentionTap: onOpenProfile,
+                      onHashtagTap: onOpenHashtag,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'View Post',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -2406,6 +3004,7 @@ class _UpdateFeedCard extends StatelessWidget {
     required this.currentUser,
     required this.onOpenProfile,
     required this.onOpenUpdate,
+    required this.onOpenHashtag,
     required this.updateRepository,
   });
 
@@ -2413,6 +3012,7 @@ class _UpdateFeedCard extends StatelessWidget {
   final User? currentUser;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(String hashtag) onOpenHashtag;
   final UpdateRepository updateRepository;
 
   @override
@@ -2435,6 +3035,7 @@ class _UpdateFeedCard extends StatelessWidget {
       currentUser: currentUser,
       ownerUsername: entry.user?.username,
       onOpenProfile: onOpenProfile,
+      onOpenHashtag: onOpenHashtag,
     );
   }
 }
@@ -2444,170 +3045,266 @@ class _BlogFeedCard extends StatelessWidget {
     required this.entry,
     required this.onOpenProfile,
     required this.onOpenBlog,
+    required this.onOpenHashtag,
   });
 
   final FeedEntry entry;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
+  final Future<void> Function(String hashtag) onOpenHashtag;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return InkWell(
       onTap: () => onOpenBlog(entry),
       borderRadius: BorderRadius.circular(26),
       child: _SurfaceCard(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (entry.photoUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  entry.photoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.broken_image_outlined),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (entry.photoUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Image.network(
+                    entry.photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Center(child: Icon(Icons.broken_image_outlined)),
                   ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEF1FF),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        'BLOG',
-                        style: TextStyle(
-                          color: Color(0xFF3D5AFE),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF1FF),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'BLOG',
+                          style: TextStyle(
+                            color: Color(0xFF3D5AFE),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      formatRelativeTimestamp(entry.createdAt).isEmpty
-                          ? 'Article'
-                          : 'Article · ${formatRelativeTimestamp(entry.createdAt)}',
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 10),
+                      Text(
+                        formatRelativeTimestamp(entry.createdAt).isEmpty
+                            ? 'Article'
+                            : 'Article · ${formatRelativeTimestamp(entry.createdAt)}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    entry.title,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (entry.body.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    RichDisplayText(
+                      text: entry.body,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                      onMentionTap: onOpenProfile,
+                      onHashtagTap: onOpenHashtag,
                     ),
                   ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  entry.title,
-                  style: const TextStyle(
-                    color: Color(0xFF0A0F1E),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    InkWell(
-                      onTap: entry.user == null
-                          ? null
-                          : () => onOpenProfile(entry.user!.username),
-                      borderRadius: BorderRadius.circular(999),
-                      child: _Avatar(
-                        imageUrl: entry.user?.photoUrl ?? '',
-                        label: entry.user?.displayName ?? entry.title,
-                        radius: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      InkWell(
                         onTap: entry.user == null
                             ? null
                             : () => onOpenProfile(entry.user!.username),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Text(
-                          entry.user?.displayName ?? 'HopefulMe',
-                          style: const TextStyle(
-                            color: Color(0xFF1C2540),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                        borderRadius: BorderRadius.circular(999),
+                        child: _Avatar(
+                          imageUrl: entry.user?.photoUrl ?? '',
+                          label: entry.user?.displayName ?? entry.title,
+                          radius: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: entry.user == null
+                              ? null
+                              : () => onOpenProfile(entry.user!.username),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Text(
+                            entry.user?.displayName ?? 'HopefulMe',
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Row(
-                      children: [
-                        const Icon(Icons.remove_red_eye_outlined,
-                            size: 14, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${entry.views}',
-                          style: const TextStyle(
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.remove_red_eye_outlined,
+                            size: 14,
                             color: Color(0xFF94A3B8),
-                            fontSize: 12,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '${entry.views}',
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
+class _FeedExploreMoreCard extends StatelessWidget {
+  const _FeedExploreMoreCard({
+    required this.onOpenUpdatesFeed,
+    required this.onOpenPostsFeed,
+    required this.onOpenBlogsFeed,
+  });
+
+  final Future<void> Function() onOpenUpdatesFeed;
+  final Future<void> Function({String initialCategory}) onOpenPostsFeed;
+  final Future<void> Function() onOpenBlogsFeed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _SurfaceCard(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Explore more',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Open the full pages for activities, posts and blogs from here.',
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _FeedExploreChip(
+                  icon: Icons.dynamic_feed_rounded,
+                  label: 'More updates',
+                  onTap: onOpenUpdatesFeed,
+                ),
+                _FeedExploreChip(
+                  icon: Icons.article_outlined,
+                  label: 'More posts',
+                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
+                ),
+                _FeedExploreChip(
+                  icon: Icons.auto_stories_outlined,
+                  label: 'More blogs',
+                  onTap: onOpenBlogsFeed,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedExploreChip extends StatelessWidget {
+  const _FeedExploreChip({
     required this.icon,
     required this.label,
-    required this.color,
-    required this.background,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
-  final Color background;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+    final colors = context.appColors;
+    return InkWell(
+      onTap: () => onTap(),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: colors.brand),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2735,10 +3432,7 @@ class _GreetingCard extends StatelessWidget {
             const Text(
               'Keep sharing. Keep inspiring.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF8896B0),
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Color(0xFF8896B0), fontSize: 12),
             ),
           ],
         ),
@@ -2803,7 +3497,10 @@ class _UserListCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
                               ),
                             ),
@@ -2835,7 +3532,10 @@ class _UserListCard extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF0A0F1E),
                           borderRadius: BorderRadius.circular(999),
@@ -2866,16 +3566,21 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     this.action,
     this.accent,
+    this.leading,
+    this.onActionTap,
   });
 
   final String title;
   final String? action;
   final String? accent;
+  final Widget? leading;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
+        if (leading != null) ...[leading!, const SizedBox(width: 10)],
         if (accent != null) ...[
           Text(accent!, style: const TextStyle(fontSize: 16)),
           const SizedBox(width: 8),
@@ -2883,20 +3588,27 @@ class _SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF0A0F1E),
+            style: TextStyle(
+              color: context.appColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
         ),
         if (action != null)
-          Text(
-            action!,
-            style: const TextStyle(
-              color: Color(0xFF3D5AFE),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+          InkWell(
+            onTap: onActionTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(
+                action!,
+                style: TextStyle(
+                  color: context.appColors.brand,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
       ],
@@ -2905,10 +3617,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _SurfaceCard extends StatelessWidget {
-  const _SurfaceCard({
-    required this.child,
-    this.padding,
-  });
+  const _SurfaceCard({required this.child, this.padding});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -2951,32 +3660,20 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initials = _initials(label);
-    final colors = context.appColors;
 
-    if (imageUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: backgroundColor,
-        backgroundImage: NetworkImage(imageUrl),
-      );
-    }
-
-    return CircleAvatar(
+    return AppAvatar(
+      imageUrl: imageUrl,
+      label: initials,
       radius: radius,
       backgroundColor: backgroundColor,
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: colors.accentSoftText,
-          fontSize: radius * 0.55,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
     );
   }
 
   static String _initials(String input) {
-    final parts = input.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+    final parts = input
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty);
     if (parts.isEmpty) {
       return 'U';
     }
@@ -2985,4 +3682,3 @@ class _Avatar extends StatelessWidget {
     return letters.isEmpty ? 'U' : letters;
   }
 }
-

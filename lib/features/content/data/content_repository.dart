@@ -1,10 +1,29 @@
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
+import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ContentRepository {
   ContentRepository(this._authRepository, {PageCache? cache})
     : _cache = cache ?? PageCache();
+
+  static const List<String> blogTags = <String>[
+    'Motivation',
+    'Inspiration',
+    'Hope',
+    'Salvation',
+    'Love',
+    'Faith',
+    'Grace',
+    'Poetry',
+    'Prayer',
+    'Education',
+    'Success',
+    'Philosophy',
+    'Relationships',
+    'Proverbs',
+  ];
 
   final AuthRepository _authRepository;
   final PageCache _cache;
@@ -93,5 +112,108 @@ class ContentRepository {
     return ContentComment.fromJson(
       response['comment'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
+  }
+
+  Future<ContentCommentReply> addCommentReply({
+    required int commentId,
+    required String comment,
+  }) async {
+    final response = await _authRepository.post(
+      'comments/$commentId/replies',
+      body: {'comment': comment},
+    );
+
+    return ContentCommentReply.fromJson(
+      response['reply'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
+  Future<ContentDetail> createBlog({
+    required String title,
+    required String content,
+    required String tag,
+    required String label,
+    XFile? photo,
+  }) async {
+    final response = photo == null
+        ? await _authRepository.post(
+            'blogs',
+            body: {
+              'title': title,
+              'content': content,
+              'tag': tag,
+              'label': label,
+            },
+          )
+        : await _authRepository.postMultipart(
+            'blogs',
+            fields: {
+              'title': title,
+              'content': content,
+              'tag': tag,
+              'label': label,
+            },
+            files: <ApiMultipartFile>[
+              ApiMultipartFile(
+                field: 'photo',
+                filename: photo.name,
+                bytes: await photo.readAsBytes(),
+              ),
+            ],
+          );
+
+    return ContentDetail.fromApi(
+      response['blog'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      kind: 'blog',
+    );
+  }
+
+  Future<ContentDetail> updateBlog({
+    required int blogId,
+    required String title,
+    required String content,
+    required String tag,
+    required String label,
+    XFile? photo,
+    bool removePhoto = false,
+  }) async {
+    final response = (photo != null || removePhoto)
+        ? await _authRepository.putMultipart(
+            'blogs/$blogId',
+            fields: {
+              'title': title,
+              'content': content,
+              'tag': tag,
+              'label': label,
+              if (removePhoto) 'remove_photo': '1',
+            },
+            files: photo == null
+                ? const <ApiMultipartFile>[]
+                : <ApiMultipartFile>[
+                    ApiMultipartFile(
+                      field: 'photo',
+                      filename: photo.name,
+                      bytes: await photo.readAsBytes(),
+                    ),
+                  ],
+          )
+        : await _authRepository.put(
+            'blogs/$blogId',
+            body: {
+              'title': title,
+              'content': content,
+              'tag': tag,
+              'label': label,
+            },
+          );
+
+    return ContentDetail.fromApi(
+      response['blog'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      kind: 'blog',
+    );
+  }
+
+  Future<void> deleteBlog(int blogId) async {
+    await _authRepository.delete('blogs/$blogId');
   }
 }
