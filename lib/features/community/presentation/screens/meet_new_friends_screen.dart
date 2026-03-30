@@ -803,14 +803,14 @@ class _OnlinePanel extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  'See All',
-                  style: TextStyle(
-                    color: colors.brand,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                // Text(
+                //   'See All',
+                //   style: TextStyle(
+                //     color: colors.brand,
+                //     fontSize: 13,
+                //     fontWeight: FontWeight.w800,
+                //   ),
+                // ),
               ],
             ),
           ),

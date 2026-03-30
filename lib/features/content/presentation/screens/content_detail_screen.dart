@@ -848,6 +848,9 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
   WebViewController? _controller;
   String? _resolvedUrl;
   int _progress = 0;
+  bool _hasError = false;
+
+  // Reverted: Do not auto-convert embed URLs. Open embedded or normal URLs as-is.
 
   @override
   void initState() {
@@ -868,6 +871,14 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               }
               setState(() {
                 _progress = progress;
+              });
+            },
+            onWebResourceError: (error) {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _hasError = true;
               });
             },
           ),
@@ -895,7 +906,8 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     final host = uri.host.toLowerCase();
     if (host.contains('youtu.be')) {
       videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
-    } else if (host.contains('youtube.com') || host.contains('youtube-nocookie.com')) {
+    } else if (host.contains('youtube.com') ||
+        host.contains('youtube-nocookie.com')) {
       videoId = uri.queryParameters['v'];
 
       if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
@@ -981,8 +993,11 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.play_circle_outline_rounded,
-                      size: 44, color: colors.icon),
+                  Icon(
+                    Icons.play_circle_outline_rounded,
+                    size: 44,
+                    color: colors.icon,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Video unavailable in preview',

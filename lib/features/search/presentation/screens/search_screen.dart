@@ -199,24 +199,27 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                _SearchTab(
-                  label: 'All Results',
-                  selected: _activeType == 'all',
-                  onTap: () => _setType('all'),
-                ),
-                const SizedBox(width: 10),
-                _SearchTab(
-                  label: result == null
-                      ? 'People'
-                      : _activeType == 'users'
-                      ? 'People (${result.total})'
-                      : 'People (${result.users.length})',
-                  selected: _activeType == 'users',
-                  onTap: () => _setType('users'),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _SearchTab(
+                    label: 'All Results',
+                    selected: _activeType == 'all',
+                    onTap: () => _setType('all'),
+                  ),
+                  const SizedBox(width: 10),
+                  _SearchTab(
+                    label: result == null
+                        ? 'People'
+                        : _activeType == 'users'
+                        ? 'People (${result.total})'
+                        : 'People (${result.users.length})',
+                    selected: _activeType == 'users',
+                    onTap: () => _setType('users'),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(

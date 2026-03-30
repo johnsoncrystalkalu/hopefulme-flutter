@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -14,7 +14,9 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 
 class UpdatesFeedScreen extends StatefulWidget {
@@ -175,202 +177,17 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   }
 
   Future<void> _openCreateUpdate() async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final imagePicker = ImagePicker();
-
-    final created = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final colors = context.appColors;
-        bool submitting = false;
-        XFile? selectedPhoto;
-        Uint8List? selectedPhotoBytes;
-
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> pickPhoto() async {
-              final photo = await imagePicker.pickImage(
-                source: ImageSource.gallery,
-                imageQuality: kIsWeb ? null : 88,
-              );
-              if (photo == null || !context.mounted) {
-                return;
-              }
-              final bytes = await photo.readAsBytes();
-              setSheetState(() {
-                selectedPhoto = photo;
-                selectedPhotoBytes = bytes;
-              });
-            }
-
-            Future<void> submit() async {
-              final hasText = controller.text.trim().isNotEmpty;
-              final hasPhoto = selectedPhoto != null;
-              if ((!hasText && !hasPhoto) || submitting) {
-                formKey.currentState?.validate();
-                return;
-              }
-              var dismissed = false;
-              setSheetState(() {
-                submitting = true;
-              });
-              try {
-                await widget.updateRepository.createUpdate(
-                  status: controller.text.trim(),
-                  photo: selectedPhoto,
-                );
-                if (context.mounted) {
-                  dismissed = true;
-                  Navigator.of(context).pop(true);
-                }
-              } catch (error) {
-                if (context.mounted) {
-                  AppToast.error(
-                    context,
-                    'We could not post your update right now. Please try again.',
-                  );
-                }
-              } finally {
-                if (context.mounted && !dismissed) {
-                  setSheetState(() {
-                    submitting = false;
-                  });
-                }
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundImage:
-                                  widget.currentUser?.photoUrl.isNotEmpty ==
-                                      true
-                                  ? NetworkImage(widget.currentUser!.photoUrl)
-                                  : null,
-                              child:
-                                  widget.currentUser?.photoUrl.isEmpty ?? true
-                                  ? const Icon(Icons.person)
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                widget.currentUser?.displayName ??
-                                    'Share an update',
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: submitting
-                                  ? null
-                                  : () => Navigator.of(context).pop(false),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: controller,
-                          minLines: 5,
-                          maxLines: 8,
-                          decoration: InputDecoration(
-                            hintText: 'What is on your mind?',
-                            filled: true,
-                            fillColor: colors.surfaceMuted,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          validator: (_) {
-                            if (controller.text.trim().isEmpty &&
-                                selectedPhoto == null) {
-                              return 'Add text or a photo to post an update.';
-                            }
-                            return null;
-                          },
-                        ),
-                        if (selectedPhotoBytes != null) ...[
-                          const SizedBox(height: 14),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Image.memory(
-                              selectedPhotoBytes!,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: submitting ? null : pickPhoto,
-                              icon: const Icon(Icons.image_outlined),
-                              label: const Text('Add Photo'),
-                            ),
-                            const Spacer(),
-                            FilledButton(
-                              onPressed: submitting ? null : submit,
-                              child: submitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Post Update'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    final created = await UpdateSubmissionModal.show(
+      context,
+      updateRepository: widget.updateRepository,
+      currentUser: widget.currentUser,
     );
 
-    controller.dispose();
-    if (created == true) {
+    if (created != null) {
       await _loadInitial();
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

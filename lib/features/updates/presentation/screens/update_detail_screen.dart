@@ -32,6 +32,7 @@ class UpdateDetailResult {
 class UpdateDetailScreen extends StatefulWidget {
   const UpdateDetailScreen({
     required this.updateId,
+    this.initialDetail,
     required this.currentUser,
     required this.repository,
     this.contentRepository,
@@ -43,6 +44,7 @@ class UpdateDetailScreen extends StatefulWidget {
   });
 
   final int updateId;
+  final UpdateDetail? initialDetail;
   final User? currentUser;
   final UpdateRepository repository;
   final ContentRepository? contentRepository;
@@ -68,7 +70,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   void initState() {
     super.initState();
     _liked = widget.initialLiked;
-    _future = widget.repository.fetchUpdate(widget.updateId);
+    _future = widget.initialDetail != null
+        ? Future.value(widget.initialDetail!)
+        : widget.repository.fetchUpdate(widget.updateId);
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),

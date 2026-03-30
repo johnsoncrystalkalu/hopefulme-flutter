@@ -119,35 +119,140 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= _items.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    itemCount: _items.length + 1 + (_isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // Hero section at index 0
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: _HeroBanner(totalCount: _items.length),
+                        );
+                      }
 
-                  final item = _items[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _InspirationInboxTile(
-                      item: item,
-                      onTap: () => openInspirationDetail(
-                        context,
-                        contentRepository: widget.repository,
-                        inspirationId: item.id,
-                      ),
-                    ),
-                  );
-                },
+                      // Loading indicator at the end
+                      if (index > _items.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      // Items list
+                      final item = _items[index - 1];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InspirationInboxTile(
+                          item: item,
+                          onTap: () => openInspirationDetail(
+                            context,
+                            contentRepository: widget.repository,
+                            inspirationId: item.id,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
     );
   }
+}
+
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner({required this.totalCount});
+
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.brand.withValues(alpha: 0.95),
+            colors.brand.withValues(alpha: 0.85),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        children: [
+          // Dotted pattern overlay
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _DottedPatternPainter(
+                dotColor: Colors.white.withValues(alpha: 0.07),
+              ),
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  '💙',
+                  style: TextStyle(fontSize: 48),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Your Inspirations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$totalCount inspiration${totalCount != 1 ? 's' : ''} received so far 🌟',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DottedPatternPainter extends CustomPainter {
+  _DottedPatternPainter({required this.dotColor});
+
+  final Color dotColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = dotColor;
+    const dotSpacing = 28.0;
+    const dotRadius = 1.0;
+
+    for (double x = 0; x < size.width; x += dotSpacing) {
+      for (double y = 0; y < size.height; y += dotSpacing) {
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DottedPatternPainter oldDelegate) => false;
 }
 
 class _InspirationInboxTile extends StatelessWidget {

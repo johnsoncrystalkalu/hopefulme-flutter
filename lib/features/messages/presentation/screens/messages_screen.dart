@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -197,7 +198,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
             IconButton(
               tooltip: 'Groups',
               onPressed: _openGroups,
-              icon: const Icon(Icons.groups_outlined),
+              icon: const HeroIcon(HeroIcons.users),
             ),
         ],
       ),
@@ -252,7 +253,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                               )
                                             : null,
                                         child: item.otherUser.photoUrl.isEmpty
-                                            ? const Icon(Icons.person)
+                                            ? const HeroIcon(HeroIcons.user)
                                             : null,
                                       ),
                                       const Positioned(
@@ -350,7 +351,7 @@ class _ConversationTile extends StatelessWidget {
                           ? NetworkImage(item.otherUser.photoUrl)
                           : null,
                       child: item.otherUser.photoUrl.isEmpty
-                          ? const Icon(Icons.person)
+                          ? const HeroIcon(HeroIcons.user)
                           : null,
                     ),
                   ),
@@ -419,7 +420,7 @@ class _ConversationTile extends StatelessWidget {
                     Text(
                       item.otherUser.isOnline
                           ? 'Online now'
-                          : '@${item.otherUser.username}',
+                          : '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

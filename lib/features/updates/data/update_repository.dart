@@ -33,14 +33,18 @@ class UpdateRepository {
             ],
           );
 
-    final updateJson = (response['update'] as Map<String, dynamic>?) ??
+    final updateJson =
+        (response['update'] as Map<String, dynamic>?) ??
         (response['data'] is Map<String, dynamic>
-            ? (response['data'] as Map<String, dynamic>)['update'] as Map<String, dynamic>?
+            ? (response['data'] as Map<String, dynamic>)['update']
+                  as Map<String, dynamic>?
             : null) ??
         (response['data'] as Map<String, dynamic>?) ??
         response;
 
-    return UpdateDetail.fromJson(updateJson as Map<String, dynamic>? ?? <String, dynamic>{});
+    return UpdateDetail.fromJson(
+      updateJson as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
   }
 
   Future<LikeResult> toggleLike(int id) async {

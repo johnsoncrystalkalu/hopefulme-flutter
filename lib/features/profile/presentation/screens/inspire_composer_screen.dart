@@ -99,18 +99,101 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
         title: Text('Inspire ${widget.profile.displayName}'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
+          // Hero Section
           Container(
-            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  colors.brand.withValues(alpha: 0.95),
+                  colors.brand.withValues(alpha: 0.85),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Stack(
+              children: [
+                // Dotted pattern overlay
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _DottedPatternPainter(
+                      dotColor: Colors.white.withValues(alpha: 0.06),
+                      dotSpacing: 20,
+                    ),
+                  ),
+                ),
+                // Decorative glow
+                Positioned(
+                  top: 0,
+                  right: -60,
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          colors.brand.withValues(alpha: 0.2),
+                          colors.brand.withValues(alpha: 0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 40,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '💙',
+                        style: TextStyle(fontSize: 48),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'A Gift of Hope',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Send some encouragement to ${widget.profile.displayName}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Main Form Card
+          Container(
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: colors.border),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: colors.borderStrong),
             ),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Title
                 Text(
                   'Send encouragement',
                   style: TextStyle(
@@ -122,79 +205,152 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Write something kind, honest, and uplifting.',
-                  style: TextStyle(color: colors.textMuted, fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _controller,
-                  minLines: 6,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    hintText: 'Write your inspiration here...',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+                // Text Input
+                Container(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    minLines: 8,
+                    maxLines: 10,
+                    decoration: InputDecoration(
+                      hintText: 'Write your inspiration here...',
+                      hintStyle: TextStyle(color: colors.textMuted),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Presets Section
                 Text(
-                  'Presets',
+                  'Quick picks',
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 if (_isLoadingPresets)
-                  const CircularProgressIndicator()
+                  SizedBox(
+                    height: 40,
+                    child: Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.brand,
+                        ),
+                      ),
+                    ),
+                  )
                 else
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 12,
+                    runSpacing: 12,
                     children: _presets
                         .map(
-                          (preset) => ChoiceChip(
+                          (preset) => FilterChip(
                             label: Text(preset),
                             selected: _selectedPreset == preset,
                             onSelected: (_) {
                               setState(() {
-                                _selectedPreset = _selectedPreset == preset
-                                    ? null
-                                    : preset;
+                                _selectedPreset =
+                                    _selectedPreset == preset ? null : preset;
                               });
                             },
+                            backgroundColor: colors.surfaceMuted,
+                            selectedColor: colors.brand.withValues(
+                              alpha: 0.2,
+                            ),
+                            side: BorderSide(
+                              color: _selectedPreset == preset
+                                  ? colors.brand
+                                  : colors.border,
+                            ),
+                            labelStyle: TextStyle(
+                              color: _selectedPreset == preset
+                                  ? colors.brand
+                                  : colors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                           ),
                         )
                         .toList(),
                   ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _isAnonymous,
-                  onChanged: (value) {
-                    setState(() {
-                      _isAnonymous = value;
-                    });
-                  },
-                  title: const Text('Send anonymously'),
+                const SizedBox(height: 24),
+                // Options Section
+                Container(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      _OptionSwitch(
+                        icon: Icons.visibility_off_outlined,
+                        title: 'Send anonymously',
+                        subtitle: 'Your name won\'t be shown',
+                        value: _isAnonymous,
+                        onChanged: (value) {
+                          setState(() {
+                            _isAnonymous = value;
+                          });
+                        },
+                      ),
+                      Divider(
+                        height: 1,
+                        color: colors.border,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      _OptionSwitch(
+                        icon: Icons.public,
+                        title: 'Make public on profile',
+                        subtitle: 'Others can see this message',
+                        value: _isPublic,
+                        onChanged: (value) {
+                          setState(() {
+                            _isPublic = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _isPublic,
-                  onChanged: (value) {
-                    setState(() {
-                      _isPublic = value;
-                    });
-                  },
-                  title: const Text('Make public on profile'),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
+                // Send Button
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _isSending ? null : _send,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                     child: _isSending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: Colors.white,
@@ -210,4 +366,93 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
       ),
     );
   }
+}
+
+class _OptionSwitch extends StatelessWidget {
+  const _OptionSwitch({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: colors.textMuted,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: colors.brand,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DottedPatternPainter extends CustomPainter {
+  _DottedPatternPainter({
+    required this.dotColor,
+    this.dotSpacing = 28.0,
+  });
+
+  final Color dotColor;
+  final double dotSpacing;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = dotColor;
+    const dotRadius = 1.0;
+
+    for (double x = 0; x < size.width; x += dotSpacing) {
+      for (double y = 0; y < size.height; y += dotSpacing) {
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DottedPatternPainter oldDelegate) => false;
 }

@@ -267,51 +267,72 @@ class _AppLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Scaffold(
-      body: Center(
-        child: Container(
-          width: 220,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: colors.border),
-            boxShadow: [
-              BoxShadow(
-                color: colors.shadow,
-                blurRadius: 24,
-                offset: Offset(0, 8),
-              ),
-            ],
+  final colors = context.appColors;
+  
+  return Scaffold(
+    backgroundColor: colors.surface, // Clean background
+    body: Center(
+      child: Container(
+        width: 240, // Slightly wider for better text breathing room
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.8), // Slight transparency
+          borderRadius: BorderRadius.circular(32), // More rounded "Apple" corners
+          border: Border.all(
+            color: colors.border.withValues(alpha: 0.5), 
+            width: 0.5, // Ultra-thin border for a refined look
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppConfig.appName,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.08),
+              blurRadius: 40,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // App Name with Apple-style tight tracking
+            Text(
+              AppConfig.appName,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.2, // The "Secret Sauce" for high-end UI
               ),
-              SizedBox(height: 16),
-              CircularProgressIndicator(strokeWidth: 3),
-              SizedBox(height: 14),
-              Text(
-                'Loading your space...',
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            // HeroIcon as a custom loader
+            const SizedBox(
+              height: 28,
+              width: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)), // Your brand blue
+                backgroundColor: Colors.transparent,
               ),
-            ],
-          ),
+            ),
+            
+            const SizedBox(height: 28),
+            
+            // Refined subtext
+            Text(
+              'Loading your space...',
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
