@@ -555,13 +555,16 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 maxHeight:
                                     MediaQuery.of(context).size.height * 0.58,
                               ),
-                              child: AppNetworkImage(
-                                imageUrl: detail.originalPhotoUrl.isNotEmpty
-                                    ? detail.originalPhotoUrl
-                                    : detail.photoUrl,
-                                fit: BoxFit.cover,
-                                backgroundColor: colors.surfaceMuted,
-                                placeholderLabel: detail.user.displayName,
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: AppNetworkImage(
+                                  imageUrl: detail.originalPhotoUrl.isNotEmpty
+                                      ? detail.originalPhotoUrl
+                                      : detail.photoUrl,
+                                  fit: BoxFit.cover,
+                                  backgroundColor: colors.surfaceMuted,
+                                  placeholderLabel: detail.user.displayName,
+                                ),
                               ),
                             ),
                           ),

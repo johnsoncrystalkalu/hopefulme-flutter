@@ -345,6 +345,17 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
   }
 
+  Future<void> _handleLinkTap(String url) async {
+    String processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final uri = Uri.tryParse(processedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+  }
+
   String _postMetaLine(ContentDetail detail) {
     final parts = <String>[
       if (detail.tag.trim().isNotEmpty) detail.tag.trim(),
@@ -370,10 +381,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         borderRadius: borderRadius,
         child: SizedBox(
           width: double.infinity,
-          height: 260,
           child: AppNetworkImage(
             imageUrl: resolvedImageUrl,
-            fit: BoxFit.cover,
+            fit: BoxFit.fitWidth,
             backgroundColor: context.appColors.surfaceMuted,
             placeholderLabel: widget.kind == 'blog'
                 ? 'Article image'
@@ -701,6 +711,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     username: username,
                                   ),
                                   onHashtagTap: _openSearchQuery,
+                                  onLinkTap: _handleLinkTap,
                                 ),
                               ],
                               if (detail.secondaryPhotoUrl.isNotEmpty) ...[
@@ -819,6 +830,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 onHashtagTap: _openSearchQuery,
                                 onReplyTap: () =>
                                     _replyToComment(detail, comment),
+                                onLinkTap: _handleLinkTap,
                               ),
                             ),
                           ),
@@ -848,9 +860,6 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
   WebViewController? _controller;
   String? _resolvedUrl;
   int _progress = 0;
-  bool _hasError = false;
-
-  // Reverted: Do not auto-convert embed URLs. Open embedded or normal URLs as-is.
 
   @override
   void initState() {
@@ -871,14 +880,6 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               }
               setState(() {
                 _progress = progress;
-              });
-            },
-            onWebResourceError: (error) {
-              if (!mounted) {
-                return;
-              }
-              setState(() {
-                _hasError = true;
               });
             },
           ),
@@ -906,8 +907,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     final host = uri.host.toLowerCase();
     if (host.contains('youtu.be')) {
       videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
-    } else if (host.contains('youtube.com') ||
-        host.contains('youtube-nocookie.com')) {
+    } else if (host.contains('youtube.com') || host.contains('youtube-nocookie.com')) {
       videoId = uri.queryParameters['v'];
 
       if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
@@ -993,11 +993,8 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.play_circle_outline_rounded,
-                    size: 44,
-                    color: colors.icon,
-                  ),
+                  Icon(Icons.play_circle_outline_rounded,
+                      size: 44, color: colors.icon),
                   const SizedBox(height: 8),
                   Text(
                     'Video unavailable in preview',
@@ -1045,6 +1042,7 @@ class _ContentCommentTile extends StatelessWidget {
     required this.onMentionTap,
     required this.onHashtagTap,
     required this.onReplyTap,
+    required this.onLinkTap,
   });
 
   final ContentComment comment;
@@ -1052,6 +1050,7 @@ class _ContentCommentTile extends StatelessWidget {
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
   final VoidCallback onReplyTap;
+  final Future<void> Function(String url) onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1106,6 +1105,7 @@ class _ContentCommentTile extends StatelessWidget {
                   ),
                   onMentionTap: onMentionTap,
                   onHashtagTap: onHashtagTap,
+                  onLinkTap: onLinkTap,
                 ),
                 const SizedBox(height: 10),
                 InkWell(
@@ -1129,6 +1129,7 @@ class _ContentCommentTile extends StatelessWidget {
                         reply: reply,
                         onMentionTap: onMentionTap,
                         onHashtagTap: onHashtagTap,
+                        onLinkTap: onLinkTap,
                       ),
                     ),
                   ),
@@ -1147,11 +1148,13 @@ class _ContentReplyTile extends StatelessWidget {
     required this.reply,
     required this.onMentionTap,
     required this.onHashtagTap,
+    required this.onLinkTap,
   });
 
   final ContentCommentReply reply;
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1185,6 +1188,7 @@ class _ContentReplyTile extends StatelessWidget {
             ),
             onMentionTap: onMentionTap,
             onHashtagTap: onHashtagTap,
+            onLinkTap: onLinkTap,
           ),
         ],
       ),

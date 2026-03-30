@@ -7,10 +7,12 @@ class RichDisplayText extends StatefulWidget {
     required this.style,
     this.mentionStyle,
     this.hashtagStyle,
+    this.linkStyle,
     this.maxLines,
     this.overflow = TextOverflow.clip,
     this.onMentionTap,
     this.onHashtagTap,
+    this.onLinkTap,
     super.key,
   });
 
@@ -18,24 +20,22 @@ class RichDisplayText extends StatefulWidget {
   final TextStyle style;
   final TextStyle? mentionStyle;
   final TextStyle? hashtagStyle;
+  final TextStyle? linkStyle;
   final int? maxLines;
   final TextOverflow overflow;
   final Future<void> Function(String username)? onMentionTap;
   final Future<void> Function(String hashtag)? onHashtagTap;
+  final Future<void> Function(String url)? onLinkTap;
 
   @override
   State<RichDisplayText> createState() => _RichDisplayTextState();
 }
 
 class _RichDisplayTextState extends State<RichDisplayText> {
-  static final RegExp _pattern = RegExp(r'(@[A-Za-z0-9_]+|#[A-Za-z0-9_]+)');
+  static final RegExp _pattern = RegExp(r'(@[A-Za-z0-9_]+|#[A-Za-z0-9_]+|(?:https?|ftp):\/\/[^\s/$.?#].[^\s]*)');
   final List<TapGestureRecognizer> _recognizers = <TapGestureRecognizer>[];
-
-  @override
-  void didUpdateWidget(covariant RichDisplayText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _disposeRecognizers();
-  }
+  List<InlineSpan>? _cachedSpans;
+  String? _lastProcessedText;
 
   @override
   void dispose() {
@@ -45,12 +45,24 @@ class _RichDisplayTextState extends State<RichDisplayText> {
 
   @override
   Widget build(BuildContext context) {
-    _disposeRecognizers();
-
     if (widget.text.trim().isEmpty) {
       return const SizedBox.shrink();
     }
 
+    if (_lastProcessedText != widget.text) {
+      _disposeRecognizers();
+      _lastProcessedText = widget.text;
+      _cachedSpans = _buildSpans(context);
+    }
+
+    return Text.rich(
+      TextSpan(children: _cachedSpans ?? [], style: widget.style),
+      maxLines: widget.maxLines,
+      overflow: widget.overflow,
+    );
+  }
+
+  List<InlineSpan> _buildSpans(BuildContext context) {
     final spans = <InlineSpan>[];
     var start = 0;
 
@@ -66,14 +78,25 @@ class _RichDisplayTextState extends State<RichDisplayText> {
 
       final token = match.group(0)!;
       final isMention = token.startsWith('@');
-      final value = token.substring(1);
-      final onTap = isMention ? widget.onMentionTap : widget.onHashtagTap;
-      final tokenStyle = isMention
-          ? widget.mentionStyle ?? _defaultInteractiveStyle(context)
-          : widget.hashtagStyle ?? _defaultInteractiveStyle(context);
+      final isHashtag = token.startsWith('#');
+      final isUrl = !isMention && !isHashtag;
+
+      final value = isUrl ? token : token.substring(1);
+      
+      final Function(String)? onTap = isUrl 
+          ? widget.onLinkTap 
+          : (isMention ? widget.onMentionTap : widget.onHashtagTap);
+
+      final tokenStyle = isUrl
+          ? widget.linkStyle ?? _defaultInteractiveStyle(context)
+          : (isMention
+              ? widget.mentionStyle ?? _defaultInteractiveStyle(context)
+              : widget.hashtagStyle ?? _defaultInteractiveStyle(context));
 
       if (onTap != null) {
-        final recognizer = TapGestureRecognizer()..onTap = () => onTap(value);
+        final recognizer = TapGestureRecognizer()..onTap = () {
+          onTap(value);
+        };
         _recognizers.add(recognizer);
         spans.add(
           TextSpan(text: token, style: tokenStyle, recognizer: recognizer),
@@ -91,11 +114,7 @@ class _RichDisplayTextState extends State<RichDisplayText> {
       );
     }
 
-    return RichText(
-      text: TextSpan(children: spans),
-      maxLines: widget.maxLines,
-      overflow: widget.overflow,
-    );
+    return spans;
   }
 
   TextStyle _defaultInteractiveStyle(BuildContext context) {

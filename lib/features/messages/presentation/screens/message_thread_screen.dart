@@ -3,12 +3,14 @@ import 'dart:typed_data';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -16,6 +18,7 @@ import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart'
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MessageThreadScreen extends StatefulWidget {
   const MessageThreadScreen({
@@ -45,6 +48,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   ConversationListItem? _conversation;
   List<ChatMessage> _messages = <ChatMessage>[];
+  ChatMessage? _replyingTo;
   Timer? _pollTimer;
   bool _isLoading = true;
   bool _isSending = false;
@@ -139,6 +143,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       _selectedPhoto = null;
       _selectedPhotoBytes = null;
       _showEmojiPicker = false;
+      _replyingTo = null;
     });
     _controller.clear();
     _scrollToBottomAnimated();
@@ -290,6 +295,33 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     }
   }
 
+  Future<void> _deleteMessage(ChatMessage message) async {
+    try {
+      await widget.repository.deleteMessage(message.id);
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages.where((m) => m.id != message.id).toList();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(
+        context,
+        error.toString().replaceAll('Exception:', '').trim(),
+      );
+    }
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    String processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final uri = Uri.tryParse(processedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -420,90 +452,176 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                               const SizedBox(width: 8),
                             ],
                             Flexible(
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 300,
-                                ),
-                                margin: EdgeInsets.only(
-                                  left: isMine ? 48 : 0,
-                                  right: isMine ? 0 : 24,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isMine ? colors.brand : colors.surface,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: isMine
-                                      ? null
-                                      : Border.all(color: colors.border),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (item.photoUrl.isNotEmpty ||
-                                        item.localImageBytes != null) ...[
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: item.localImageBytes != null
-                                            ? Image.memory(
-                                                item.localImageBytes!,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : Image.network(
-                                                item.photoUrl,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) =>
-                                                        const SizedBox.shrink(),
-                                              ),
-                                      ),
-                                      if (item.message.isNotEmpty)
-                                        const SizedBox(height: 10),
-                                    ],
-                                    if (item.message.isNotEmpty)
-                                      Text(
-                                        item.message,
-                                        style: TextStyle(
-                                          color: isMine
-                                              ? Colors.white
-                                              : colors.textPrimary,
-                                          fontSize: 14,
-                                          height: 1.45,
+                              child: GestureDetector(
+                                onLongPressStart: (details) async {
+                                  HapticFeedback.mediumImpact();
+                                  final RenderBox overlay = Overlay.of(context)
+                                      .context
+                                      .findRenderObject() as RenderBox;
+                                  final value = await showMenu<String>(
+                                    context: context,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    position: RelativeRect.fromRect(
+                                      details.globalPosition &
+                                          const Size(40, 40),
+                                      Offset.zero & overlay.size,
+                                    ),
+                                    items: [
+                                      PopupMenuItem(
+                                        value: 'reply',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.reply_rounded,
+                                                size: 20, color: colors.brand),
+                                            const SizedBox(width: 12),
+                                            const Text('Reply'),
+                                          ],
                                         ),
                                       ),
-                                    SizedBox(
-                                      height: item.message.isNotEmpty ? 8 : 2,
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          formatRelativeTimestamp(
-                                            item.createdAt,
+                                      PopupMenuItem(
+                                        value: 'copy',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.content_copy_rounded,
+                                                size: 20,
+                                                color: colors.textSecondary),
+                                            const SizedBox(width: 12),
+                                            const Text('Copy Text'),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isMine)
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.delete_outline_rounded,
+                                                size: 20,
+                                                color: colors.dangerText,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                'Delete',
+                                                style: TextStyle(color: colors.dangerText),
+                                              ),
+                                            ],
                                           ),
+                                        ),
+                                    ],
+                                  );
+
+                                  if (value == 'reply') {
+                                    setState(() {
+                                      _replyingTo = item;
+                                    });
+                                  } else if (value == 'copy') {
+                                    await Clipboard.setData(
+                                      ClipboardData(text: item.message),
+                                    );
+                                    if (mounted) {
+                                      AppToast.info(context, 'Text copied');
+                                    }
+                                  } else if (value == 'delete') {
+                                    await _deleteMessage(item);
+                                  }
+                                },
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 300,
+                                  ),
+                                  margin: EdgeInsets.only(
+                                    left: isMine ? 48 : 0,
+                                    right: isMine ? 0 : 24,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMine ? colors.brand : colors.surface,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: isMine
+                                        ? null
+                                        : Border.all(color: colors.border),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (item.photoUrl.isNotEmpty ||
+                                          item.localImageBytes != null) ...[
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: item.localImageBytes != null
+                                              ? Image.memory(
+                                                  item.localImageBytes!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Image.network(
+                                                  item.photoUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) =>
+                                                          const SizedBox.shrink(),
+                                                ),
+                                        ),
+                                        if (item.message.isNotEmpty)
+                                          const SizedBox(height: 10),
+                                      ],
+                                      if (item.message.isNotEmpty)
+                                        RichDisplayText(
+                                          text: item.message,
                                           style: TextStyle(
                                             color: isMine
-                                                ? Colors.white70
-                                                : colors.textMuted,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
+                                                ? Colors.white
+                                                : colors.textPrimary,
+                                            fontSize: 14,
+                                            height: 1.45,
                                           ),
+                                          onMentionTap: (username) => openUserProfile(
+                                            context,
+                                            profileRepository: widget.profileRepository,
+                                            messageRepository: widget.repository,
+                                            updateRepository: widget.updateRepository,
+                                            currentUser: widget.currentUser,
+                                            username: username,
+                                          ),
+                                          onLinkTap: _handleLinkTap,
                                         ),
-                                        if (isMine) ...[
-                                          const SizedBox(width: 6),
-                                          _MessageDeliveryStatus(
-                                            status: item.status,
+                                      SizedBox(
+                                        height: item.message.isNotEmpty ? 8 : 2,
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            formatRelativeTimestamp(
+                                              item.createdAt,
+                                            ),
+                                            style: TextStyle(
+                                              color: isMine
+                                                  ? Colors.white70
+                                                  : colors.textMuted,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
+                                          if (isMine) ...[
+                                            const SizedBox(width: 6),
+                                            _MessageDeliveryStatus(
+                                              status: item.status,
+                                            ),
+                                          ],
                                         ],
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -513,6 +631,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                     },
                   ),
           ),
+          if (_replyingTo != null)
+            _ReplyPreview(
+              message: _replyingTo!,
+              onClear: () => setState(() => _replyingTo = null),
+            ),
           SafeArea(
             top: false,
             child: Container(
@@ -569,7 +692,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                       ),
                     ),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton(
                         onPressed: _toggleEmojiPicker,
@@ -645,6 +768,56 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplyPreview extends StatelessWidget {
+  const _ReplyPreview({required this.message, required this.onClear});
+
+  final ChatMessage message;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
+        border: Border(
+          top: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Replying to ${message.sender?.displayName ?? 'User'}',
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(onPressed: onClear, icon: const Icon(Icons.close)),
         ],
       ),
     );

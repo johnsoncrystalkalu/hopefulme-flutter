@@ -3,12 +3,14 @@ import 'dart:typed_data';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
@@ -17,6 +19,7 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class GroupThreadScreen extends StatefulWidget {
   const GroupThreadScreen({
@@ -442,6 +445,17 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     );
   }
 
+  Future<void> _handleLinkTap(String url) async {
+    String processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final uri = Uri.tryParse(processedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+  }
+
   Future<void> _showGroupInfo() async {
     final group = _group;
     if (group == null) {
@@ -703,6 +717,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                 });
                               },
                               onDelete: () => _deleteMessage(message),
+                              onLinkTap: _handleLinkTap,
                             );
                           },
                         ),
@@ -996,6 +1011,7 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.onProfileTap,
     required this.onReply,
     required this.onDelete,
+    required this.onLinkTap,
   });
 
   final GroupMessage message;
@@ -1004,6 +1020,7 @@ class _GroupMessageBubble extends StatelessWidget {
   final VoidCallback? onProfileTap;
   final VoidCallback onReply;
   final VoidCallback onDelete;
+  final Future<void> Function(String url) onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1055,24 +1072,53 @@ class _GroupMessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-                PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  onSelected: (value) {
-                    if (value == 'reply') {
-                      onReply();
-                    }
-                    if (value == 'delete') {
-                      onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'reply', child: Text('Reply')),
-                    if (canDelete)
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
+                GestureDetector(
+                  onLongPressStart: (details) async {
+                    HapticFeedback.mediumImpact();
+                    final RenderBox overlay = Overlay.of(context)
+                        .context
+                        .findRenderObject() as RenderBox;
+                    final value = await showMenu<String>(
+                      context: context,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                  ],
+                      position: RelativeRect.fromRect(
+                        details.globalPosition & const Size(40, 40),
+                        Offset.zero & overlay.size,
+                      ),
+                      items: [
+                        PopupMenuItem(
+                          value: 'reply',
+                          child: Row(
+                            children: [
+                              Icon(Icons.reply_rounded,
+                                  size: 20, color: colors.brand),
+                              const SizedBox(width: 12),
+                              const Text('Reply'),
+                            ],
+                          ),
+                        ),
+                        if (canDelete)
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline_rounded,
+                                    size: 20, color: colors.dangerText),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: colors.dangerText),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                    if (value == 'reply') onReply();
+                    if (value == 'delete') onDelete();
+                  },
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 320),
                     padding: const EdgeInsets.symmetric(
@@ -1152,13 +1198,17 @@ class _GroupMessageBubble extends StatelessWidget {
                             ),
                           ),
                         if (message.message.isNotEmpty)
-                          Text(
-                            message.message,
+                          RichDisplayText(
+                            text: message.message,
                             style: TextStyle(
                               color: isMine ? Colors.white : colors.textPrimary,
                               fontSize: 14,
                               height: 1.45,
                             ),
+                            onMentionTap: (username) async {
+                              onProfileTap?.call();
+                            },
+                            onLinkTap: onLinkTap,
                           ),
                         const SizedBox(height: 6),
                         Row(

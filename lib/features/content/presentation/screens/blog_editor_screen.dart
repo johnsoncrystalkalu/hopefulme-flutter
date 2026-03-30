@@ -155,7 +155,7 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
     return Scaffold(
       backgroundColor: colors.scaffold,
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Article' : 'Create Article'),
+        title: Text(widget.isEditing ? 'Edit Article' : 'Write Article'),
       ),
       body: SafeArea(
         child: Form(

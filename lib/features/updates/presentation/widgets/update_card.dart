@@ -51,6 +51,7 @@ class ReusableUpdateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final String imageUrl = data.photoUrl;
 
     final header = Row(
       children: [
@@ -183,11 +184,10 @@ class ReusableUpdateCard extends StatelessWidget {
                     InkWell(
                       onTap: onImageTap,
                       child: ClipRect(
-                        child: SizedBox(
-                          height: 240,
-                          width: double.infinity,
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
                           child: AppNetworkImage(
-                            imageUrl: data.photoUrl,
+                            imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             backgroundColor: colors.surfaceMuted,
                             placeholderLabel: data.fallbackLabel,

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
-import 'package:flutter/cupertino.dart';
+//import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -48,6 +48,7 @@ import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_s
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -282,6 +283,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     await _refreshTopbarData(silent: true);
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    String processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') &&
+        !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final uri = Uri.tryParse(processedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   Future<void> _openUserProfile(String username) async {
@@ -858,12 +871,18 @@ class _HomeScreenState extends State<HomeScreen> {
           destinations: [
             const NavigationDestination(
               icon: HeroIcon(HeroIcons.home),
-              selectedIcon: HeroIcon(HeroIcons.home, style: HeroIconStyle.solid),
+              selectedIcon: HeroIcon(
+                HeroIcons.home,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Home',
             ),
             const NavigationDestination(
               icon: HeroIcon(HeroIcons.magnifyingGlass),
-              selectedIcon: HeroIcon(HeroIcons.magnifyingGlass, style: HeroIconStyle.solid),
+              selectedIcon: HeroIcon(
+                HeroIcons.magnifyingGlass,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Search',
             ),
             NavigationDestination(
@@ -884,12 +903,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const NavigationDestination(
               icon: HeroIcon(HeroIcons.users),
-              selectedIcon: HeroIcon(HeroIcons.users, style: HeroIconStyle.solid),
+              selectedIcon: HeroIcon(
+                HeroIcons.users,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Groups',
             ),
             const NavigationDestination(
               icon: HeroIcon(HeroIcons.user),
-              selectedIcon: HeroIcon(HeroIcons.user, style: HeroIconStyle.solid),
+              selectedIcon: HeroIcon(
+                HeroIcons.user,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Profile',
             ),
           ],
@@ -941,29 +966,30 @@ class _HomeTopBar extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: colors.surface.withOpacity(0.96),
           border: Border(bottom: BorderSide(color: colors.borderStrong)),
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: onMenuTap == null
-                  ? const SizedBox.shrink()
-                  : IconButton(
-                      onPressed: onMenuTap,
-                      icon: const HeroIcon(HeroIcons.bars3, size: 22),
-                      style: IconButton.styleFrom(
-                        backgroundColor: colors.surfaceMuted.withValues(
-                          alpha: 0.72,
-                        ),
-                        side: BorderSide(color: colors.border),
-                      ),
-                    ),
+            if (onMenuTap != null) ...[
+              IconButton(
+                onPressed: onMenuTap,
+                icon: const HeroIcon(HeroIcons.bars3, size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Text(
+              AppConfig.appName,
+              style: TextStyle(
+                color: colors.brand,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.1,
+              ),
             ),
             const Spacer(),
             _MessagesDropdownButton(
@@ -972,7 +998,7 @@ class _HomeTopBar extends StatelessWidget {
               onConversationTap: onConversationTap,
               onViewAllTap: onMessageCenterTap,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 16),
             _NotificationsDropdownButton(
               notifications: latestNotifications,
               unreadCount: unreadNotifications,
@@ -980,7 +1006,7 @@ class _HomeTopBar extends StatelessWidget {
               onViewAllTap: onNotificationCenterTap,
               onMarkAllReadTap: onNotificationsMarkAllRead,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'profile') {
@@ -1014,13 +1040,13 @@ class _HomeTopBar extends StatelessWidget {
                   value: 'theme_state',
                   child: Text(themeController.themeLabel(brightness)),
                 ),
-                const PopupMenuItem(value: 'home', child: Text('Go Home')),
+                // const PopupMenuItem(value: 'home', child: Text('Go Home')),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
               child: AppAvatar(
                 imageUrl: user?.photoUrl ?? '',
                 label: user?.displayName ?? 'User',
-                radius: 18,
+                radius: 16,
               ),
             ),
           ],
@@ -1154,7 +1180,7 @@ class _MessagesDropdownButton extends StatelessWidget {
         ),
       ],
       child: _BadgeTopBarIcon(
-        icon: const HeroIcon(HeroIcons.chatBubbleLeftRight),
+        icon: const HeroIcon(HeroIcons.chatBubbleLeft),
         count: unreadCount,
       ),
     );
@@ -1169,46 +1195,14 @@ class _BadgeTopBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        SizedBox(
-          width: 46,
-          height: 46,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  isDark ? colors.surfaceRaised : colors.surface,
-                  isDark
-                      ? colors.surfaceMuted.withValues(alpha: 0.96)
-                      : colors.accentSoft.withValues(alpha: 0.26),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.all(Radius.circular(14)),
-              border: Border.fromBorderSide(
-                BorderSide(color: colors.borderStrong),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.045),
-                  blurRadius: 14,
-                  offset: const Offset(0, 8),
-                  spreadRadius: -10,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned.fill(child: icon),
+        SizedBox(width: 28, height: 28, child: icon),
         if (count > 0)
           Positioned(
-            top: -4,
-            right: -4,
+            top: -2,
+            right: -2,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
@@ -1596,13 +1590,11 @@ class _HomeSidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
             child: Row(
               children: [
-                Text(
-                  'HopefulMe',
-                  style: TextStyle(
-                    color: colors.sidebarText,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1,
+                SizedBox(
+                  height: 40,
+                  child: Image.asset(
+                    'assets/images/logo-banner-light.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ],
@@ -1622,7 +1614,11 @@ class _HomeSidebar extends StatelessWidget {
                 child: Row(
                   children: [
                     SizedBox(width: 14),
-                    Icon(Icons.search, size: 18, color: colors.sidebarMuted),
+                    HeroIcon(
+                      HeroIcons.magnifyingGlass,
+                      size: 18,
+                      color: colors.sidebarMuted,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Search...',
@@ -1645,31 +1641,31 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Community',
                     items: [
                       _SidebarItemData(
-                        Icons.home_outlined,
+                        HeroIcons.home,
                         'Home',
                         true,
                         onTap: onHomeTap,
                       ),
                       _SidebarItemData(
-                        Icons.article_outlined,
+                        HeroIcons.newspaper,
                         'Post & News',
                         false,
                         onTap: onPostsTap,
                       ),
                       _SidebarItemData(
-                        Icons.local_activity_outlined,
+                        HeroIcons.bolt,
                         'Activities',
                         false,
                         onTap: onActivitiesTap,
                       ),
                       _SidebarItemData(
-                        Icons.groups_outlined,
+                        HeroIcons.chatBubbleLeftRight,
                         'Group Chats',
                         false,
                         onTap: onGroupsTap,
                       ),
                       _SidebarItemData(
-                        Icons.people_outline,
+                        HeroIcons.userPlus,
                         'Meet New Friends',
                         false,
                         onTap: onMeetNewFriendsTap,
@@ -1680,13 +1676,13 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Content',
                     items: [
                       _SidebarItemData(
-                        Icons.edit_note_outlined,
+                        HeroIcons.pencilSquare,
                         'Blog & Articles',
                         false,
                         onTap: onBlogsTap,
                       ),
                       _SidebarItemData(
-                        Icons.auto_awesome_outlined,
+                        HeroIcons.sparkles,
                         'Inspirations',
                         false,
                         onTap: onInspirationsTap,
@@ -1697,7 +1693,7 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Resources',
                     items: [
                       _SidebarItemData(
-                        Icons.local_library_outlined,
+                        HeroIcons.bookOpen,
                         'Library',
                         false,
                         onTap: onLibraryTap,
@@ -1708,19 +1704,19 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Web',
                     items: [
                       _SidebarItemData(
-                        Icons.storefront_outlined,
+                        HeroIcons.shoppingBag,
                         'Marketplace',
                         false,
                         onTap: onStoreTap,
                       ),
                       _SidebarItemData(
-                        Icons.live_tv_outlined,
+                        HeroIcons.tv,
                         'HopefulMe TV',
                         false,
                         onTap: onTvTap,
                       ),
                       _SidebarItemData(
-                        Icons.volunteer_activism_outlined,
+                        HeroIcons.heart,
                         'Outreach',
                         false,
                         onTap: onOutreachTap,
@@ -1785,8 +1781,8 @@ class _HomeSidebar extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.logout,
+                          child: HeroIcon(
+                            HeroIcons.arrowRightOnRectangle,
                             color: colors.sidebarMuted,
                             size: 18,
                           ),
@@ -1839,7 +1835,7 @@ class _SidebarSection extends StatelessWidget {
 class _SidebarItemData {
   const _SidebarItemData(this.icon, this.label, this.active, {this.onTap});
 
-  final IconData icon;
+  final HeroIcons icon;
   final String label;
   final bool active;
   final Future<void> Function()? onTap;
@@ -1870,8 +1866,9 @@ class _SidebarItem extends StatelessWidget {
           child: ListTile(
             dense: true,
             visualDensity: const VisualDensity(vertical: -2),
-            leading: Icon(
+            leading: HeroIcon(
               item.icon,
+              style: item.active ? HeroIconStyle.solid : HeroIconStyle.outline,
               color: item.active ? Colors.white : const Color(0xFF94A3B8),
               size: 18,
             ),
@@ -1948,21 +1945,17 @@ class _HomeContent extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    // Group feed items by type to provide clear "View more" navigation for each section
+    final updates = data.feed.where((e) => e.type == 'update').toList();
+    final blogs = data.feed.where((e) => e.type == 'blog').toList();
+    final posts = data.feed
+        .where((e) => e.type != 'update' && e.type != 'blog')
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Text(
-            'HopefulMe.',
-            style: TextStyle(
-              color: context.appColors.textSecondary,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
+        Padding(padding: const EdgeInsets.only(bottom: 16)),
         _StoriesRow(
           users: data.onlineUsers,
           onUserTap: onOpenProfile,
@@ -2001,28 +1994,132 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
         Transform.translate(
-          offset: const Offset(0, -36),
+          offset: const Offset(0, -25),
           child: _QuoteGrid(
             quotes: data.trendingQuotes,
             onOpenQuote: onOpenPostById,
           ),
         ),
         const SizedBox(height: 16),
-        ...data.feed.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _FeedEntryCard(
-              entry: entry,
-              currentUser: user,
-              onOpenProfile: onOpenProfile,
-              onOpenUpdate: onOpenUpdate,
-              onOpenPost: onOpenPost,
-              onOpenBlog: onOpenBlog,
-              onOpenHashtag: onOpenHashtag,
-              updateRepository: updateRepository,
-            ),
-          ),
-        ),
+        // Group feeds by type and render per-section with a "View more" CTA
+        ...(() {
+          final updates = data.feed.where((e) => e.type == 'update').toList();
+          final blogs = data.feed.where((e) => e.type == 'blog').toList();
+          final postsBlock = data.feed
+              .where((e) => e.type != 'update' && e.type != 'blog')
+              .toList();
+
+          final widgets = <Widget>[];
+          if (updates.isNotEmpty) {
+            widgets.addAll(
+              updates.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _FeedExploreChip(
+                      icon: Icons.dynamic_feed_rounded,
+                      label: 'View more updates',
+                      onTap: onOpenUpdatesFeed,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (blogs.isNotEmpty) {
+            widgets.addAll(
+              blogs.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _FeedExploreChip(
+                      icon: Icons.auto_stories_outlined,
+                      label: 'View more blogs',
+                      onTap: onOpenBlogsFeed,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (postsBlock.isNotEmpty) {
+            widgets.addAll(
+              postsBlock.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: _FeedExploreChip(
+                  icon: Icons.article_outlined,
+                  label: 'View more posts',
+                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
+                ),
+              ),
+            );
+          }
+          return widgets;
+        }()),
         if (data.feed.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -2531,9 +2628,9 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             border: Border.all(color: colors.surface, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: colors.shadow.withOpacity(0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                                color: colors.shadow.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                             color: colors.surfaceMuted,
@@ -2893,6 +2990,7 @@ class _BlogFeedCard extends StatelessWidget {
                       ),
                       onMentionTap: onOpenProfile,
                       onHashtagTap: onOpenHashtag,
+                      // onLinkTap removed to avoid mismatch with InteractiveUpdateCard
                     ),
                   ],
                   const SizedBox(height: 14),
@@ -3388,9 +3486,9 @@ class _SurfaceCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+            color: colors.shadow.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
         ],
       ),

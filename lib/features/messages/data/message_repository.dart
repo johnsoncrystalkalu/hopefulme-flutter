@@ -81,4 +81,8 @@ class MessageRepository {
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
   }
+
+  Future<void> deleteMessage(int messageId) async {
+    await _authRepository.delete('messages/item/$messageId');
+  }
 }

@@ -152,10 +152,7 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        '💙',
-                        style: TextStyle(fontSize: 48),
-                      ),
+                      const Text('💙', style: TextStyle(fontSize: 48)),
                       const SizedBox(height: 16),
                       Text(
                         'A Gift of Hope',
@@ -205,10 +202,7 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Write something kind, honest, and uplifting.',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: colors.textMuted, fontSize: 13),
                 ),
                 const SizedBox(height: 20),
                 // Text Input
@@ -271,14 +265,23 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
                             selected: _selectedPreset == preset,
                             onSelected: (_) {
                               setState(() {
-                                _selectedPreset =
-                                    _selectedPreset == preset ? null : preset;
+                                // Toggle preset selection
+                                _selectedPreset = _selectedPreset == preset
+                                    ? null
+                                    : preset;
+                                // If a preset is selected and the text field is empty, auto-fill it
+                                if (_selectedPreset == preset &&
+                                    _controller.text.trim().isEmpty) {
+                                  _controller.text = preset;
+                                  _controller.selection =
+                                      TextSelection.fromPosition(
+                                        TextPosition(offset: preset.length),
+                                      );
+                                }
                               });
                             },
                             backgroundColor: colors.surfaceMuted,
-                            selectedColor: colors.brand.withValues(
-                              alpha: 0.2,
-                            ),
+                            selectedColor: colors.brand.withValues(alpha: 0.2),
                             side: BorderSide(
                               color: _selectedPreset == preset
                                   ? colors.brand
@@ -390,11 +393,7 @@ class _OptionSwitch extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: colors.textMuted,
-          ),
+          Icon(icon, size: 20, color: colors.textMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -421,11 +420,7 @@ class _OptionSwitch extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: colors.brand,
-          ),
+          Switch(value: value, onChanged: onChanged, activeColor: colors.brand),
         ],
       ),
     );
@@ -433,10 +428,7 @@ class _OptionSwitch extends StatelessWidget {
 }
 
 class _DottedPatternPainter extends CustomPainter {
-  _DottedPatternPainter({
-    required this.dotColor,
-    this.dotSpacing = 28.0,
-  });
+  _DottedPatternPainter({required this.dotColor, this.dotSpacing = 28.0});
 
   final Color dotColor;
   final double dotSpacing;
