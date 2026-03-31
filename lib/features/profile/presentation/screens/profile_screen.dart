@@ -516,7 +516,13 @@ class _ProfileHeaderCard extends StatelessWidget {
                 icon: Icons.location_on_outlined,
                 label: profile.locationLabel,
               ),
-            // Last seen info in header hidden (kept in About tab instead)
+            if (profile.lastSeen.isNotEmpty)
+              _MetaInline(
+                icon: Icons.schedule_outlined,
+                label: profile.device.trim().isNotEmpty
+                    ? 'Last seen ${profile.lastSeen} | on ${profile.device}'
+                    : 'Last seen ${profile.lastSeen}',
+              ),
           ],
         ),
       ],
@@ -657,38 +663,31 @@ class _ProfileTabs extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: context.appColors.borderStrong),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Expanded(
-            child: _TabButton(
-              label: 'Timeline',
-              selected: selectedTab == _ProfileTab.timeline,
-              onTap: () => onSelected(_ProfileTab.timeline),
-            ),
+          _TabButton(
+            label: 'Timeline',
+            selected: selectedTab == _ProfileTab.timeline,
+            onTap: () => onSelected(_ProfileTab.timeline),
           ),
-          Expanded(
-            child: _TabButton(
-              label: 'About',
-              selected: selectedTab == _ProfileTab.about,
-              onTap: () => onSelected(_ProfileTab.about),
-            ),
+          _TabButton(
+            label: 'About',
+            selected: selectedTab == _ProfileTab.about,
+            onTap: () => onSelected(_ProfileTab.about),
           ),
-          Expanded(
-            child: _TabButton(
-              label: 'Photos',
-              badge: '$photosCount',
-              selected: selectedTab == _ProfileTab.photos,
-              onTap: () => onSelected(_ProfileTab.photos),
-            ),
+          _TabButton(
+            label: 'Photos',
+            badge: '$photosCount',
+            selected: selectedTab == _ProfileTab.photos,
+            onTap: () => onSelected(_ProfileTab.photos),
           ),
-          Expanded(
-            child: _TabButton(
-              label: 'Articles',
-              badge: '$articleCount',
-              selected: selectedTab == _ProfileTab.articles,
-              onTap: () => onSelected(_ProfileTab.articles),
-            ),
+          _TabButton(
+            label: 'Articles',
+            badge: '$articleCount',
+            selected: selectedTab == _ProfileTab.articles,
+            onTap: () => onSelected(_ProfileTab.articles),
           ),
         ],
       ),
