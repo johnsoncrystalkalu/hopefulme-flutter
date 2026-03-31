@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:heroicons/heroicons.dart';
+//import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -40,11 +41,14 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/updates_feed_screen.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -279,6 +283,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     await _refreshTopbarData(silent: true);
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    String processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') &&
+        !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final uri = Uri.tryParse(processedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   Future<void> _openUserProfile(String username) async {
@@ -519,388 +535,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openCreateUpdate() async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final imagePicker = ImagePicker();
-
-    final created = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final colors = context.appColors;
-        bool submitting = false;
-        XFile? selectedPhoto;
-        Uint8List? selectedPhotoBytes;
-        bool showEmojiPicker = false;
-
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> pickPhoto() async {
-              final photo = await imagePicker.pickImage(
-                source: ImageSource.gallery,
-                imageQuality: kIsWeb ? null : 88,
-              );
-              if (photo == null || !context.mounted) {
-                return;
-              }
-              final bytes = await photo.readAsBytes();
-              setSheetState(() {
-                selectedPhoto = photo;
-                selectedPhotoBytes = bytes;
-              });
-            }
-
-            Future<void> submit() async {
-              final hasText = controller.text.trim().isNotEmpty;
-              final hasPhoto = selectedPhoto != null;
-              if ((!hasText && !hasPhoto) || submitting) {
-                formKey.currentState?.validate();
-                return;
-              }
-              var dismissed = false;
-              setSheetState(() {
-                submitting = true;
-              });
-              try {
-                await widget.updateRepository.createUpdate(
-                  status: controller.text.trim(),
-                  photo: selectedPhoto,
-                );
-                if (context.mounted) {
-                  dismissed = true;
-                  Navigator.of(context).pop(true);
-                }
-              } catch (error, stack) {
-                // Debug logs to help diagnose post/update issues during development
-                if (kDebugMode) {
-                  debugPrint('Post update failed: $error');
-                  if (stack != null) debugPrint('Stack: $stack');
-                }
-                // Revert to graceful user-facing error handling
-                if (context.mounted) {
-                  AppToast.error(context, _friendlyComposerError(error));
-                }
-              } finally {
-                if (context.mounted && !dismissed) {
-                  setSheetState(() {
-                    submitting = false;
-                  });
-                }
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: colors.borderStrong),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.shadow.withValues(alpha: 0.1),
-                        blurRadius: 26,
-                        offset: const Offset(0, 16),
-                        spreadRadius: -18,
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                colors.brand.withValues(alpha: 0.14),
-                                colors.accentSoft.withValues(alpha: 0.3),
-                                colors.surfaceMuted.withValues(alpha: 0.94),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: colors.brand.withValues(alpha: 0.12),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _Avatar(
-                                imageUrl:
-                                    widget
-                                        .authController
-                                        .currentUser
-                                        ?.photoUrl ??
-                                    '',
-                                label:
-                                    widget
-                                        .authController
-                                        .currentUser
-                                        ?.displayName ??
-                                    'You',
-                                radius: 22,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget
-                                              .authController
-                                              .currentUser
-                                              ?.displayName ??
-                                          'Share an update',
-                                      style: TextStyle(
-                                        color: colors.textPrimary,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colors.surface.withValues(
-                                          alpha: 0.82,
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Post to feed',
-                                        style: TextStyle(
-                                          color: colors.textSecondary,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: submitting
-                                    ? null
-                                    : () => Navigator.of(context).pop(false),
-                                icon: const Icon(Icons.close),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Create update',
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Share something honest, hopeful, or helpful with your community.',
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: 13,
-                            height: 1.45,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: controller,
-                          minLines: 4,
-                          maxLines: 8,
-                          decoration: const InputDecoration(
-                            hintText: 'What is on your mind?',
-                          ),
-                          validator: (value) {
-                            if ((value == null || value.trim().isEmpty) &&
-                                selectedPhoto == null) {
-                              return 'Please write something or add a photo.';
-                            }
-                            return null;
-                          },
-                        ),
-                        if (selectedPhoto != null) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceMuted,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: colors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: AspectRatio(
-                                    aspectRatio: 4 / 3,
-                                    child: selectedPhotoBytes != null
-                                        ? Image.memory(
-                                            selectedPhotoBytes!,
-                                            fit: BoxFit.cover,
-                                          )
-                                        : Container(
-                                            color: colors.accentSoft,
-                                            child: Icon(
-                                              Icons.image_outlined,
-                                              color: colors.accentSoftText,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            selectedPhoto!.name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: colors.textPrimary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Photo ready to post',
-                                            style: TextStyle(
-                                              color: colors.textMuted,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: submitting
-                                          ? null
-                                          : () {
-                                              setSheetState(() {
-                                                selectedPhoto = null;
-                                                selectedPhotoBytes = null;
-                                              });
-                                            },
-                                      icon: const Icon(Icons.close),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        Row(
-                          children: [
-                            IconButton.outlined(
-                              onPressed: submitting ? null : pickPhoto,
-                              icon: Icon(
-                                selectedPhoto == null
-                                    ? Icons.image_outlined
-                                    : Icons.check_circle_outline,
-                                color: colors.brand,
-                              ),
-                              tooltip: selectedPhoto == null
-                                  ? 'Add Photo'
-                                  : 'Photo added',
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton.outlined(
-                              onPressed: () {
-                                setSheetState(() {
-                                  showEmojiPicker = !showEmojiPicker;
-                                });
-                              },
-                              icon: const Icon(Icons.emoji_emotions_outlined),
-                              tooltip: 'Feeling/Activity',
-                            ),
-                            const Spacer(),
-                            FilledButton(
-                              onPressed: submitting ? null : submit,
-                              child: submitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Post'),
-                            ),
-                          ],
-                        ),
-                        if (showEmojiPicker) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 280,
-                            child: EmojiPicker(
-                              textEditingController: controller,
-                              config: Config(
-                                height: 280,
-                                checkPlatformCompatibility: true,
-                                emojiViewConfig: const EmojiViewConfig(
-                                  emojiSizeMax: 26,
-                                ),
-                                categoryViewConfig: CategoryViewConfig(
-                                  iconColor: colors.textMuted,
-                                  iconColorSelected: colors.brand,
-                                  backspaceColor: colors.brand,
-                                ),
-                                bottomActionBarConfig:
-                                    const BottomActionBarConfig(enabled: false),
-                                searchViewConfig: SearchViewConfig(
-                                  backgroundColor: colors.surface,
-                                  buttonIconColor: colors.textMuted,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    final createdUpdate = await UpdateSubmissionModal.show(
+      context,
+      updateRepository: widget.updateRepository,
+      currentUser: widget.authController.currentUser,
     );
 
-    controller.dispose();
+    if (createdUpdate is UpdateDetail) {
+      try {
+        await _refreshDashboard();
+      } catch (_) {
+        // Ignore refresh failures to avoid crash; user already knows post succeed.
+      }
 
-    if (created == true) {
-      await _refreshDashboard();
+      if (!mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => UpdateDetailScreen(
+            updateId: createdUpdate.id,
+            initialDetail: createdUpdate,
+            currentUser: widget.authController.currentUser,
+            repository: widget.updateRepository,
+            contentRepository: widget.contentRepository,
+            profileRepository: widget.profileRepository,
+            messageRepository: widget.messageRepository,
+            searchRepository: widget.searchRepository,
+          ),
+        ),
+      );
     }
   }
 
@@ -1205,13 +870,19 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           destinations: [
             const NavigationDestination(
-              icon: Icon(CupertinoIcons.home),
-              selectedIcon: Icon(CupertinoIcons.home),
+              icon: HeroIcon(HeroIcons.home),
+              selectedIcon: HeroIcon(
+                HeroIcons.home,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Home',
             ),
             const NavigationDestination(
-              icon: Icon(CupertinoIcons.search),
-              selectedIcon: Icon(CupertinoIcons.search),
+              icon: HeroIcon(HeroIcons.magnifyingGlass),
+              selectedIcon: HeroIcon(
+                HeroIcons.magnifyingGlass,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Search',
             ),
             NavigationDestination(
@@ -1231,13 +902,19 @@ class _HomeScreenState extends State<HomeScreen> {
               label: '',
             ),
             const NavigationDestination(
-              icon: Icon(CupertinoIcons.group),
-              selectedIcon: Icon(CupertinoIcons.group),
+              icon: HeroIcon(HeroIcons.users),
+              selectedIcon: HeroIcon(
+                HeroIcons.users,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Groups',
             ),
             const NavigationDestination(
-              icon: Icon(CupertinoIcons.person),
-              selectedIcon: Icon(CupertinoIcons.person),
+              icon: HeroIcon(HeroIcons.user),
+              selectedIcon: HeroIcon(
+                HeroIcons.user,
+                style: HeroIconStyle.solid,
+              ),
               label: 'Profile',
             ),
           ],
@@ -1289,29 +966,30 @@ class _HomeTopBar extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: colors.surface.withOpacity(0.96),
           border: Border(bottom: BorderSide(color: colors.borderStrong)),
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: onMenuTap == null
-                  ? const SizedBox.shrink()
-                  : IconButton(
-                      onPressed: onMenuTap,
-                      icon: Icon(Icons.menu_outlined, color: colors.icon),
-                      style: IconButton.styleFrom(
-                        backgroundColor: colors.surfaceMuted.withValues(
-                          alpha: 0.72,
-                        ),
-                        side: BorderSide(color: colors.border),
-                      ),
-                    ),
+            if (onMenuTap != null) ...[
+              IconButton(
+                onPressed: onMenuTap,
+                icon: const HeroIcon(HeroIcons.bars3, size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Text(
+              AppConfig.appName,
+              style: TextStyle(
+                color: colors.brand,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.1,
+              ),
             ),
             const Spacer(),
             _MessagesDropdownButton(
@@ -1320,7 +998,7 @@ class _HomeTopBar extends StatelessWidget {
               onConversationTap: onConversationTap,
               onViewAllTap: onMessageCenterTap,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 16),
             _NotificationsDropdownButton(
               notifications: latestNotifications,
               unreadCount: unreadNotifications,
@@ -1328,7 +1006,7 @@ class _HomeTopBar extends StatelessWidget {
               onViewAllTap: onNotificationCenterTap,
               onMarkAllReadTap: onNotificationsMarkAllRead,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'profile') {
@@ -1362,13 +1040,13 @@ class _HomeTopBar extends StatelessWidget {
                   value: 'theme_state',
                   child: Text(themeController.themeLabel(brightness)),
                 ),
-                const PopupMenuItem(value: 'home', child: Text('Go Home')),
+                // const PopupMenuItem(value: 'home', child: Text('Go Home')),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
               child: AppAvatar(
                 imageUrl: user?.photoUrl ?? '',
                 label: user?.displayName ?? 'User',
-                radius: 18,
+                radius: 16,
               ),
             ),
           ],
@@ -1441,7 +1119,7 @@ class _NotificationsDropdownButton extends StatelessWidget {
         ),
       ],
       child: _BadgeTopBarIcon(
-        icon: Icons.notifications_outlined,
+        icon: const HeroIcon(HeroIcons.bell),
         count: unreadCount,
       ),
     );
@@ -1502,7 +1180,7 @@ class _MessagesDropdownButton extends StatelessWidget {
         ),
       ],
       child: _BadgeTopBarIcon(
-        icon: Icons.chat_bubble_outline,
+        icon: const HeroIcon(HeroIcons.chatBubbleLeft),
         count: unreadCount,
       ),
     );
@@ -1512,51 +1190,19 @@ class _MessagesDropdownButton extends StatelessWidget {
 class _BadgeTopBarIcon extends StatelessWidget {
   const _BadgeTopBarIcon({required this.icon, required this.count});
 
-  final IconData icon;
+  final Widget icon;
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        SizedBox(
-          width: 46,
-          height: 46,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  isDark ? colors.surfaceRaised : colors.surface,
-                  isDark
-                      ? colors.surfaceMuted.withValues(alpha: 0.96)
-                      : colors.accentSoft.withValues(alpha: 0.26),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.all(Radius.circular(14)),
-              border: Border.fromBorderSide(
-                BorderSide(color: colors.borderStrong),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.045),
-                  blurRadius: 14,
-                  offset: const Offset(0, 8),
-                  spreadRadius: -10,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned.fill(child: Icon(icon, size: 22, color: colors.icon)),
+        SizedBox(width: 28, height: 28, child: icon),
         if (count > 0)
           Positioned(
-            top: -4,
-            right: -4,
+            top: -2,
+            right: -2,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
@@ -1944,13 +1590,11 @@ class _HomeSidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
             child: Row(
               children: [
-                Text(
-                  'HopefulMe',
-                  style: TextStyle(
-                    color: colors.sidebarText,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1,
+                SizedBox(
+                  height: 40,
+                  child: Image.asset(
+                    'assets/images/logo-banner-light.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ],
@@ -1970,7 +1614,11 @@ class _HomeSidebar extends StatelessWidget {
                 child: Row(
                   children: [
                     SizedBox(width: 14),
-                    Icon(Icons.search, size: 18, color: colors.sidebarMuted),
+                    HeroIcon(
+                      HeroIcons.magnifyingGlass,
+                      size: 18,
+                      color: colors.sidebarMuted,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Search...',
@@ -1985,143 +1633,162 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          _SidebarSection(
-            title: 'Community',
-            items: [
-              _SidebarItemData(
-                Icons.home_outlined,
-                'Home',
-                true,
-                onTap: onHomeTap,
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _SidebarSection(
+                    title: 'Community',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.home,
+                        'Home',
+                        true,
+                        onTap: onHomeTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.newspaper,
+                        'Post & News',
+                        false,
+                        onTap: onPostsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.bolt,
+                        'Activities',
+                        false,
+                        onTap: onActivitiesTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.chatBubbleLeftRight,
+                        'Group Chats',
+                        false,
+                        onTap: onGroupsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.userPlus,
+                        'Meet New Friends',
+                        false,
+                        onTap: onMeetNewFriendsTap,
+                      ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Content',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.pencilSquare,
+                        'Blog & Articles',
+                        false,
+                        onTap: onBlogsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.sparkles,
+                        'Inspirations',
+                        false,
+                        onTap: onInspirationsTap,
+                      ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Resources',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.bookOpen,
+                        'Library',
+                        false,
+                        onTap: onLibraryTap,
+                      ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Web',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.shoppingBag,
+                        'Marketplace',
+                        false,
+                        onTap: onStoreTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.tv,
+                        'HopefulMe TV',
+                        false,
+                        onTap: onTvTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.heart,
+                        'Outreach',
+                        false,
+                        onTap: onOutreachTap,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              _SidebarItemData(
-                Icons.article_outlined,
-                'Post & News',
-                false,
-                onTap: onPostsTap,
-              ),
-              _SidebarItemData(
-                Icons.local_activity_outlined,
-                'Activities',
-                false,
-                onTap: onActivitiesTap,
-              ),
-              _SidebarItemData(
-                Icons.groups_outlined,
-                'Group Chats',
-                false,
-                onTap: onGroupsTap,
-              ),
-              _SidebarItemData(
-                Icons.people_outline,
-                'Meet New Friends',
-                false,
-                onTap: onMeetNewFriendsTap,
-              ),
-            ],
+            ),
           ),
-          _SidebarSection(
-            title: 'Content',
-            items: [
-              _SidebarItemData(
-                Icons.edit_note_outlined,
-                'Blog & Articles',
-                false,
-                onTap: onBlogsTap,
-              ),
-              _SidebarItemData(
-                Icons.auto_awesome_outlined,
-                'Inspirations',
-                false,
-                onTap: onInspirationsTap,
-              ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Resources',
-            items: [
-              _SidebarItemData(
-                Icons.local_library_outlined,
-                'Library',
-                false,
-                onTap: onLibraryTap,
-              ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Web',
-            items: [
-              _SidebarItemData(
-                Icons.storefront_outlined,
-                'Marketplace',
-                false,
-                onTap: onStoreTap,
-              ),
-              _SidebarItemData(
-                Icons.live_tv_outlined,
-                'HopefulMe TV',
-                false,
-                onTap: onTvTap,
-              ),
-              _SidebarItemData(
-                Icons.volunteer_activism_outlined,
-                'Outreach',
-                false,
-                onTap: onOutreachTap,
-              ),
-            ],
-          ),
-          const Spacer(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: colors.sidebarSurface.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border.withValues(alpha: 0.5)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Avatar(
-                    imageUrl: user?.photoUrl ?? '',
-                    label: user?.displayName ?? 'U',
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.displayName ?? 'Member',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.sidebarText,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          user == null ? '' : '@${user!.username}',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.sidebarMuted,
-                            fontSize: 10.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => onLogoutTap(),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.logout,
-                        color: colors.sidebarMuted,
-                        size: 16,
+                  Row(
+                    children: [
+                      _Avatar(
+                        imageUrl: user?.photoUrl ?? '',
+                        label: user?.displayName ?? 'U',
+                        radius: 20,
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              user?.displayName ?? 'Member',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user == null ? '' : '@${user!.username}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.sidebarMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => onLogoutTap(),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: HeroIcon(
+                            HeroIcons.arrowRightOnRectangle,
+                            color: colors.sidebarMuted,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2168,7 +1835,7 @@ class _SidebarSection extends StatelessWidget {
 class _SidebarItemData {
   const _SidebarItemData(this.icon, this.label, this.active, {this.onTap});
 
-  final IconData icon;
+  final HeroIcons icon;
   final String label;
   final bool active;
   final Future<void> Function()? onTap;
@@ -2199,8 +1866,9 @@ class _SidebarItem extends StatelessWidget {
           child: ListTile(
             dense: true,
             visualDensity: const VisualDensity(vertical: -2),
-            leading: Icon(
+            leading: HeroIcon(
               item.icon,
+              style: item.active ? HeroIconStyle.solid : HeroIconStyle.outline,
               color: item.active ? Colors.white : const Color(0xFF94A3B8),
               size: 18,
             ),
@@ -2277,9 +1945,17 @@ class _HomeContent extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    // Group feed items by type to provide clear "View more" navigation for each section
+    final updates = data.feed.where((e) => e.type == 'update').toList();
+    final blogs = data.feed.where((e) => e.type == 'blog').toList();
+    final posts = data.feed
+        .where((e) => e.type != 'update' && e.type != 'blog')
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(padding: const EdgeInsets.only(bottom: 16)),
         _StoriesRow(
           users: data.onlineUsers,
           onUserTap: onOpenProfile,
@@ -2294,44 +1970,156 @@ class _HomeContent extends StatelessWidget {
             onOpenProfile: onOpenProfile,
             onViewAll: () => onOpenTodayBirthdays(data.todayBirthdays),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
         ],
-        _SectionHeader(
-          title: 'Random Quotes for you..',
-          leading: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: context.appColors.brand.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: _SectionHeader(
+            title: 'Random Quotes for you',
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: context.appColors.brand.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.format_quote_rounded,
+                color: context.appColors.brand,
+                size: 18,
+              ),
             ),
-            child: Icon(
-              Icons.format_quote_rounded,
-              color: context.appColors.brand,
-              size: 18,
-            ),
+            action: 'See more',
+            onActionTap: () => onOpenPostsFeed(initialCategory: 'Quote'),
           ),
-          action: 'See more',
-          onActionTap: () => onOpenPostsFeed(initialCategory: 'Quote'),
         ),
-        const SizedBox(height: 8),
-        _QuoteGrid(quotes: data.trendingQuotes, onOpenQuote: onOpenPostById),
+        Transform.translate(
+          offset: const Offset(0, -25),
+          child: _QuoteGrid(
+            quotes: data.trendingQuotes,
+            onOpenQuote: onOpenPostById,
+          ),
+        ),
         const SizedBox(height: 16),
-        ...data.feed.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _FeedEntryCard(
-              entry: entry,
-              currentUser: user,
-              onOpenProfile: onOpenProfile,
-              onOpenUpdate: onOpenUpdate,
-              onOpenPost: onOpenPost,
-              onOpenBlog: onOpenBlog,
-              onOpenHashtag: onOpenHashtag,
-              updateRepository: updateRepository,
-            ),
-          ),
-        ),
+        // Group feeds by type and render per-section with a "View more" CTA
+        ...(() {
+          final updates = data.feed.where((e) => e.type == 'update').toList();
+          final blogs = data.feed.where((e) => e.type == 'blog').toList();
+          final postsBlock = data.feed
+              .where((e) => e.type != 'update' && e.type != 'blog')
+              .toList();
+
+          final widgets = <Widget>[];
+          if (updates.isNotEmpty) {
+            widgets.addAll(
+              updates.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _FeedExploreChip(
+                      icon: Icons.dynamic_feed_rounded,
+                      label: 'View more updates',
+                      onTap: onOpenUpdatesFeed,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (blogs.isNotEmpty) {
+            widgets.addAll(
+              blogs.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _FeedExploreChip(
+                      icon: Icons.auto_stories_outlined,
+                      label: 'View more blogs',
+                      onTap: onOpenBlogsFeed,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (postsBlock.isNotEmpty) {
+            widgets.addAll(
+              postsBlock.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: _FeedExploreChip(
+                  icon: Icons.article_outlined,
+                  label: 'View more posts',
+                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
+                ),
+              ),
+            );
+          }
+          return widgets;
+        }()),
         if (data.feed.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -2446,87 +2234,91 @@ class _ComposerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstName = (user?.displayName ?? 'there').split(' ').first;
 
-return _SurfaceCard(
-  child: Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      children: [
-        // Top Row: Avatar and Text Input Field
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center, // Centered for better vertical alignment
+    return _SurfaceCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           children: [
-            _Avatar(
-              imageUrl: user?.photoUrl ?? '',
-              label: user?.displayName ?? 'U',
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: () => onCreateUpdate(),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: context.appColors.surfaceMuted,
+            // Top Row: Avatar and Text Input Field
+            Row(
+              crossAxisAlignment: CrossAxisAlignment
+                  .center, // Centered for better vertical alignment
+              children: [
+                _Avatar(
+                  imageUrl: user?.photoUrl ?? '',
+                  label: user?.displayName ?? 'U',
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => onCreateUpdate(),
                     borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Text(
-                    "What's on your mind, $firstName?",
-                    style: TextStyle(
-                      color: context.appColors.textMuted,
-                      fontSize: 14, // Slightly increased for readability
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.appColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        "What's on your mind, $firstName?",
+                        style: TextStyle(
+                          color: context.appColors.textMuted,
+                          fontSize: 14, // Slightly increased for readability
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-        
-        const SizedBox(height: 16), // Increased spacing for a cleaner look
 
-        // Bottom Row: Chips and Publish Button
-        Row(
-          children: [
-            _ComposerChip(
-              icon: Icons.image_outlined,
-              label: 'Photo',
-              background: context.appColors.accentSoft,
-              color: context.appColors.accentSoftText,
-            ),
-            const SizedBox(width: 8),
-            _ComposerChip(
-              icon: Icons.sentiment_satisfied_alt_outlined,
-              label: 'Feeling',
-              background: context.appColors.warningSoft,
-              color: context.appColors.warningText,
-            ),
-            
-            const Spacer(), // This pushes the button to the far right
-
-            // The "Publish" Button (Inline)
-            SizedBox(
-              height: 40, // Match the height of the chips for symmetry
-              child: FilledButton.icon(
-                onPressed: () => onCreateUpdate(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF93A2F6), // Using that soft purple from your image
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+            const SizedBox(height: 16), // Increased spacing for a cleaner look
+            // Bottom Row: Chips and Publish Button
+            Row(
+              children: [
+                _ComposerChip(
+                  icon: Icons.image_outlined,
+                  label: 'Photo',
+                  background: context.appColors.accentSoft,
+                  color: context.appColors.accentSoftText,
                 ),
-                label: const Text('Post'),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                iconAlignment: IconAlignment.end, // Puts arrow on the right
-              ),
+                const SizedBox(width: 8),
+                _ComposerChip(
+                  icon: Icons.sentiment_satisfied_alt_outlined,
+                  label: 'Feeling',
+                  background: context.appColors.warningSoft,
+                  color: context.appColors.warningText,
+                ),
+
+                const Spacer(), // This pushes the button to the far right
+                // The "Publish" Button (Inline)
+                SizedBox(
+                  height: 40, // Match the height of the chips for symmetry
+                  child: FilledButton.icon(
+                    onPressed: () => onCreateUpdate(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(
+                        0xFF93A2F6,
+                      ), // Using that soft purple from your image
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    label: const Text('Post'),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    iconAlignment: IconAlignment.end, // Puts arrow on the right
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  ),
-);
+      ),
+    );
   }
 }
 
@@ -2836,9 +2628,9 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             border: Border.all(color: colors.surface, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: colors.shadow.withOpacity(0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                                color: colors.shadow.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                             color: colors.surfaceMuted,
@@ -3198,6 +2990,7 @@ class _BlogFeedCard extends StatelessWidget {
                       ),
                       onMentionTap: onOpenProfile,
                       onHashtagTap: onOpenHashtag,
+                      // onLinkTap removed to avoid mismatch with InteractiveUpdateCard
                     ),
                   ],
                   const SizedBox(height: 14),
@@ -3693,9 +3486,9 @@ class _SurfaceCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+            color: colors.shadow.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
         ],
       ),

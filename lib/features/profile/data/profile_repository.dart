@@ -199,4 +199,27 @@ class ProfileRepository {
         .where((item) => item.trim().isNotEmpty)
         .toList();
   }
+
+  Future<List<String>> getReportReasons() async {
+    final response = await _authRepository.get('reports/reasons');
+    List<dynamic> items = <dynamic>[];
+    if (response['data'] != null) {
+      items = response['data'] as List<dynamic>;
+    } else if (response['reasons'] != null) {
+      items = response['reasons'] as List<dynamic>;
+    }
+    return items.map((item) {
+      if (item is Map<String, dynamic>) {
+        return item['reason']?.toString() ?? item.toString();
+      }
+      return item.toString();
+    }).toList();
+  }
+
+  Future<void> reportUser(String username, String reason) async {
+    await _authRepository.post(
+      'reports/user/$username',
+      body: {'reason': reason},
+    );
+  }
 }

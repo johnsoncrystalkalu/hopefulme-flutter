@@ -17,8 +17,10 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -46,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<ProfileDashboard> _profileFuture;
   _ProfileTab _selectedTab = _ProfileTab.timeline;
   bool _isTogglingFollow = false;
+  final GlobalKey _avatarMenuKey = GlobalKey();
 
   String get _targetUsername =>
       widget.username?.trim().replaceFirst('@', '') ??
@@ -204,6 +207,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _copyProfileUrl(String username) async {
+    await Clipboard.setData(
+      ClipboardData(text: 'https://ahopefulme.com/$username'),
+    );
+    if (mounted) AppToast.success(context, 'Profile link copied!');
+  }
+
+  Future<void> _reportUser(String username) async {
+    try {
+      final reasons = await widget.profileRepository.getReportReasons();
+      if (!mounted) return;
+      if (reasons.isEmpty) {
+        AppToast.error(context, 'Could not load report reasons. Try again.');
+        return;
+      }
+      final selectedReason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Report User'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: reasons.length,
+              itemBuilder: (context, index) => ListTile(
+                title: Text(reasons[index]),
+                onTap: () => Navigator.pop(context, reasons[index]),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (selectedReason == null || !mounted) return;
+      await widget.profileRepository.reportUser(username, selectedReason);
+      if (mounted) AppToast.success(context, 'Report submitted. Thank you!');
+    } catch (e) {
+      if (mounted)
+        AppToast.error(
+          context,
+          'Failed to submit report. You have reported this user before',
+        );
+    }
+  }
+
   Future<void> _openUpdatesFeed() async {
     final snapshot = await _profileFuture;
     if (!mounted) return;
@@ -315,6 +368,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ProfileConnectionsType.following,
                             ),
                             onPosts: _openUpdatesFeed,
+                            onCopyProfileUrl: (username) =>
+                                _copyProfileUrl(username),
+                            onReportUser: (username) => _reportUser(username),
+                            menuKey: _avatarMenuKey,
                           ),
                           const SizedBox(height: 16),
                           _ProfileTabs(
@@ -429,6 +486,9 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.onFollowers,
     required this.onFollowing,
     required this.onPosts,
+    this.onReportUser,
+    this.onCopyProfileUrl,
+    this.menuKey,
   });
 
   final ProfileSummary profile;
@@ -444,6 +504,57 @@ class _ProfileHeaderCard extends StatelessWidget {
   final Future<void> Function() onFollowers;
   final Future<void> Function() onFollowing;
   final Future<void> Function() onPosts;
+  final Future<void> Function(String username)? onReportUser;
+  final Future<void> Function(String username)? onCopyProfileUrl;
+  final GlobalKey? menuKey;
+
+  Future<void> _showProfileMenu(
+    BuildContext ctx,
+    String username,
+    GlobalKey menuKey,
+  ) async {
+    final RenderBox? renderBox =
+        menuKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final value = await showMenu<String>(
+      context: ctx,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy + size.height,
+        position.dx + size.width,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'copy_url',
+          child: Row(
+            children: [
+              Icon(Icons.link, size: 20),
+              SizedBox(width: 12),
+              Text('Copy Profile URL'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'report',
+          child: Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 20, color: Colors.orange),
+              SizedBox(width: 12),
+              Text('Report User'),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (value == 'copy_url') {
+      onCopyProfileUrl?.call(username);
+    } else if (value == 'report') {
+      onReportUser?.call(username);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -516,13 +627,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                 icon: Icons.location_on_outlined,
                 label: profile.locationLabel,
               ),
-            if (profile.lastSeen.isNotEmpty)
-              _MetaInline(
-                icon: Icons.schedule_outlined,
-                label: profile.device.trim().isNotEmpty
-                    ? 'Last seen ${profile.lastSeen} | on ${profile.device}'
-                    : 'Last seen ${profile.lastSeen}',
-              ),
+            // Last seen info in header hidden (kept in About tab instead)
           ],
         ),
       ],
@@ -539,101 +644,123 @@ class _ProfileHeaderCard extends StatelessWidget {
           BoxShadow(
             color: context.appColors.shadow,
             blurRadius: 24,
-            offset: Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        // <--- 1. Add Stack here
         children: [
-          Flex(
-            direction: isWide ? Axis.horizontal : Axis.vertical,
-            crossAxisAlignment: isWide
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
+          Column(
+            // Your existing content
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _LargeAvatar(
-                imageUrl: profile.photoUrl,
-                label: profile.displayName,
-                isEditable: isCurrentUser,
-                onEditMedia: isCurrentUser ? onEditMedia : null,
+              Flex(
+                direction: isWide ? Axis.horizontal : Axis.vertical,
+                crossAxisAlignment: isWide
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  _LargeAvatar(
+                    imageUrl: profile.photoUrl,
+                    label: profile.displayName,
+                    isEditable: isCurrentUser,
+                    onEditMedia: isCurrentUser ? onEditMedia : null,
+                    showMenu: null,
+                  ),
+                  SizedBox(width: isWide ? 20 : 0, height: isWide ? 0 : 18),
+                  if (isWide) Expanded(child: identityBlock) else identityBlock,
+                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 18),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: isCurrentUser
+                        ? [
+                            _ActionButton(
+                              icon: Icons.photo_camera_outlined,
+                              label: 'Change Photo',
+                              onTap: onEditMedia,
+                            ),
+                            _ActionButton(
+                              icon: Icons.edit_outlined,
+                              label: 'Edit Profile',
+                              onTap: onEditProfile,
+                            ),
+                          ]
+                        : [
+                            _ActionButton(
+                              icon: isTogglingFollow
+                                  ? Icons.hourglass_top
+                                  : isFollowing
+                                  ? Icons.check
+                                  : Icons.add,
+                              label: isTogglingFollow
+                                  ? 'Please wait'
+                                  : isFollowing
+                                  ? 'Following'
+                                  : 'Follow',
+                              highlighted: !isFollowing,
+                              onTap: onToggleFollow,
+                            ),
+                            _ActionButton(
+                              icon: Icons.chat_bubble_outline,
+                              label: 'Message',
+                              onTap: onMessage,
+                            ),
+                            _ActionButton(
+                              icon: Icons.auto_awesome_outlined,
+                              label: 'Inspire',
+                              onTap: onInspire,
+                            ),
+                          ],
+                  ),
+                ],
               ),
-              SizedBox(width: isWide ? 20 : 0, height: isWide ? 0 : 18),
-              if (isWide) Expanded(child: identityBlock) else identityBlock,
-              SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 18),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: isCurrentUser
-                    ? [
-                        _ActionButton(
-                          icon: Icons.photo_camera_outlined,
-                          label: 'Change Photo',
-                          onTap: onEditMedia,
-                        ),
-                        _ActionButton(
-                          icon: Icons.edit_outlined,
-                          label: 'Edit Profile',
-                          onTap: onEditProfile,
-                        ),
-                      ]
-                    : [
-                        _ActionButton(
-                          icon: isTogglingFollow
-                              ? Icons.hourglass_top
-                              : isFollowing
-                              ? Icons.check
-                              : Icons.add,
-                          label: isTogglingFollow
-                              ? 'Please wait'
-                              : isFollowing
-                              ? 'Following'
-                              : 'Follow',
-                          highlighted: !isFollowing,
-                          onTap: onToggleFollow,
-                        ),
-                        _ActionButton(
-                          icon: Icons.chat_bubble_outline,
-                          label: 'Message',
-                          onTap: onMessage,
-                        ),
-                        _ActionButton(
-                          icon: Icons.auto_awesome_outlined,
-                          label: 'Inspire',
-                          onTap: onInspire,
-                        ),
-                      ],
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      value: _formatCount(profile.followersCount),
+                      label: 'Followers',
+                      onTap: onFollowers,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _StatCard(
+                      value: _formatCount(profile.followingCount),
+                      label: 'Following',
+                      onTap: onFollowing,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _StatCard(
+                      value: _formatCount(updatesCount),
+                      label: 'Updates',
+                      onTap: onPosts,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  value: _formatCount(profile.followersCount),
-                  label: 'Followers',
-                  onTap: onFollowers,
-                ),
+
+          // 3. Add the Menu Button at the Top Right
+          if (!isCurrentUser)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                key: menuKey,
+                icon: const Icon(Icons.more_vert),
+                onPressed: () =>
+                    _showProfileMenu(context, profile.username, menuKey!),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  value: _formatCount(profile.followingCount),
-                  label: 'Following',
-                  onTap: onFollowing,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  value: _formatCount(updatesCount),
-                  label: 'Updates',
-                  onTap: onPosts,
-                ),
-              ),
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -663,33 +790,35 @@ class _ProfileTabs extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: context.appColors.borderStrong),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _TabButton(
-            label: 'Timeline',
-            selected: selectedTab == _ProfileTab.timeline,
-            onTap: () => onSelected(_ProfileTab.timeline),
-          ),
-          _TabButton(
-            label: 'About',
-            selected: selectedTab == _ProfileTab.about,
-            onTap: () => onSelected(_ProfileTab.about),
-          ),
-          _TabButton(
-            label: 'Photos',
-            badge: '$photosCount',
-            selected: selectedTab == _ProfileTab.photos,
-            onTap: () => onSelected(_ProfileTab.photos),
-          ),
-          _TabButton(
-            label: 'Articles',
-            badge: '$articleCount',
-            selected: selectedTab == _ProfileTab.articles,
-            onTap: () => onSelected(_ProfileTab.articles),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _TabButton(
+              label: 'Timeline',
+              selected: selectedTab == _ProfileTab.timeline,
+              onTap: () => onSelected(_ProfileTab.timeline),
+            ),
+            _TabButton(
+              label: 'About',
+              selected: selectedTab == _ProfileTab.about,
+              onTap: () => onSelected(_ProfileTab.about),
+            ),
+            _TabButton(
+              label: 'Photos',
+              badge: '$photosCount',
+              selected: selectedTab == _ProfileTab.photos,
+              onTap: () => onSelected(_ProfileTab.photos),
+            ),
+            _TabButton(
+              label: 'Articles',
+              badge: '$articleCount',
+              selected: selectedTab == _ProfileTab.articles,
+              onTap: () => onSelected(_ProfileTab.articles),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1373,6 +1502,8 @@ class _LargeAvatar extends StatelessWidget {
     this.borderRadius = 26,
     this.isEditable = false,
     this.onEditMedia,
+    this.showMenu,
+    this.menuKey,
   });
 
   final String imageUrl;
@@ -1381,6 +1512,8 @@ class _LargeAvatar extends StatelessWidget {
   final double borderRadius;
   final bool isEditable;
   final Future<void> Function()? onEditMedia;
+  final Future<void> Function()? showMenu;
+  final GlobalKey? menuKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1457,6 +1590,42 @@ class _LargeAvatar extends StatelessWidget {
                       Icons.photo_camera_outlined,
                       color: Colors.white,
                       size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (showMenu != null)
+            Positioned(
+              right: -2,
+              top: (size * 2 - 32) / 2,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => showMenu!(),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: context.appColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: context.appColors.borderStrong,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.appColors.shadow.withOpacity(0.12),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.more_vert,
+                      color: context.appColors.textMuted,
+                      size: 16,
                     ),
                   ),
                 ),
