@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -190,7 +192,67 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
 
     final bytes = await picked.readAsBytes();
     final filename = picked.name.isNotEmpty ? picked.name : filenameFallback;
-    return _PreparedUploadFile(bytes: bytes, filename: filename);
+
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS) {
+      return _PreparedUploadFile(bytes: bytes, filename: filename);
+    }
+
+    final tempDir = Directory.systemTemp;
+    final tempFile = File(
+      '${tempDir.path}/temp_pick_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    await tempFile.writeAsBytes(bytes);
+
+    try {
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: tempFile.path,
+        maxWidth: maxWidth,
+        uiSettings: [
+          if (defaultTargetPlatform == TargetPlatform.iOS)
+            IOSUiSettings(
+              title: 'Crop Photo',
+              cancelButtonTitle: 'Cancel',
+              doneButtonTitle: 'Done',
+            )
+          else
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Photo',
+              toolbarColor: const Color(0xFF111827),
+              toolbarWidgetColor: Colors.white,
+              backgroundColor: const Color(0xFFF9FAFB),
+              activeControlsWidgetColor: const Color(0xFF111827),
+              dimmedLayerColor: Colors.black54,
+              cropFrameColor: Colors.white,
+              cropGridColor: Colors.white70,
+              showCropGrid: true,
+              lockAspectRatio: false,
+              aspectRatioPresets: const [
+                CropAspectRatioPreset.original,
+                CropAspectRatioPreset.square,
+                CropAspectRatioPreset.ratio3x2,
+                CropAspectRatioPreset.ratio4x3,
+                CropAspectRatioPreset.ratio16x9,
+              ],
+            ),
+        ],
+        compressQuality: 88,
+        compressFormat: ImageCompressFormat.jpg,
+      );
+      if (croppedFile != null) {
+        final croppedBytes = await croppedFile.readAsBytes();
+        return _PreparedUploadFile(bytes: croppedBytes, filename: filename);
+      }
+    } catch (e) {
+      // Cropper canceled or failed — user chose not to proceed
+    } finally {
+      try {
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   Future<void> _removePhoto() async {
@@ -276,61 +338,77 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
               onAction: _load,
             )
           : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  _MediaCard(
-                    title: 'Cover Photo',
-                    subtitle: 'Used at the top of your profile page.',
-                    preview: _MediaPreview.cover(
-                      imageUrl: profile?.coverUrl ?? '',
-                      fallbackImageUrl: profile?.photoUrl ?? '',
-                      bytes: _pendingCoverBytes,
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _MediaCard(
+                          title: 'Profile Photo',
+                          subtitle:
+                              'Shown on your profile, feed, comments, and chats.',
+                          preview: _MediaPreview.avatar(
+                            imageUrl: profile?.photoUrl ?? '',
+                            bytes: _pendingPhotoBytes,
+                            fallbackLabel:
+                                profile?.displayName ?? 'HopefulMe User',
+                          ),
+                          primaryLabel: _isUploadingPhoto
+                              ? 'Uploading...'
+                              : 'Change Photo',
+                          primaryIcon: Icons.photo_camera_outlined,
+                          onPrimaryTap: _isUploadingPhoto
+                              ? null
+                              : _pickAndUploadPhoto,
+                          secondaryLabel: _isRemovingPhoto
+                              ? 'Removing...'
+                              : 'Remove Photo',
+                          onSecondaryTap: _isRemovingPhoto
+                              ? null
+                              : _removePhoto,
+                        ),
+                        const SizedBox(height: 16),
+                        _MediaCard(
+                          title: 'Cover Photo',
+                          subtitle: 'Used at the top of your profile page.',
+                          preview: _MediaPreview.cover(
+                            imageUrl: profile?.coverUrl ?? '',
+                            fallbackImageUrl: profile?.photoUrl ?? '',
+                            bytes: _pendingCoverBytes,
+                          ),
+                          primaryLabel: _isUploadingCover
+                              ? 'Uploading...'
+                              : 'Change Cover',
+                          primaryIcon: Icons.landscape_outlined,
+                          onPrimaryTap: _isUploadingCover
+                              ? null
+                              : _pickAndUploadCover,
+                          secondaryLabel: _isRemovingCover
+                              ? 'Removing...'
+                              : 'Remove Cover',
+                          onSecondaryTap: _isRemovingCover
+                              ? null
+                              : _removeCover,
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!.toString(),
+                            style: TextStyle(
+                              color: colors.dangerText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    primaryLabel: _isUploadingCover
-                        ? 'Uploading...'
-                        : 'Change Cover',
-                    primaryIcon: Icons.landscape_outlined,
-                    onPrimaryTap: _isUploadingCover
-                        ? null
-                        : _pickAndUploadCover,
-                    secondaryLabel: _isRemovingCover
-                        ? 'Removing...'
-                        : 'Remove Cover',
-                    onSecondaryTap: _isRemovingCover ? null : _removeCover,
                   ),
-                  const SizedBox(height: 16),
-                  _MediaCard(
-                    title: 'Profile Photo',
-                    subtitle:
-                        'Shown on your profile, feed, comments, and chats.',
-                    preview: _MediaPreview.avatar(
-                      imageUrl: profile?.photoUrl ?? '',
-                      bytes: _pendingPhotoBytes,
-                      fallbackLabel: profile?.displayName ?? 'HopefulMe User',
+                  if (_isUploadingPhoto || _isUploadingCover)
+                    LinearProgressIndicator(
+                      backgroundColor: colors.border,
+                      color: colors.accent,
                     ),
-                    primaryLabel: _isUploadingPhoto
-                        ? 'Uploading...'
-                        : 'Change Photo',
-                    primaryIcon: Icons.photo_camera_outlined,
-                    onPrimaryTap: _isUploadingPhoto
-                        ? null
-                        : _pickAndUploadPhoto,
-                    secondaryLabel: _isRemovingPhoto
-                        ? 'Removing...'
-                        : 'Remove Photo',
-                    onSecondaryTap: _isRemovingPhoto ? null : _removePhoto,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!.toString(),
-                      style: TextStyle(
-                        color: colors.dangerText,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

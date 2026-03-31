@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>HopefulMe needs access to save images to your photo library.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>HopefulMe needs access to take photos for your profile.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HopefulMe needs access to save images to your photo library.</string>
 	<key>UIApplicationSceneManifest</key>

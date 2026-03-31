@@ -62,33 +62,6 @@ class ImageUrlResolver {
     return normalized;
   }
 
-  static String thumbnail(String url, {int size = 160}) {
-    final normalized = url.trim();
-    if (normalized.isEmpty) {
-      return '';
-    }
-
-    // Get the clean URL without any current high-res Cloudinary transformations
-    final clean = resolveOriginal(normalized);
-
-    // If it's not a Cloudinary URL, we return the original as we can't transform it
-    if (!clean.contains('res.cloudinary.com/')) {
-      return clean;
-    }
-
-    const marker = '/upload/';
-    final markerIndex = clean.indexOf(marker);
-    if (markerIndex == -1) {
-      return clean;
-    }
-
-    final prefix = clean.substring(0, markerIndex + marker.length);
-    final suffix = clean.substring(markerIndex + marker.length);
-
-    // c_fill: aspect ratio crop, g_face: zoom in on faces, q_auto: optimized quality
-    return '${prefix}w_$size,h_$size,c_fill,g_face,q_auto,f_auto/$suffix';
-  }
-
   static bool _isAbsoluteUrl(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
   }
