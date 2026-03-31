@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -93,7 +94,10 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     } catch (error) {
       if (mounted) {
         widget.onError?.call(error);
-        AppToast.error(context, 'We could not post your update right now. Please try again.');
+        AppToast.error(
+          context,
+          'We could not post your update right now. Please try again.',
+        );
       }
     } finally {
       if (mounted) {
@@ -159,8 +163,14 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                     children: [
                       CircleAvatar(
                         radius: 22,
-                        backgroundImage: widget.currentUser?.photoUrl.isNotEmpty == true
-                            ? NetworkImage(widget.currentUser!.photoUrl)
+                        backgroundImage:
+                            widget.currentUser?.photoUrl.isNotEmpty == true
+                            ? NetworkImage(
+                                ImageUrlResolver.avatar(
+                                  widget.currentUser!.photoUrl,
+                                  size: 66,
+                                ),
+                              )
                             : null,
                         child: widget.currentUser?.photoUrl.isEmpty ?? true
                             ? const Icon(Icons.person)
@@ -172,7 +182,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.currentUser?.displayName ?? 'Share an update',
+                              widget.currentUser?.displayName ??
+                                  'Share an update',
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 16,
@@ -202,7 +213,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                         ),
                       ),
                       IconButton(
-                        onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+                        onPressed: _submitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -235,7 +248,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                     hintText: 'What is on your mind?',
                   ),
                   validator: (value) {
-                    if ((value == null || value.trim().isEmpty) && _selectedPhoto == null) {
+                    if ((value == null || value.trim().isEmpty) &&
+                        _selectedPhoto == null) {
                       return 'Please write something or add a photo.';
                     }
                     return null;
@@ -328,7 +342,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                             : Icons.check_circle_outline,
                         color: colors.brand,
                       ),
-                      tooltip: _selectedPhoto == null ? 'Add Photo' : 'Photo added',
+                      tooltip: _selectedPhoto == null
+                          ? 'Add Photo'
+                          : 'Photo added',
                     ),
                     const Spacer(),
                     FilledButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
@@ -252,10 +253,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.trailing,
-  });
+  const _SectionTitle({required this.title, required this.trailing});
 
   final String title;
   final String trailing;
@@ -288,10 +286,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _MyGroupCard extends StatelessWidget {
-  const _MyGroupCard({
-    required this.group,
-    required this.onTap,
-  });
+  const _MyGroupCard({required this.group, required this.onTap});
 
   final AppGroup group;
   final VoidCallback onTap;
@@ -307,7 +302,9 @@ class _MyGroupCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           image: group.photoUrl.isNotEmpty
               ? DecorationImage(
-                  image: NetworkImage(group.photoUrl),
+                  image: NetworkImage(
+                    ImageUrlResolver.thumbnail(group.photoUrl, size: 300),
+                  ),
                   fit: BoxFit.cover,
                 )
               : null,
@@ -347,10 +344,7 @@ class _MyGroupCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 group.latestMessage?.time ?? '',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                ),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ],
           ),
@@ -361,10 +355,7 @@ class _MyGroupCard extends StatelessWidget {
 }
 
 class _CommunityCard extends StatelessWidget {
-  const _CommunityCard({
-    required this.group,
-    required this.onTap,
-  });
+  const _CommunityCard({required this.group, required this.onTap});
 
   final AppGroup group;
   final VoidCallback onTap;
@@ -387,7 +378,9 @@ class _CommunityCard extends StatelessWidget {
             CircleAvatar(
               radius: 30,
               backgroundImage: group.photoUrl.isNotEmpty
-                  ? NetworkImage(group.photoUrl)
+                  ? NetworkImage(
+                      ImageUrlResolver.avatar(group.photoUrl, size: 90),
+                    )
                   : null,
             ),
             const SizedBox(width: 14),
@@ -432,10 +425,7 @@ class _CommunityCard extends StatelessWidget {
                     group.info,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
@@ -448,10 +438,7 @@ class _CommunityCard extends StatelessWidget {
 }
 
 class _DiscoverGroupCard extends StatelessWidget {
-  const _DiscoverGroupCard({
-    required this.group,
-    required this.onTap,
-  });
+  const _DiscoverGroupCard({required this.group, required this.onTap});
 
   final AppGroup group;
   final VoidCallback onTap;
@@ -476,7 +463,9 @@ class _DiscoverGroupCard extends StatelessWidget {
               CircleAvatar(
                 radius: 28,
                 backgroundImage: group.photoUrl.isNotEmpty
-                    ? NetworkImage(group.photoUrl)
+                    ? NetworkImage(
+                        ImageUrlResolver.avatar(group.photoUrl, size: 84),
+                      )
                     : null,
               ),
               const SizedBox(width: 12),
@@ -511,10 +500,7 @@ class _DiscoverGroupCard extends StatelessWidget {
                       group.info.isNotEmpty ? group.info : 'No description',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: colors.textMuted, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     Row(

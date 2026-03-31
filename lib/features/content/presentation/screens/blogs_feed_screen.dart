@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -366,7 +367,12 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
                           child: CircleAvatar(
                             radius: 14,
                             backgroundImage: entry.user!.photoUrl.isNotEmpty
-                                ? NetworkImage(entry.user!.photoUrl)
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      entry.user!.photoUrl,
+                                      size: 42,
+                                    ),
+                                  )
                                 : null,
                             child: entry.user!.photoUrl.isEmpty
                                 ? const Icon(Icons.person, size: 14)

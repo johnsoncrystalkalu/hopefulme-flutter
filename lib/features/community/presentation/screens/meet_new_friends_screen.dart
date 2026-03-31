@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
@@ -379,7 +380,12 @@ class _MeetHeader extends StatelessWidget {
                         ],
                         image: user.photoUrl.isNotEmpty
                             ? DecorationImage(
-                                image: NetworkImage(user.photoUrl),
+                                image: NetworkImage(
+                                  ImageUrlResolver.thumbnail(
+                                    user.photoUrl,
+                                    size: 300,
+                                  ),
+                                ),
                                 fit: BoxFit.cover,
                                 colorFilter: const ColorFilter.mode(
                                   Colors.grey,
@@ -545,7 +551,12 @@ class _FriendOfDayCard extends StatelessWidget {
                                 ],
                                 image: user.photoUrl.isNotEmpty
                                     ? DecorationImage(
-                                        image: NetworkImage(user.photoUrl),
+                                        image: NetworkImage(
+                                          ImageUrlResolver.thumbnail(
+                                            user.photoUrl,
+                                            size: 300,
+                                          ),
+                                        ),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
@@ -690,7 +701,9 @@ class _FriendSuggestionCard extends StatelessWidget {
                     border: Border.all(color: colors.surface, width: 4),
                     image: user.photoUrl.isNotEmpty
                         ? DecorationImage(
-                            image: NetworkImage(user.photoUrl),
+                            image: NetworkImage(
+                              ImageUrlResolver.avatar(user.photoUrl, size: 120),
+                            ),
                             fit: BoxFit.cover,
                           )
                         : null,
@@ -829,7 +842,12 @@ class _OnlinePanel extends StatelessWidget {
                             CircleAvatar(
                               radius: 24,
                               backgroundImage: user.photoUrl.isNotEmpty
-                                  ? NetworkImage(user.photoUrl)
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        user.photoUrl,
+                                        size: 72,
+                                      ),
+                                    )
                                   : null,
                               child: user.photoUrl.isEmpty
                                   ? const Icon(Icons.person)
@@ -952,7 +970,12 @@ class _NewestHeartsPanel extends StatelessWidget {
                         CircleAvatar(
                           radius: 18,
                           backgroundImage: user.photoUrl.isNotEmpty
-                              ? NetworkImage(user.photoUrl)
+                              ? NetworkImage(
+                                  ImageUrlResolver.avatar(
+                                    user.photoUrl,
+                                    size: 56,
+                                  ),
+                                )
                               : null,
                           child: user.photoUrl.isEmpty
                               ? const Icon(Icons.person, size: 18)

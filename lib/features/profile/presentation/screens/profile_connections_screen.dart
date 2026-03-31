@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -191,7 +192,12 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
                                 CircleAvatar(
                                   radius: 24,
                                   backgroundImage: item.photoUrl.isNotEmpty
-                                      ? NetworkImage(item.photoUrl)
+                                      ? NetworkImage(
+                                          ImageUrlResolver.avatar(
+                                            item.photoUrl,
+                                            size: 72,
+                                          ),
+                                        )
                                       : null,
                                   child: item.photoUrl.isEmpty
                                       ? const Icon(Icons.person)
@@ -232,10 +238,7 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: colors.icon,
-                            ),
+                            Icon(Icons.chevron_right, color: colors.icon),
                           ],
                         ),
                       ),

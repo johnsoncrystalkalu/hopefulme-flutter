@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -447,7 +448,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
   Future<void> _handleLinkTap(String url) async {
     String processedUrl = url.trim();
-    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+    if (!processedUrl.startsWith('http://') &&
+        !processedUrl.startsWith('https://')) {
       processedUrl = 'https://$processedUrl';
     }
     final uri = Uri.tryParse(processedUrl);
@@ -486,7 +488,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                     CircleAvatar(
                       radius: 24,
                       backgroundImage: group.photoUrl.isNotEmpty
-                          ? NetworkImage(group.photoUrl)
+                          ? NetworkImage(
+                              ImageUrlResolver.avatar(group.photoUrl, size: 72),
+                            )
                           : null,
                       child: group.photoUrl.isEmpty
                           ? const Icon(Icons.groups_rounded)
@@ -612,7 +616,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                   CircleAvatar(
                     radius: 18,
                     backgroundImage: group.photoUrl.isNotEmpty
-                        ? NetworkImage(group.photoUrl)
+                        ? NetworkImage(
+                            ImageUrlResolver.avatar(group.photoUrl, size: 56),
+                          )
                         : null,
                   ),
                   const SizedBox(width: 10),
@@ -904,7 +910,9 @@ class _LockedGroupState extends StatelessWidget {
               CircleAvatar(
                 radius: 34,
                 backgroundImage: group.photoUrl.isNotEmpty
-                    ? NetworkImage(group.photoUrl)
+                    ? NetworkImage(
+                        ImageUrlResolver.avatar(group.photoUrl, size: 100),
+                      )
                     : null,
               ),
               const SizedBox(height: 14),
@@ -1041,7 +1049,12 @@ class _GroupMessageBubble extends StatelessWidget {
               child: CircleAvatar(
                 radius: 14,
                 backgroundImage: message.sender?.photoUrl.isNotEmpty == true
-                    ? NetworkImage(message.sender!.photoUrl)
+                    ? NetworkImage(
+                        ImageUrlResolver.avatar(
+                          message.sender!.photoUrl,
+                          size: 42,
+                        ),
+                      )
                     : null,
                 child: message.sender?.photoUrl.isEmpty ?? true
                     ? const Icon(Icons.person, size: 14)
@@ -1075,9 +1088,9 @@ class _GroupMessageBubble extends StatelessWidget {
                 GestureDetector(
                   onLongPressStart: (details) async {
                     HapticFeedback.mediumImpact();
-                    final RenderBox overlay = Overlay.of(context)
-                        .context
-                        .findRenderObject() as RenderBox;
+                    final RenderBox overlay =
+                        Overlay.of(context).context.findRenderObject()
+                            as RenderBox;
                     final value = await showMenu<String>(
                       context: context,
                       shape: RoundedRectangleBorder(
@@ -1092,8 +1105,11 @@ class _GroupMessageBubble extends StatelessWidget {
                           value: 'reply',
                           child: Row(
                             children: [
-                              Icon(Icons.reply_rounded,
-                                  size: 20, color: colors.brand),
+                              Icon(
+                                Icons.reply_rounded,
+                                size: 20,
+                                color: colors.brand,
+                              ),
                               const SizedBox(width: 12),
                               const Text('Reply'),
                             ],
@@ -1104,8 +1120,11 @@ class _GroupMessageBubble extends StatelessWidget {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline_rounded,
-                                    size: 20, color: colors.dangerText),
+                                Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 20,
+                                  color: colors.dangerText,
+                                ),
                                 const SizedBox(width: 12),
                                 Text(
                                   'Delete',

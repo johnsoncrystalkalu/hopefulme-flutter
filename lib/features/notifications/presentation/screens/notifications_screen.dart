@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -309,7 +310,9 @@ class _NotificationTile extends StatelessWidget {
               CircleAvatar(
                 radius: 22,
                 backgroundImage: item.avatarUrl.isNotEmpty
-                    ? NetworkImage(item.avatarUrl)
+                    ? NetworkImage(
+                        ImageUrlResolver.avatar(item.avatarUrl, size: 66),
+                      )
                     : null,
                 child: item.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
               ),

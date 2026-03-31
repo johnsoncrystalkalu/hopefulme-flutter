@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
@@ -452,7 +453,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   radius: 22,
                                   backgroundImage:
                                       detail.user.photoUrl.isNotEmpty
-                                      ? NetworkImage(detail.user.photoUrl)
+                                      ? NetworkImage(
+                                          ImageUrlResolver.avatar(
+                                            detail.user.photoUrl,
+                                            size: 66,
+                                          ),
+                                        )
                                       : null,
                                   child: detail.user.photoUrl.isEmpty
                                       ? const Icon(Icons.person)
@@ -757,7 +763,9 @@ class _CommentTile extends StatelessWidget {
           child: CircleAvatar(
             radius: 18,
             backgroundImage: comment.user.photoUrl.isNotEmpty
-                ? NetworkImage(comment.user.photoUrl)
+                ? NetworkImage(
+                    ImageUrlResolver.avatar(comment.user.photoUrl, size: 56),
+                  )
                 : null,
             child: comment.user.photoUrl.isEmpty
                 ? const Icon(Icons.person)

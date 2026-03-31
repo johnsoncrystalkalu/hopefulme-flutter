@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -313,7 +314,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
 
   Future<void> _handleLinkTap(String url) async {
     String processedUrl = url.trim();
-    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+    if (!processedUrl.startsWith('http://') &&
+        !processedUrl.startsWith('https://')) {
       processedUrl = 'https://$processedUrl';
     }
     final uri = Uri.tryParse(processedUrl);
@@ -339,7 +341,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
             CircleAvatar(
               radius: 18,
               backgroundImage: otherUser?.photoUrl.isNotEmpty == true
-                  ? NetworkImage(otherUser!.photoUrl)
+                  ? NetworkImage(
+                      ImageUrlResolver.avatar(otherUser!.photoUrl, size: 56),
+                    )
                   : null,
               child: otherUser?.photoUrl.isEmpty ?? true
                   ? const Icon(Icons.person, size: 18)
@@ -455,9 +459,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                               child: GestureDetector(
                                 onLongPressStart: (details) async {
                                   HapticFeedback.mediumImpact();
-                                  final RenderBox overlay = Overlay.of(context)
-                                      .context
-                                      .findRenderObject() as RenderBox;
+                                  final RenderBox overlay =
+                                      Overlay.of(
+                                            context,
+                                          ).context.findRenderObject()
+                                          as RenderBox;
                                   final value = await showMenu<String>(
                                     context: context,
                                     shape: RoundedRectangleBorder(
@@ -473,8 +479,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                         value: 'reply',
                                         child: Row(
                                           children: [
-                                            Icon(Icons.reply_rounded,
-                                                size: 20, color: colors.brand),
+                                            Icon(
+                                              Icons.reply_rounded,
+                                              size: 20,
+                                              color: colors.brand,
+                                            ),
                                             const SizedBox(width: 12),
                                             const Text('Reply'),
                                           ],
@@ -484,9 +493,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                         value: 'copy',
                                         child: Row(
                                           children: [
-                                            Icon(Icons.content_copy_rounded,
-                                                size: 20,
-                                                color: colors.textSecondary),
+                                            Icon(
+                                              Icons.content_copy_rounded,
+                                              size: 20,
+                                              color: colors.textSecondary,
+                                            ),
                                             const SizedBox(width: 12),
                                             const Text('Copy Text'),
                                           ],
@@ -505,7 +516,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                               const SizedBox(width: 12),
                                               Text(
                                                 'Delete',
-                                                style: TextStyle(color: colors.dangerText),
+                                                style: TextStyle(
+                                                  color: colors.dangerText,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -541,19 +554,24 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                     vertical: 11,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: isMine ? colors.brand : colors.surface,
+                                    color: isMine
+                                        ? colors.brand
+                                        : colors.surface,
                                     borderRadius: BorderRadius.circular(20),
                                     border: isMine
                                         ? null
                                         : Border.all(color: colors.border),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       if (item.photoUrl.isNotEmpty ||
                                           item.localImageBytes != null) ...[
                                         ClipRRect(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                           child: item.localImageBytes != null
                                               ? Image.memory(
                                                   item.localImageBytes!,
@@ -584,14 +602,18 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                             fontSize: 14,
                                             height: 1.45,
                                           ),
-                                          onMentionTap: (username) => openUserProfile(
-                                            context,
-                                            profileRepository: widget.profileRepository,
-                                            messageRepository: widget.repository,
-                                            updateRepository: widget.updateRepository,
-                                            currentUser: widget.currentUser,
-                                            username: username,
-                                          ),
+                                          onMentionTap: (username) =>
+                                              openUserProfile(
+                                                context,
+                                                profileRepository:
+                                                    widget.profileRepository,
+                                                messageRepository:
+                                                    widget.repository,
+                                                updateRepository:
+                                                    widget.updateRepository,
+                                                currentUser: widget.currentUser,
+                                                username: username,
+                                              ),
                                           onLinkTap: _handleLinkTap,
                                         ),
                                       SizedBox(

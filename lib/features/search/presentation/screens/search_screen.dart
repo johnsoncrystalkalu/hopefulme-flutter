@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -443,7 +444,12 @@ class _UsersGrid extends StatelessWidget {
                         CircleAvatar(
                           radius: 28,
                           backgroundImage: user.photoUrl.isNotEmpty
-                              ? NetworkImage(user.photoUrl)
+                              ? NetworkImage(
+                                  ImageUrlResolver.avatar(
+                                    user.photoUrl,
+                                    size: 84,
+                                  ),
+                                )
                               : null,
                           child: user.photoUrl.isEmpty
                               ? const Icon(Icons.person)
@@ -697,7 +703,12 @@ class _SearchCard extends StatelessWidget {
                             CircleAvatar(
                               radius: 14,
                               backgroundImage: item.user!.photoUrl.isNotEmpty
-                                  ? NetworkImage(item.user!.photoUrl)
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        item.user!.photoUrl,
+                                        size: 42,
+                                      ),
+                                    )
                                   : null,
                               child: item.user!.photoUrl.isEmpty
                                   ? const Icon(Icons.person, size: 14)

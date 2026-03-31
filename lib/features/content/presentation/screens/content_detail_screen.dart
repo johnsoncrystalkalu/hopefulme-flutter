@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
@@ -347,7 +348,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   Future<void> _handleLinkTap(String url) async {
     String processedUrl = url.trim();
-    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+    if (!processedUrl.startsWith('http://') &&
+        !processedUrl.startsWith('https://')) {
       processedUrl = 'https://$processedUrl';
     }
     final uri = Uri.tryParse(processedUrl);
@@ -907,7 +909,8 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     final host = uri.host.toLowerCase();
     if (host.contains('youtu.be')) {
       videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
-    } else if (host.contains('youtube.com') || host.contains('youtube-nocookie.com')) {
+    } else if (host.contains('youtube.com') ||
+        host.contains('youtube-nocookie.com')) {
       videoId = uri.queryParameters['v'];
 
       if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
@@ -993,8 +996,11 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.play_circle_outline_rounded,
-                      size: 44, color: colors.icon),
+                  Icon(
+                    Icons.play_circle_outline_rounded,
+                    size: 44,
+                    color: colors.icon,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Video unavailable in preview',
@@ -1064,7 +1070,9 @@ class _ContentCommentTile extends StatelessWidget {
           child: CircleAvatar(
             radius: 18,
             backgroundImage: comment.user?.photoUrl.isNotEmpty == true
-                ? NetworkImage(comment.user!.photoUrl)
+                ? NetworkImage(
+                    ImageUrlResolver.avatar(comment.user!.photoUrl, size: 56),
+                  )
                 : null,
             child: comment.user?.photoUrl.isNotEmpty == true
                 ? null

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -188,7 +189,6 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,7 +276,9 @@ class _ActivitiesComposerCard extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundImage: user?.photoUrl.isNotEmpty == true
-                  ? NetworkImage(user!.photoUrl)
+                  ? NetworkImage(
+                      ImageUrlResolver.avatar(user!.photoUrl, size: 66),
+                    )
                   : null,
               child: user?.photoUrl.isEmpty ?? true
                   ? const Icon(Icons.person)

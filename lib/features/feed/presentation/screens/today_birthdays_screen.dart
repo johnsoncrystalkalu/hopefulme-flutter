@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
@@ -210,7 +211,12 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
                           child: CircleAvatar(
                             radius: 28,
                             backgroundImage: user.photoUrl.isNotEmpty
-                                ? NetworkImage(user.photoUrl)
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      user.photoUrl,
+                                      size: 84,
+                                    ),
+                                  )
                                 : null,
                             child: user.photoUrl.isEmpty
                                 ? const Icon(Icons.person)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -348,7 +349,12 @@ class _ConversationTile extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 27,
                       backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                          ? NetworkImage(item.otherUser.photoUrl)
+                          ? NetworkImage(
+                              ImageUrlResolver.avatar(
+                                item.otherUser.photoUrl,
+                                size: 80,
+                              ),
+                            )
                           : null,
                       child: item.otherUser.photoUrl.isEmpty
                           ? const HeroIcon(HeroIcons.user)
@@ -418,9 +424,7 @@ class _ConversationTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      item.otherUser.isOnline
-                          ? 'Online now'
-                          : '',
+                      item.otherUser.isOnline ? 'Online now' : '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

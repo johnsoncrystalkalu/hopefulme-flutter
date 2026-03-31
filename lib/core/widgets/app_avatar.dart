@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 
 class AppAvatar extends StatelessWidget {
   const AppAvatar({
@@ -7,6 +8,7 @@ class AppAvatar extends StatelessWidget {
     required this.label,
     this.radius = 18,
     this.backgroundColor,
+    this.size,
     super.key,
   });
 
@@ -14,18 +16,23 @@ class AppAvatar extends StatelessWidget {
   final String label;
   final double radius;
   final Color? backgroundColor;
+  final int? size;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final bg = backgroundColor ?? colors.avatarPlaceholder;
     final initials = _initials(label);
+    final resolved = ImageUrlResolver.avatar(
+      imageUrl,
+      size: size ?? (radius * 2 * 1.5).round(),
+    );
     final hasImage = imageUrl.trim().isNotEmpty;
 
     return CircleAvatar(
       radius: radius,
       backgroundColor: bg,
-      backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
+      backgroundImage: hasImage ? NetworkImage(resolved) : null,
       onBackgroundImageError: (_, error) {},
       child: !hasImage
           ? Text(

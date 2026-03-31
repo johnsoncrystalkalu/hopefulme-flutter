@@ -12,6 +12,7 @@ import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
+import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
@@ -769,15 +770,59 @@ class _HomeScreenState extends State<HomeScreen> {
                             16,
                             showBottomNav ? 28 : 24,
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 900,
-                                  ),
-                                  child: _HomeContent(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final fitsRail = constraints.maxWidth >= 1380;
+                              if (fitsRail) {
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 900,
+                                        ),
+                                        child: _HomeContent(
+                                          user: user,
+                                          dashboard: dashboard,
+                                          onCreateUpdate: _openCreateUpdate,
+                                          onOpenProfile: _openUserProfile,
+                                          onOpenUpdate: _openUpdateDetail,
+                                          onOpenPost: _openPostDetail,
+                                          onOpenPostById: _openPostById,
+                                          onOpenBlog: _openBlogDetail,
+                                          onOpenUpdatesFeed: _openActivities,
+                                          onOpenPostsFeed: _openPostsFeed,
+                                          onOpenBlogsFeed: _openBlogsFeed,
+                                          onOpenHashtag: _openSearchQuery,
+                                          onOpenTodayBirthdays:
+                                              _openTodayBirthdays,
+                                          updateRepository:
+                                              widget.updateRepository,
+                                          isLoading:
+                                              snapshot.connectionState ==
+                                                  ConnectionState.waiting &&
+                                              dashboard == null,
+                                          error: snapshot.error?.toString(),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    SizedBox(
+                                      width: 360,
+                                      child: _RightRail(
+                                        user: user,
+                                        dashboard: dashboard,
+                                        onOpenProfile: _openUserProfile,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _HomeContent(
                                     user: user,
                                     dashboard: dashboard,
                                     onCreateUpdate: _openCreateUpdate,
@@ -798,20 +843,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         dashboard == null,
                                     error: snapshot.error?.toString(),
                                   ),
-                                ),
-                              ),
-                              if (showRightRail) ...[
-                                const SizedBox(width: 24),
-                                SizedBox(
-                                  width: 360,
-                                  child: _RightRail(
+                                  const SizedBox(height: 16),
+                                  _RightRail(
                                     user: user,
                                     dashboard: dashboard,
                                     onOpenProfile: _openUserProfile,
                                   ),
-                                ),
-                              ],
-                            ],
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -1367,7 +1407,9 @@ class _NotificationDropdownRow extends StatelessWidget {
             CircleAvatar(
               radius: 18,
               backgroundImage: item.avatarUrl.isNotEmpty
-                  ? NetworkImage(item.avatarUrl)
+                  ? NetworkImage(
+                      ImageUrlResolver.avatar(item.avatarUrl, size: 56),
+                    )
                   : null,
               child: item.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
             ),
@@ -1437,7 +1479,12 @@ class _MessageDropdownRow extends StatelessWidget {
                 CircleAvatar(
                   radius: 20,
                   backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                      ? NetworkImage(item.otherUser.photoUrl)
+                      ? NetworkImage(
+                          ImageUrlResolver.avatar(
+                            item.otherUser.photoUrl,
+                            size: 60,
+                          ),
+                        )
                       : null,
                   child: item.otherUser.photoUrl.isEmpty
                       ? const Icon(Icons.person)
@@ -2120,15 +2167,6 @@ class _HomeContent extends StatelessWidget {
           }
           return widgets;
         }()),
-        if (data.feed.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _FeedExploreMoreCard(
-              onOpenUpdatesFeed: onOpenUpdatesFeed,
-              onOpenPostsFeed: onOpenPostsFeed,
-              onOpenBlogsFeed: onOpenBlogsFeed,
-            ),
-          ),
       ],
     );
   }
@@ -2502,7 +2540,12 @@ class _BirthdayCelebrationCard extends StatelessWidget {
                             CircleAvatar(
                               radius: 24,
                               backgroundImage: user.photoUrl.isNotEmpty
-                                  ? NetworkImage(user.photoUrl)
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        user.photoUrl,
+                                        size: 72,
+                                      ),
+                                    )
                                   : null,
                               child: user.photoUrl.isEmpty
                                   ? const Icon(Icons.person)
@@ -2640,7 +2683,12 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             backgroundColor: colors.surfaceMuted,
                             backgroundImage:
                                 previewUsers[index].photoUrl.isNotEmpty
-                                ? NetworkImage(previewUsers[index].photoUrl)
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      previewUsers[index].photoUrl,
+                                      size: 60,
+                                    ),
+                                  )
                                 : null,
                             child: previewUsers[index].photoUrl.isEmpty
                                 ? const Icon(Icons.person, size: 18)
@@ -3183,22 +3231,22 @@ class _RightRail extends StatelessWidget {
       children: [
         _GrowthCard(onlineUsers: onlineUsers),
         const SizedBox(height: 14),
-        _GreetingCard(user: user),
+        // _GreetingCard(user: user),
         const SizedBox(height: 14),
-        _UserListCard(
-          title: 'Currently Online',
-          action: 'View All',
-          users: onlineUsers.take(5).toList(),
-          onUserTap: onOpenProfile,
-          showStatus: true,
-        ),
+        // _UserListCard(
+        //   title: 'Currently Online',
+        //   action: 'View All',
+        //   users: onlineUsers.take(5).toList(),
+        //   onUserTap: onOpenProfile,
+        //   showStatus: true,
+        //  ),
         const SizedBox(height: 14),
-        _UserListCard(
-          title: 'Meet New Friends',
-          action: 'See All',
-          users: suggested.take(5).toList(),
-          onUserTap: onOpenProfile,
-        ),
+        // _UserListCard(
+        //   title: 'Meet New Friends',
+        //   action: 'See All',
+        //   users: suggested.take(5).toList(),
+        //   onUserTap: onOpenProfile,
+        // ),
       ],
     );
   }

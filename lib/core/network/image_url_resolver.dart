@@ -62,6 +62,30 @@ class ImageUrlResolver {
     return normalized;
   }
 
+  static String avatar(String url, {int size = 120}) {
+    final normalized = url.trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final clean = resolveOriginal(normalized);
+
+    if (!clean.contains('res.cloudinary.com/')) {
+      return clean;
+    }
+
+    const marker = '/upload/';
+    final markerIndex = clean.indexOf(marker);
+    if (markerIndex == -1) {
+      return clean;
+    }
+
+    final prefix = clean.substring(0, markerIndex + marker.length);
+    final suffix = clean.substring(markerIndex + marker.length);
+
+    return '${prefix}w_$size,h_$size,c_limit,q_auto,f_auto/$suffix';
+  }
+
   static String thumbnail(String url, {int size = 160}) {
     final normalized = url.trim();
     if (normalized.isEmpty) {
