@@ -268,10 +268,10 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     }
   }
 
-  Future<void> _shareUpdate() async {
-    await Clipboard.setData(
-      ClipboardData(text: 'HopefulMe update #${widget.updateId}'),
-    );
+  Future<void> _shareUpdate(UpdateDetail detail) async {
+    final baseUrl = 'http://127.0.0.1:8000';
+    final url = '$baseUrl/social/${detail.id}@${detail.user.username}';
+    await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;
     AppToast.info(context, 'Update link copied to clipboard');
   }
@@ -504,7 +504,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 onSelected: (value) async {
                                   switch (value) {
                                     case 'share':
-                                      await _shareUpdate();
+                                      await _shareUpdate(detail);
                                       break;
                                     case 'edit':
                                       await _editUpdate(detail);

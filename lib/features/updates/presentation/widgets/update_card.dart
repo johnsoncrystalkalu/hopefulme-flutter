@@ -187,16 +187,11 @@ class ReusableUpdateCard extends StatelessWidget {
                     const SizedBox(height: 14),
                     InkWell(
                       onTap: onImageTap,
-                      child: ClipRect(
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: AppNetworkImage(
-                            imageUrl: imageUrl,
-                            fit: BoxFit.cover,
-                            backgroundColor: colors.surfaceMuted,
-                            placeholderLabel: data.fallbackLabel,
-                          ),
-                        ),
+                      child: AppNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.contain,
+                        backgroundColor: colors.surfaceMuted,
+                        placeholderLabel: data.fallbackLabel,
                       ),
                     ),
                   ],
