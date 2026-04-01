@@ -38,6 +38,8 @@ class ImageUrlResolver {
     }
 
     if (size <= 100) {
+      //remove this when we have a proper avatar resizing solution in place on the backend
+      return 'https://ui-avatars.com/api/?name=a&sizz{$size}&background=random&color=fff';
       // Strip any existing Cloudflare transformation first
       final cloudflarePattern = RegExp(r'/cdn-cgi/image/[^/]*/');
       final stripped = resolved.replaceFirst(cloudflarePattern, '/');

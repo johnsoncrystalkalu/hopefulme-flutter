@@ -143,9 +143,7 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
     final colors = context.appColors;
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(
-        title: Text('${widget.profile.displayName} Updates'),
-      ),
+      appBar: AppBar(title: Text('${widget.profile.displayName} Updates')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -186,6 +184,7 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
                     onOpenUpdate: () => _openUpdate(item),
                     currentUser: widget.currentUser,
                     ownerUsername: widget.profile.username,
+                    isVerified: widget.profile.isVerified,
                   );
                 },
               ),

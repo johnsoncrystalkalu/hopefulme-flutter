@@ -1331,6 +1331,7 @@ class _UpdateCard extends StatelessWidget {
       onOpenUpdate: onOpenUpdate,
       currentUser: currentUser,
       ownerUsername: profile.username,
+      isVerified: profile.isVerified,
       onOpenProfile: null,
     );
   }

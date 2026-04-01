@@ -2927,6 +2927,7 @@ class _UpdateFeedCard extends StatelessWidget {
       photoUrl: entry.photoUrl,
       avatarUrl: entry.user?.photoUrl ?? '',
       fallbackLabel: entry.user?.displayName ?? entry.title,
+      isVerified: entry.user?.isVerified ?? false,
       device: entry.device,
       createdAt: entry.createdAt,
       likesCount: entry.likesCount,
@@ -3064,8 +3065,9 @@ class _BlogFeedCard extends StatelessWidget {
                               ? null
                               : () => onOpenProfile(entry.user!.username),
                           borderRadius: BorderRadius.circular(10),
-                          child: Text(
-                            entry.user?.displayName ?? 'HopefulMe',
+                          child: VerifiedNameText(
+                            name: entry.user?.displayName ?? 'HopefulMe',
+                            verified: entry.user?.isVerified ?? false,
                             style: TextStyle(
                               color: colors.textPrimary,
                               fontSize: 12,
