@@ -435,27 +435,27 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             if (!isMine) ...[
-                              SizedBox(
-                                width: 30,
-                                child: showAvatar
-                                    ? CircleAvatar(
-                                        radius: 14,
-                                        backgroundImage:
-                                            item.sender?.photoUrl.isNotEmpty ==
-                                                true
-                                            ? NetworkImage(
-                                                item.sender!.photoUrl,
-                                              )
-                                            : null,
-                                        child:
-                                            item.sender?.photoUrl.isEmpty ??
-                                                true
-                                            ? const Icon(Icons.person, size: 14)
-                                            : null,
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
-                              const SizedBox(width: 8),
+                              // SizedBox(
+                              //   width: 30,
+                              //   child: showAvatar
+                              //       ? CircleAvatar(
+                              //           radius: 14,
+                              //           backgroundImage:
+                              //               item.sender?.photoUrl.isNotEmpty ==
+                              //                   true
+                              //               ? NetworkImage(
+                              //                   item.sender!.photoUrl,
+                              //                 )
+                              //               : null,
+                              //           child:
+                              //               item.sender?.photoUrl.isEmpty ??
+                              //                   true
+                              //               ? const Icon(Icons.person, size: 14)
+                              //               : null,
+                              //         )
+                              //       : const SizedBox.shrink(),
+                              // ),
+                              // const SizedBox(width: 8),
                             ],
                             Flexible(
                               child: GestureDetector(
