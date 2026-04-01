@@ -6,6 +6,8 @@ class AppConfig {
   static const String appName = 'HopefulMe';
   static const Duration requestTimeout = Duration(seconds: 35);
 
+  static const String oneSignalAppId = '416d7ded-013d-47fa-8269-f876e432e460';
+
   final String baseUrl;
 
   String get webBaseUrl {

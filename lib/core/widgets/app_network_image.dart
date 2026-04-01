@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 
 class AppNetworkImage extends StatelessWidget {
   const AppNetworkImage({
@@ -11,7 +12,7 @@ class AppNetworkImage extends StatelessWidget {
     this.backgroundColor,
     this.placeholderLabel,
     this.placeholderIcon = Icons.image_outlined,
-    this.showLoader = true,
+    this.showShimmer = true,
     super.key,
   });
 
@@ -23,40 +24,46 @@ class AppNetworkImage extends StatelessWidget {
   final Color? backgroundColor;
   final String? placeholderLabel;
   final IconData placeholderIcon;
-  final bool showLoader;
+  final bool showShimmer;
 
   @override
   Widget build(BuildContext context) {
-    final child = imageUrl.trim().isEmpty
-        ? _FallbackImage(
-            label: placeholderLabel,
-            icon: placeholderIcon,
-            backgroundColor: backgroundColor,
-          )
-        : Image.network(
-            imageUrl,
-            width: width,
-            height: height,
-            fit: fit,
-            loadingBuilder: showLoader
-                ? (context, child, loadingProgress) {
-                    if (loadingProgress == null) {
-                      return child;
-                    }
-                    return _FallbackImage(
-                      label: placeholderLabel,
-                      icon: placeholderIcon,
-                      backgroundColor: backgroundColor,
-                      isLoading: true,
-                    );
-                  }
-                : null,
-            errorBuilder: (context, error, stackTrace) => _FallbackImage(
-              label: placeholderLabel,
-              icon: placeholderIcon,
-              backgroundColor: backgroundColor,
-            ),
-          );
+    final colors = context.appColors;
+    final bg = backgroundColor ?? colors.surfaceMuted;
+
+    Widget child;
+
+    if (imageUrl.trim().isEmpty) {
+      child = _FallbackImage(
+        label: placeholderLabel,
+        icon: placeholderIcon,
+        backgroundColor: bg,
+      );
+    } else {
+      child = Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        loadingBuilder: showShimmer
+            ? (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+                return _ShimmerLoading(
+                  width: width,
+                  height: height,
+                  backgroundColor: bg,
+                );
+              }
+            : null,
+        errorBuilder: (context, error, stackTrace) => _FallbackImage(
+          label: placeholderLabel,
+          icon: placeholderIcon,
+          backgroundColor: bg,
+        ),
+      );
+    }
 
     if (borderRadius == null) {
       return child;
@@ -66,56 +73,73 @@ class AppNetworkImage extends StatelessWidget {
   }
 }
 
+class _ShimmerLoading extends StatelessWidget {
+  const _ShimmerLoading({
+    this.width,
+    this.height,
+    required this.backgroundColor,
+  });
+
+  final double? width;
+  final double? height;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      height: height ?? 200,
+      color: backgroundColor,
+      child: const Center(
+        child: ShimmerBox(
+          width: double.infinity,
+          height: double.infinity,
+          borderRadius: 0,
+        ),
+      ),
+    );
+  }
+}
+
 class _FallbackImage extends StatelessWidget {
   const _FallbackImage({
     required this.label,
     required this.icon,
     required this.backgroundColor,
-    this.isLoading = false,
   });
 
   final String? label;
   final IconData icon;
-  final Color? backgroundColor;
-  final bool isLoading;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final initials = _initials(label ?? '');
-    final bg = backgroundColor ?? colors.surfaceMuted;
+    final bg = backgroundColor;
 
     return Container(
       width: double.infinity,
       height: double.infinity,
       color: bg,
       alignment: Alignment.center,
-      child: isLoading
-          ? SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colors.brand,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: colors.textMuted, size: 26),
+          if (initials.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              initials,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: colors.textMuted, size: 26),
-                if (initials.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    initials,
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ],
             ),
+          ],
+        ],
+      ),
     );
   }
 

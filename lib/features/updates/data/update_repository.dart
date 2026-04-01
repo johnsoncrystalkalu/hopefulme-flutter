@@ -101,6 +101,10 @@ class UpdateRepository {
   Future<void> deleteUpdate(int updateId) async {
     await _authRepository.delete('updates/$updateId');
   }
+
+  Future<void> deleteComment(int commentId) async {
+    await _authRepository.delete('comments/$commentId');
+  }
 }
 
 class LikeResult {

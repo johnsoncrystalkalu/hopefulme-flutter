@@ -169,18 +169,19 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     UpdateDetail detail,
     UpdateComment target,
   ) async {
+    final pageContext = context;
     final controller = TextEditingController();
     final replyText = await showModalBottomSheet<String>(
-      context: context,
+      context: pageContext,
       isScrollControlled: true,
-      builder: (context) {
-        final colors = context.appColors;
+      builder: (bottomSheetContext) {
+        final colors = bottomSheetContext.appColors;
         return Padding(
           padding: EdgeInsets.fromLTRB(
             16,
             18,
             16,
-            MediaQuery.of(context).viewInsets.bottom + 18,
+            MediaQuery.of(bottomSheetContext).viewInsets.bottom + 18,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -207,8 +208,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop(controller.text.trim()),
+                  onPressed: () => Navigator.of(
+                    bottomSheetContext,
+                  ).pop(controller.text.trim()),
                   child: const Text('Send reply'),
                 ),
               ),
@@ -224,47 +226,25 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     }
 
     try {
-      final reply = await widget.repository.addCommentReply(
+      await widget.repository.addCommentReply(
         commentId: target.id,
         comment: replyText.trim(),
       );
       if (!mounted) {
         return;
       }
-      setState(() {
-        _future = Future.value(
-          UpdateDetail(
-            id: detail.id,
-            status: detail.status,
-            photoUrl: detail.photoUrl,
-            originalPhotoUrl: detail.originalPhotoUrl,
-            device: detail.device,
-            views: detail.views,
-            likesCount: detail.likesCount,
-            commentsCount: detail.commentsCount,
-            createdAt: detail.createdAt,
-            user: detail.user,
-            comments: detail.comments
-                .map(
-                  (comment) => comment.id == target.id
-                      ? UpdateComment(
-                          id: comment.id,
-                          comment: comment.comment,
-                          createdAt: comment.createdAt,
-                          user: comment.user,
-                          replies: [reply, ...comment.replies],
-                        )
-                      : comment,
-                )
-                .toList(),
-          ),
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _future = widget.repository.fetchUpdate(widget.updateId);
+          });
+        }
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      AppToast.error(context, error);
+      AppToast.error(pageContext, error);
     }
   }
 
@@ -349,6 +329,42 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     Navigator.of(
       context,
     ).pop(UpdateDetailResult(deleted: false, shouldRefresh: _shouldRefresh));
+  }
+
+  Future<void> _deleteComment(UpdateComment comment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete comment?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
+    try {
+      await widget.repository.deleteComment(comment.id);
+      if (!mounted) return;
+      setState(() {
+        _future = widget.repository.fetchUpdate(widget.updateId);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    }
   }
 
   Future<void> _openProfile(String username) async {
@@ -720,6 +736,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 onHashtagTap: _openSearchQuery,
                                 onReplyTap: () =>
                                     _replyToComment(detail, comment),
+                                onDelete: () => _deleteComment(comment),
+                                isOwner:
+                                    widget.currentUser?.id == comment.user.id,
                               ),
                             ),
                           ),
@@ -743,6 +762,8 @@ class _CommentTile extends StatelessWidget {
     required this.onMentionTap,
     required this.onHashtagTap,
     required this.onReplyTap,
+    required this.onDelete,
+    required this.isOwner,
   });
 
   final UpdateComment comment;
@@ -750,6 +771,8 @@ class _CommentTile extends StatelessWidget {
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
   final VoidCallback onReplyTap;
+  final VoidCallback onDelete;
+  final bool isOwner;
 
   @override
   Widget build(BuildContext context) {
@@ -783,18 +806,49 @@ class _CommentTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  onTap: onProfileTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: VerifiedNameText(
-                    name: comment.user.displayName,
-                    verified: comment.user.isVerified,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: onProfileTap,
+                        borderRadius: BorderRadius.circular(8),
+                        child: VerifiedNameText(
+                          name: comment.user.displayName,
+                          verified: comment.user.isVerified,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (isOwner)
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          Icons.more_vert,
+                          size: 18,
+                          color: colors.textMuted,
+                        ),
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            onDelete();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18),
+                                SizedBox(width: 8),
+                                Text('Delete'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 RichDisplayText(

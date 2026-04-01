@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 
 class AppAvatar extends StatelessWidget {
   const AppAvatar({
@@ -9,6 +10,7 @@ class AppAvatar extends StatelessWidget {
     this.radius = 18,
     this.backgroundColor,
     this.size,
+    this.showShimmer = true,
     super.key,
   });
 
@@ -17,6 +19,7 @@ class AppAvatar extends StatelessWidget {
   final double radius;
   final Color? backgroundColor;
   final int? size;
+  final bool showShimmer;
 
   @override
   Widget build(BuildContext context) {
@@ -29,21 +32,30 @@ class AppAvatar extends StatelessWidget {
     );
     final hasImage = imageUrl.trim().isNotEmpty;
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: bg,
-      backgroundImage: hasImage ? NetworkImage(resolved) : null,
-      onBackgroundImageError: (_, error) {},
-      child: !hasImage
-          ? Text(
-              initials,
-              style: TextStyle(
-                color: colors.accentSoftText,
-                fontSize: radius * 0.55,
-                fontWeight: FontWeight.w800,
-              ),
+    return SizedBox(
+      width: radius * 2,
+      height: radius * 2,
+      child: hasImage
+          ? _AvatarWithLoading(
+              imageUrl: resolved,
+              radius: radius,
+              bg: bg,
+              initials: initials,
+              colors: colors,
+              showShimmer: showShimmer,
             )
-          : null,
+          : CircleAvatar(
+              radius: radius,
+              backgroundColor: bg,
+              child: Text(
+                initials,
+                style: TextStyle(
+                  color: colors.accentSoftText,
+                  fontSize: radius * 0.55,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
     );
   }
 
@@ -58,5 +70,61 @@ class AppAvatar extends StatelessWidget {
 
     final letters = parts.take(2).map((part) => part[0].toUpperCase()).join();
     return letters.isEmpty ? 'U' : letters;
+  }
+}
+
+class _AvatarWithLoading extends StatelessWidget {
+  const _AvatarWithLoading({
+    required this.imageUrl,
+    required this.radius,
+    required this.bg,
+    required this.initials,
+    required this.colors,
+    required this.showShimmer,
+  });
+
+  final String imageUrl;
+  final double radius;
+  final Color bg;
+  final String initials;
+  final AppThemeColors colors;
+  final bool showShimmer;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: bg,
+      child: ClipOval(
+        child: Image.network(
+          imageUrl,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          loadingBuilder: showShimmer
+              ? (context, child, loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  }
+                  return AppShimmer.circular(
+                    size: radius * 2,
+                    baseColor: bg,
+                    highlightColor: colors.surface,
+                  );
+                }
+              : null,
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Text(
+              initials,
+              style: TextStyle(
+                color: colors.accentSoftText,
+                fontSize: radius * 0.55,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -155,18 +155,19 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     ContentDetail detail,
     ContentComment target,
   ) async {
+    final pageContext = context;
     final controller = TextEditingController();
     final replyText = await showModalBottomSheet<String>(
-      context: context,
+      context: pageContext,
       isScrollControlled: true,
-      builder: (context) {
-        final colors = context.appColors;
+      builder: (bottomSheetContext) {
+        final colors = bottomSheetContext.appColors;
         return Padding(
           padding: EdgeInsets.fromLTRB(
             16,
             18,
             16,
-            MediaQuery.of(context).viewInsets.bottom + 18,
+            MediaQuery.of(bottomSheetContext).viewInsets.bottom + 18,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -193,8 +194,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop(controller.text.trim()),
+                  onPressed: () => Navigator.of(
+                    bottomSheetContext,
+                  ).pop(controller.text.trim()),
                   child: const Text('Send reply'),
                 ),
               ),
@@ -210,53 +212,25 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
 
     try {
-      final reply = await widget.repository.addCommentReply(
+      await widget.repository.addCommentReply(
         commentId: target.id,
         comment: replyText.trim(),
       );
       if (!mounted) {
         return;
       }
-      setState(() {
-        _future = Future<ContentDetail>.value(
-          ContentDetail(
-            id: detail.id,
-            kind: detail.kind,
-            title: detail.title,
-            body: detail.body,
-            videoUrl: detail.videoUrl,
-            photoUrl: detail.photoUrl,
-            originalPhotoUrl: detail.originalPhotoUrl,
-            secondaryPhotoUrl: detail.secondaryPhotoUrl,
-            originalSecondaryPhotoUrl: detail.originalSecondaryPhotoUrl,
-            tag: detail.tag,
-            label: detail.label,
-            views: detail.views,
-            likesCount: detail.likesCount,
-            commentsCount: detail.commentsCount,
-            createdAt: detail.createdAt,
-            user: detail.user,
-            comments: detail.comments
-                .map(
-                  (comment) => comment.id == target.id
-                      ? ContentComment(
-                          id: comment.id,
-                          body: comment.body,
-                          createdAt: comment.createdAt,
-                          user: comment.user,
-                          replies: [reply, ...comment.replies],
-                        )
-                      : comment,
-                )
-                .toList(),
-          ),
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _future = _load();
+          });
+        }
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      AppToast.error(context, error);
+      AppToast.error(pageContext, error);
     }
   }
 
