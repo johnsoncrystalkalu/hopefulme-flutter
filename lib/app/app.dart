@@ -109,6 +109,14 @@ Future<void> _initOneSignal() async {
       appId: AppConfig.oneSignalAppId,
     );
 
+    // 1b. Listen for subscription changes (This fixes the "Not Subscribed" sync issue)
+    OneSignalService.instance.addSubscriptionObserver((state) {
+      if (state.current.id != null && state.current.optedIn == true) {
+        debugPrint('OneSignal Subscription detected: ${state.current.id}');
+        _syncOneSignalPlayerId();
+      }
+    });
+
     // 2. Sync immediately if already logged in (e.g., app restart)
     if (_authController.isAuthenticated) {
       await _syncOneSignalPlayerId();
@@ -146,17 +154,6 @@ Future<void> _syncOneSignalPlayerId() async {
   }
 }
 
-// 4. Handle Auth Changes (Login/Logout)
-void _onAuthStateChanged() {
-  if (_authController.isAuthenticated) {
-    _syncOneSignalPlayerId();
-  } else {
-    // Clean up OneSignal when user logs out
-    OneSignalService.instance.removeExternalUserId();
-  }
-}
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -172,7 +169,10 @@ void _onAuthStateChanged() {
 
   void _onAuthStateChanged() {
     if (_authController.isAuthenticated) {
-      unawaited(_syncOneSignalPlayerId());
+      _syncOneSignalPlayerId();
+    } else {
+      // Clean up OneSignal when user logs out
+      OneSignalService.instance.removeExternalUserId();
     }
   }
 

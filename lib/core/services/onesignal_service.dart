@@ -57,6 +57,10 @@ class OneSignalService {
     // TODO: Add your navigation logic here (e.g., Navigator.push)
   }
 
+  void addSubscriptionObserver(void Function(OSPushSubscriptionChangedState) onChanged) {
+    OneSignal.User.pushSubscription.addObserver(onChanged);
+  }
+
   // Improved Player ID (Subscription ID) fetch
   Future<String?> getPlayerId() async {
     // In v5, the Player ID is specifically the pushSubscriptionId
@@ -82,6 +86,6 @@ class OneSignalService {
   }
 
   Future<void> deleteTag(String key) async {
-    await OneSignal.User.removeTagWithKey(key);
+    await OneSignal.User.removeTag(key);
   }
 }
