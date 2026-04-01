@@ -59,21 +59,15 @@ class ContentDetail {
             '',
       ),
       videoUrl: json['video_url']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
       ),
       secondaryPhotoUrl: ImageUrlResolver.resolve(
         json['photo2_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
       ),
       originalSecondaryPhotoUrl: ImageUrlResolver.resolveOriginal(
         json['photo2_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
       ),
       tag: json['tag']?.toString() ?? json['preset']?.toString() ?? '',
       label: json['label']?.toString() ?? '',

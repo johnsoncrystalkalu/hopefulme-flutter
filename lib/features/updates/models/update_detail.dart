@@ -37,13 +37,9 @@ class UpdateDetail {
     return UpdateDetail(
       id: parseInt(json['id']),
       status: _plainText(json['status']?.toString() ?? ''),
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: [user.photoUrl],
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [user.photoUrl],
       ),
       device: json['device']?.toString() ?? '',
       views: parseInt(json['views']),

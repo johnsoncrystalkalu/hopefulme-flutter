@@ -112,20 +112,16 @@ class SearchContentItem {
   final FeedUser? user;
 
   factory SearchContentItem.fromJson(Map<String, dynamic> json) {
-    final user = (json['user'] as Map<String, dynamic>?)
-        ?.let(FeedUser.fromJson);
+    final user = (json['user'] as Map<String, dynamic>?)?.let(
+      FeedUser.fromJson,
+    );
     return SearchContentItem(
       id: parseInt(json['id']),
       title: _plainText(json['title']?.toString() ?? ''),
       body: _plainText(
         json['content']?.toString() ?? json['status']?.toString() ?? '',
       ),
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: [
-          if (user != null) user.photoUrl,
-        ],
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       category: json['category']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
       user: user,

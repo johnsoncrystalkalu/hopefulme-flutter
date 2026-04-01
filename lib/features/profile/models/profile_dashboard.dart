@@ -29,9 +29,9 @@ class ProfileDashboard {
 
     return ProfileDashboard(
       profile: profile,
-      posts: _mapItems(json['posts'], contextUrls: [profile.photoUrl]),
-      updates: _mapItems(json['updates'], contextUrls: [profile.photoUrl]),
-      blogs: _mapItems(json['blogs'], contextUrls: [profile.photoUrl]),
+      posts: _mapItems(json['posts']),
+      updates: _mapItems(json['updates']),
+      blogs: _mapItems(json['blogs']),
       isFollowing: json['is_following'] as bool? ?? false,
       totalPosts: parseInt(json['total_posts']),
       updatesCount: parseInt(json['updates_count']),
@@ -39,16 +39,11 @@ class ProfileDashboard {
     );
   }
 
-  static List<ProfileContentItem> _mapItems(
-    dynamic value, {
-    List<String> contextUrls = const <String>[],
-  }) {
+  static List<ProfileContentItem> _mapItems(dynamic value) {
     final items = value as List<dynamic>? ?? <dynamic>[];
     return items
         .whereType<Map<String, dynamic>>()
-        .map(
-          (item) => ProfileContentItem.fromJson(item, contextUrls: contextUrls),
-        )
+        .map((item) => ProfileContentItem.fromJson(item))
         .toList();
   }
 }
@@ -246,20 +241,14 @@ class ProfileContentItem {
   final int views;
   final String createdAt;
 
-  factory ProfileContentItem.fromJson(
-    Map<String, dynamic> json, {
-    List<String> contextUrls = const <String>[],
-  }) {
+  factory ProfileContentItem.fromJson(Map<String, dynamic> json) {
     return ProfileContentItem(
       id: parseInt(json['id']),
       title: _plainText(json['title']?.toString() ?? ''),
       body: _plainText(
         json['content']?.toString() ?? json['status']?.toString() ?? '',
       ),
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: contextUrls,
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       device: json['device']?.toString() ?? '',
       likesCount: parseInt(json['likes_count']),
       commentsCount: parseInt(json['comments_count']),

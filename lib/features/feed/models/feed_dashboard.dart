@@ -158,13 +158,9 @@ class FeedEntry {
       body: _plainText(
         json['content']?.toString() ?? json['status']?.toString() ?? '',
       ),
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(
         json['photo_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
       ),
       device: json['device']?.toString() ?? '',
       user: user,
@@ -255,10 +251,7 @@ class QuoteCard {
     return QuoteCard(
       id: parseInt(json['id']),
       title: json['title']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(
-        json['photo_url']?.toString() ?? '',
-        contextUrls: [if (user != null) user.photoUrl],
-      ),
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       user: user,
     );
   }
