@@ -603,7 +603,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                    colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                   ),
                 ),
                 child: Text(
@@ -1331,7 +1331,6 @@ class _UpdateCard extends StatelessWidget {
       onOpenUpdate: onOpenUpdate,
       currentUser: currentUser,
       ownerUsername: profile.username,
-      isVerified: profile.isVerified,
       onOpenProfile: null,
     );
   }

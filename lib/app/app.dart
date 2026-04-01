@@ -107,6 +107,7 @@ Future<void> _initOneSignal() async {
     // 1. Initialize the service
     await OneSignalService.instance.initialize(
       appId: AppConfig.oneSignalAppId,
+      navigatorKey: _navigatorKey,
     );
 
     // 1b. Listen for subscription changes (This fixes the "Not Subscribed" sync issue)

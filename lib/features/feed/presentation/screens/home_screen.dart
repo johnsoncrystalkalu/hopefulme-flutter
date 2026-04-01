@@ -143,9 +143,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       setState(() {
-        _latestNotifications = notifications.items.take(10).toList();
+        _latestNotifications = notifications.items.take(5).toList();
         _unreadNotifications = notifications.unreadCount;
-        _latestConversations = conversations.take(10).toList();
+        _latestConversations = conversations.take(5).toList();
         _unreadMessages = conversations.fold<int>(
           0,
           (sum, item) => sum + item.unreadCount,
