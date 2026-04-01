@@ -92,6 +92,13 @@ class AuthRepository {
     }
   }
 
+  Future<void> registerOneSignalPlayerId(String playerId) async {
+    await _apiClient.post(
+      'auth/onesignal-player-id',
+      body: <String, dynamic>{'onesignal_player_id': playerId},
+    );
+  }
+
   Future<bool> hasToken() async {
     final token = await _apiClient.tokenStorage.readToken();
     return token != null && token.isNotEmpty;

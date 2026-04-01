@@ -7,6 +7,7 @@ import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/navigation/app_deep_link_navigator.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/core/storage/token_storage.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
@@ -95,7 +96,65 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     );
     _authController.addListener(_syncPresenceTracking);
     _authController.addListener(_drainPendingDeepLink);
-    unawaited(_initDeepLinks());
+ // inside your initState or wherever these are called
+  _authController.addListener(_onAuthStateChanged);
+  unawaited(_initDeepLinks());
+  unawaited(_initOneSignal());
+}
+
+Future<void> _initOneSignal() async {
+  try {
+    // 1. Initialize the service
+    await OneSignalService.instance.initialize(
+      appId: AppConfig.oneSignalAppId,
+    );
+
+    // 2. Sync immediately if already logged in (e.g., app restart)
+    if (_authController.isAuthenticated) {
+      await _syncOneSignalPlayerId();
+    }
+  } catch (e) {
+    debugPrint('OneSignal initialization failed: $e');
+  }
+}
+
+Future<void> _syncOneSignalPlayerId() async {
+  if (!_authController.isAuthenticated) return;
+
+  try {
+    final user = _authController.currentUser; // Assuming you have access to user data
+    if (user != null) {
+      // 1. Link the Laravel User ID to OneSignal (External ID)
+      // This is the most reliable way to send notifications from Laravel
+      await OneSignalService.instance.setExternalUserId(user.id.toString());
+    }
+
+    // 2. Get the Player ID (Push Subscription ID)
+    final playerId = await OneSignalService.instance.getPlayerId();
+    
+    if (playerId != null) {
+      // 3. Save it to your Laravel database via API
+      await _authController.authRepository.registerOneSignalPlayerId(playerId);
+      debugPrint('OneSignal Sync Successful: $playerId');
+    } else {
+      // If null, it means the device is still registering. 
+      // OneSignal will automatically retry subscription in the background.
+      debugPrint('OneSignal Player ID not ready yet.');
+    }
+  } catch (e) {
+    debugPrint('Failed to sync OneSignal: $e');
+  }
+}
+
+// 4. Handle Auth Changes (Login/Logout)
+void _onAuthStateChanged() {
+  if (_authController.isAuthenticated) {
+    _syncOneSignalPlayerId();
+  } else {
+    // Clean up OneSignal when user logs out
+    OneSignalService.instance.removeExternalUserId();
+  }
+}
   }
 
   @override
@@ -103,11 +162,18 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     WidgetsBinding.instance.removeObserver(this);
     _authController.removeListener(_syncPresenceTracking);
     _authController.removeListener(_drainPendingDeepLink);
+    _authController.removeListener(_onAuthStateChanged);
     _presenceTimer?.cancel();
     _deepLinkSubscription?.cancel();
     _themeController.dispose();
     _authController.dispose();
     super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    if (_authController.isAuthenticated) {
+      unawaited(_syncOneSignalPlayerId());
+    }
   }
 
   @override
@@ -267,72 +333,76 @@ class _AppLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-  final colors = context.appColors;
-  
-  return Scaffold(
-    backgroundColor: colors.surface, // Clean background
-    body: Center(
-      child: Container(
-        width: 240, // Slightly wider for better text breathing room
-        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.8), // Slight transparency
-          borderRadius: BorderRadius.circular(32), // More rounded "Apple" corners
-          border: Border.all(
-            color: colors.border.withValues(alpha: 0.5), 
-            width: 0.5, // Ultra-thin border for a refined look
+    final colors = context.appColors;
+
+    return Scaffold(
+      backgroundColor: colors.surface, // Clean background
+      body: Center(
+        child: Container(
+          width: 240, // Slightly wider for better text breathing room
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: 0.8), // Slight transparency
+            borderRadius: BorderRadius.circular(
+              32,
+            ), // More rounded "Apple" corners
+            border: Border.all(
+              color: colors.border.withValues(alpha: 0.5),
+              width: 0.5, // Ultra-thin border for a refined look
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.08),
+                blurRadius: 40,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.08),
-              blurRadius: 40,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // App Name with Apple-style tight tracking
-            Text(
-              AppConfig.appName,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.2, // The "Secret Sauce" for high-end UI
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // App Name with Apple-style tight tracking
+              Text(
+                AppConfig.appName,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.2, // The "Secret Sauce" for high-end UI
+                ),
               ),
-            ),
-            
-            const SizedBox(height: 32),
-            
-            // HeroIcon as a custom loader
-            const SizedBox(
-              height: 28,
-              width: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)), // Your brand blue
-                backgroundColor: Colors.transparent,
+
+              const SizedBox(height: 32),
+
+              // HeroIcon as a custom loader
+              const SizedBox(
+                height: 28,
+                width: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Color(0xFF2563EB),
+                  ), // Your brand blue
+                  backgroundColor: Colors.transparent,
+                ),
               ),
-            ),
-            
-            const SizedBox(height: 28),
-            
-            // Refined subtext
-            Text(
-              'Loading your space...',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.2,
+
+              const SizedBox(height: 28),
+
+              // Refined subtext
+              Text(
+                'Loading your space...',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
