@@ -44,6 +44,7 @@ class ConversationUser {
     required this.photoUrl,
     required this.lastSeen,
     required this.isOnline,
+    required this.isVerified,
   });
 
   final int id;
@@ -52,6 +53,7 @@ class ConversationUser {
   final String photoUrl;
   final String lastSeen;
   final bool isOnline;
+  final bool isVerified;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
 
@@ -63,6 +65,7 @@ class ConversationUser {
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       lastSeen: json['last_seen']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
+      isVerified: parseBool(json['verified']),
     );
   }
 }

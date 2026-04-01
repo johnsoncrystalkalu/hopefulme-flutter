@@ -204,6 +204,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
               photoUrl: widget.currentUser?.photoUrl ?? '',
               lastSeen: '',
               isOnline: true,
+              isVerified: widget.currentUser?.isVerified ?? false,
             ),
       replyTo: _replyingTo == null
           ? null

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -355,8 +356,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    otherUser?.displayName ?? widget.title,
+                  VerifiedNameText(
+                    name: otherUser?.displayName ?? widget.title,
+                    verified: otherUser?.isVerified ?? false,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

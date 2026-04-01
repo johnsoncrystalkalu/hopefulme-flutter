@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -268,8 +269,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    item.otherUser.displayName,
+                                  VerifiedNameText(
+                                    name: item.otherUser.displayName,
+                                    verified: item.otherUser.isVerified,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
@@ -383,8 +385,9 @@ class _ConversationTile extends StatelessWidget {
                           child: InkWell(
                             onTap: onProfileTap,
                             borderRadius: BorderRadius.circular(8),
-                            child: Text(
-                              item.otherUser.displayName,
+                            child: VerifiedNameText(
+                              name: item.otherUser.displayName,
+                              verified: item.otherUser.isVerified,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: colors.textPrimary,

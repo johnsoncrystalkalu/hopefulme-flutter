@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -467,8 +468,9 @@ class _UsersGrid extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      user.displayName,
+                    VerifiedNameText(
+                      name: user.displayName,
+                      verified: user.isVerified,
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -716,8 +718,9 @@ class _SearchCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                item.user!.displayName,
+                              child: VerifiedNameText(
+                                name: item.user!.displayName,
+                                verified: item.user!.isVerified,
                                 style: TextStyle(
                                   color: colors.textPrimary,
                                   fontSize: 12.5,

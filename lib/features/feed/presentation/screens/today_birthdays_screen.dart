@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
@@ -231,8 +232,9 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  user.displayName,
+                                VerifiedNameText(
+                                  name: user.displayName,
+                                  verified: user.isVerified,
                                   style: TextStyle(
                                     color: colors.textPrimary,
                                     fontSize: 16,

@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
@@ -384,8 +385,9 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
                           child: InkWell(
                             onTap: () => _openProfile(entry.user!.username),
                             borderRadius: BorderRadius.circular(8),
-                            child: Text(
-                              entry.user!.displayName,
+                            child: VerifiedNameText(
+                              name: entry.user!.displayName,
+                              verified: entry.user!.isVerified,
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 12,

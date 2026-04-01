@@ -13,6 +13,7 @@ import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
@@ -1509,9 +1510,9 @@ class _MessageDropdownRow extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          item.otherUser.displayName,
-                          overflow: TextOverflow.ellipsis,
+                        child: VerifiedNameText(
+                          name: item.otherUser.displayName,
+                          verified: item.otherUser.isVerified,
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontSize: 13,
@@ -2552,8 +2553,9 @@ class _BirthdayCelebrationCard extends StatelessWidget {
                                   : null,
                             ),
                             const SizedBox(height: 10),
-                            Text(
-                              user.displayName,
+                            VerifiedNameText(
+                              name: user.displayName,
+                              verified: user.isVerified,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -3412,8 +3414,9 @@ class _UserListCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              user.displayName,
+                            VerifiedNameText(
+                              name: user.displayName,
+                              verified: user.isVerified,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Color(0xFF1C2540),

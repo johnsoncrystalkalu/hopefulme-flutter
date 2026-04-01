@@ -25,6 +25,7 @@ class InteractiveUpdateCard extends StatefulWidget {
     this.ownerUsername,
     this.onOpenProfile,
     this.onOpenHashtag,
+    this.isVerified = false,
     super.key,
   });
 
@@ -35,6 +36,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   final String avatarUrl;
   final String fallbackLabel;
   final String device;
+  final bool isVerified;
   final String createdAt;
   final int likesCount;
   final int commentsCount;
@@ -231,6 +233,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         photoUrl: widget.photoUrl,
         avatarUrl: widget.avatarUrl,
         fallbackLabel: widget.fallbackLabel,
+        isVerified: widget.isVerified,
       ),
       onHeaderTap: widget.ownerUsername == null || widget.onOpenProfile == null
           ? null

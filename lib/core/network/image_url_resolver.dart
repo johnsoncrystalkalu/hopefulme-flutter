@@ -44,7 +44,7 @@ class ImageUrlResolver {
 
       return stripped.replaceFirst(
         '/storage/',
-        '/cdn-cgi/image/width=$size,quality=75/storage/',
+        '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
       );
     }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -219,8 +220,9 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.displayName,
+                                  VerifiedNameText(
+                                    name: item.displayName,
+                                    verified: item.isVerified,
                                     style: TextStyle(
                                       color: colors.textPrimary,
                                       fontSize: 14,

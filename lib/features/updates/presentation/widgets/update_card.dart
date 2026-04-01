@@ -3,6 +3,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 
 class UpdateCardData {
   const UpdateCardData({
@@ -14,6 +15,7 @@ class UpdateCardData {
     required this.photoUrl,
     required this.avatarUrl,
     required this.fallbackLabel,
+    this.isVerified = false,
   });
 
   final String title;
@@ -24,6 +26,7 @@ class UpdateCardData {
   final String photoUrl;
   final String avatarUrl;
   final String fallbackLabel;
+  final bool isVerified;
 }
 
 class ReusableUpdateCard extends StatelessWidget {
@@ -65,8 +68,9 @@ class ReusableUpdateCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                data.title,
+              VerifiedNameText(
+                name: data.title,
+                verified: data.isVerified,
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 15,

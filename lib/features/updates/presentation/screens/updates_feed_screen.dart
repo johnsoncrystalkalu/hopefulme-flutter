@@ -241,6 +241,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                     updateRepository: widget.updateRepository,
                     currentUser: widget.currentUser,
                     ownerUsername: entry.user?.username,
+                    isVerified: entry.user?.isVerified ?? false,
                     onOpenProfile: _openProfile,
                     onOpenUpdate: () => _openUpdate(entry),
                     onOpenHashtag: _openSearchQuery,

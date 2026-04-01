@@ -6,6 +6,8 @@ class VerifiedNameText extends StatelessWidget {
     required this.verified,
     this.style,
     this.textAlign,
+    this.maxLines = 1,
+    this.overflow = TextOverflow.ellipsis,
     this.badgeSize = 16,
     super.key,
   });
@@ -14,6 +16,8 @@ class VerifiedNameText extends StatelessWidget {
   final bool verified;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final int maxLines;
+  final TextOverflow overflow;
   final double badgeSize;
 
   @override
@@ -21,7 +25,13 @@ class VerifiedNameText extends StatelessWidget {
     final resolvedStyle = style ?? DefaultTextStyle.of(context).style;
 
     if (!verified) {
-      return Text(name, style: resolvedStyle, textAlign: textAlign);
+      return Text(
+        name,
+        style: resolvedStyle,
+        textAlign: textAlign,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
     }
 
     return Wrap(
@@ -29,7 +39,15 @@ class VerifiedNameText extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 6,
       children: [
-        Text(name, style: resolvedStyle, textAlign: textAlign),
+        Flexible(
+          child: Text(
+            name,
+            style: resolvedStyle,
+            textAlign: textAlign,
+            maxLines: maxLines,
+            overflow: overflow,
+          ),
+        ),
         Icon(
           Icons.verified_rounded,
           size: badgeSize,
