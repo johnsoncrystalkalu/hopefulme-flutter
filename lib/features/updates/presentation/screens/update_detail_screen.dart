@@ -249,7 +249,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _shareUpdate(UpdateDetail detail) async {
-    final baseUrl = 'http://127.0.0.1:8000';
+    final baseUrl = 'https://ahopefulme.com';
     final url = '$baseUrl/social/${detail.id}@${detail.user.username}';
     await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;

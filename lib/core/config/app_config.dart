@@ -33,12 +33,12 @@ class AppConfig {
 
   static String _defaultBaseUrl() {
     if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
+      return 'https://ahopefulme.com/api';
     }
 
     return switch (defaultTargetPlatform) {
-      TargetPlatform.android => 'http://10.0.2.2:8000/api',
-      _ => 'http://127.0.0.1:8000/api',
+      TargetPlatform.android => 'https://ahopefulme.com/api',
+      _ => 'https://ahopefulme.com/api',
     };
   }
 }

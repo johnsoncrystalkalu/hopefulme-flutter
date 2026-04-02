@@ -355,8 +355,8 @@ class AppDeepLinkNavigator {
       if (configuredHost != null && configuredHost.isNotEmpty) configuredHost,
       'ahopefulme.com',
       'www.ahopefulme.com',
-      '127.0.0.1',
-      'localhost',
+     // '127.0.0.1',
+      //'localhost',
     };
 
     if (host.isNotEmpty && !allowedHosts.contains(host)) {

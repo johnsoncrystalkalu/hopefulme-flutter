@@ -1,8 +1,8 @@
 class ImageUrlResolver {
   const ImageUrlResolver._();
 
-  //static const String _baseUrl = 'https://ahopefulme.com';
-  static const String _baseUrl = 'http://127.0.0.1:8000';
+  static const String _baseUrl = 'https://ahopefulme.com';
+ // static const String _baseUrl = 'http://127.0.0.1:8000';
 
   static String resolve(String? url) {
     if (url == null || url.trim().isEmpty) {
@@ -37,18 +37,25 @@ class ImageUrlResolver {
       resolved = '$_baseUrl/$trimmed';
     }
 
-    if (size <= 100) {
-      //remove this when we have a proper avatar resizing solution in place on the backend
-      return 'https://ui-avatars.com/api/?name=a&sizz{$size}&background=random&color=fff';
-      // Strip any existing Cloudflare transformation first
-      final cloudflarePattern = RegExp(r'/cdn-cgi/image/[^/]*/');
-      final stripped = resolved.replaceFirst(cloudflarePattern, '/');
+   if (size <= 100) {
+  if (_isAbsoluteUrl(trimmed) && !trimmed.contains('ahopefulme.com')) {
+    return trimmed;
+  }
 
-      return stripped.replaceFirst(
-        '/storage/',
-        '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
-      );
-    }
+  final cloudflarePattern = RegExp(r'/cdn-cgi/image/[^/]*/');
+  final stripped = resolved.replaceFirst(cloudflarePattern, '/');
+
+  // Only apply Cloudflare transform if /storage/ exists in the URL
+  if (stripped.contains('/storage/')) {
+    return stripped.replaceFirst(
+      '/storage/',
+      '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
+    );
+  }
+
+  // Fallback — just return the resolved URL as-is
+  return stripped;
+}
 
     return resolved;
   }
