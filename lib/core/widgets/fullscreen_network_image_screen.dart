@@ -8,18 +8,49 @@ import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 
 class FullscreenNetworkImageScreen extends StatefulWidget {
-  const FullscreenNetworkImageScreen({required this.imageUrl, super.key});
+  const FullscreenNetworkImageScreen({
+    required this.imageUrls,
+    this.initialIndex = 0,
+    super.key,
+  });
 
-  final String imageUrl;
+  final List<String> imageUrls;
+  final int initialIndex;
 
   static Future<void> show(BuildContext context, {required String imageUrl}) {
     if (imageUrl.trim().isEmpty) {
       return Future<void>.value();
     }
 
+    return showGallery(context, imageUrls: <String>[imageUrl], initialIndex: 0);
+  }
+
+  static Future<void> showGallery(
+    BuildContext context, {
+    required List<String> imageUrls,
+    int initialIndex = 0,
+  }) {
+    final filteredUrls = imageUrls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+
+    if (filteredUrls.isEmpty) {
+      return Future<void>.value();
+    }
+
+    final safeInitialIndex = initialIndex < 0
+        ? 0
+        : (initialIndex >= filteredUrls.length
+              ? filteredUrls.length - 1
+              : initialIndex);
+
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => FullscreenNetworkImageScreen(imageUrl: imageUrl),
+        builder: (_) => FullscreenNetworkImageScreen(
+          imageUrls: filteredUrls,
+          initialIndex: safeInitialIndex,
+        ),
       ),
     );
   }
@@ -32,6 +63,23 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
 class _FullscreenNetworkImageScreenState
     extends State<FullscreenNetworkImageScreen> {
   bool _isSaving = false;
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  String get _currentImageUrl => widget.imageUrls[_currentIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   Future<void> _showImageActions() async {
     await HapticFeedback.mediumImpact();
@@ -60,9 +108,7 @@ class _FullscreenNetworkImageScreenState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.download_rounded),
-                  title: Text(
-                    _isSaving ? 'Saving image...' : 'Save to phone',
-                  ),
+                  title: Text(_isSaving ? 'Saving image...' : 'Save to phone'),
                   enabled: !_isSaving,
                   onTap: _isSaving
                       ? null
@@ -85,7 +131,7 @@ class _FullscreenNetworkImageScreenState
   }
 
   Future<void> _saveImage() async {
-    final resolvedUrl = widget.imageUrl.trim();
+    final resolvedUrl = _currentImageUrl.trim();
     if (resolvedUrl.isEmpty || _isSaving) {
       return;
     }
@@ -167,20 +213,62 @@ class _FullscreenNetworkImageScreenState
           Center(
             child: GestureDetector(
               onLongPress: _showImageActions,
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 4,
-                child: SizedBox.expand(
-                  child: AppNetworkImage(
-                    imageUrl: widget.imageUrl,
-                    fit: BoxFit.contain,
-                    backgroundColor: Colors.black,
-                    placeholderIcon: Icons.photo_outlined,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.imageUrls.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  return InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: SizedBox.expand(
+                      child: AppNetworkImage(
+                        imageUrl: widget.imageUrls[index],
+                        fit: BoxFit.contain,
+                        backgroundColor: Colors.black,
+                        placeholderIcon: Icons.photo_outlined,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              top: kToolbarHeight + 18,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Text(
+                      '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           Positioned(
             left: 20,
             right: 20,

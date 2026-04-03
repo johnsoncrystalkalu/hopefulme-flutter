@@ -124,6 +124,28 @@ class ProfileRepository {
     }
   }
 
+  Future<ProfileUpdatePage> fetchUserPhotos(
+    String username, {
+    int page = 1,
+  }) async {
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername:photos:$page';
+    try {
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername/photos',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ProfileUpdatePage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileUpdatePage.fromJson(cached);
+      }
+      rethrow;
+    }
+  }
+
   Future<void> sendInspiration({
     required String username,
     required String message,

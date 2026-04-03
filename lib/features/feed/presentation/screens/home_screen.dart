@@ -2281,18 +2281,18 @@ class _HomeContent extends StatelessWidget {
 
           final widgets = <Widget>[];
           if (postsBlock.isNotEmpty) {
-            widgets.add(
-              Padding(
-                padding: EdgeInsets.only(bottom: 14),
-                child: _SectionHeader(
-                  title: 'Post & News',
-                  eyebrow: 'DISCOVER',
-                  action: 'Browse all',
-                  icon: Icons.article_outlined,
-                  onActionTap: () => onOpenPostsFeed(initialCategory: 'All'),
-                ),
-              ),
-            );
+            // widgets.add(
+            //   Padding(
+            //     padding: EdgeInsets.only(bottom: 14),
+            //     child: _SectionHeader(
+            //       title: 'Post & News',
+            //       eyebrow: 'DISCOVER',
+            //       action: 'Browse all',
+            //       icon: Icons.article_outlined,
+            //       onActionTap: () => onOpenPostsFeed(initialCategory: 'All'),
+            //     ),
+            //   ),
+            // );
             if (data.postCategories.isNotEmpty) {
               widgets.add(
                 Padding(
@@ -2692,7 +2692,7 @@ class _StoriesRow extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 30,
-                      backgroundColor: Color(0xFFEEF2FF),
+                   //   backgroundColor: Color(0xFFEEF2FF),
                       child: Icon(Icons.add, color: Color(0xFF3D5AFE)),
                     ),
                     SizedBox(height: 8),

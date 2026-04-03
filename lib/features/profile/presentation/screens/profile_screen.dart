@@ -14,6 +14,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_pro
 import 'package:hopefulme_flutter/features/profile/presentation/screens/inspire_composer_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_articles_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_connections_screen.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_photos_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -146,6 +147,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               followingCount: dashboard.profile.followingCount,
               views: dashboard.profile.views,
               lastSeen: dashboard.profile.lastSeen,
+              isOnline: dashboard.profile.isOnline,
+              activityLevel: dashboard.profile.activityLevel,
             ),
             posts: dashboard.posts,
             updates: dashboard.updates,
@@ -154,6 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             totalPosts: dashboard.totalPosts,
             updatesCount: dashboard.updatesCount,
             photosCount: dashboard.photosCount,
+            mutualFollowers: dashboard.mutualFollowers,
           ),
         );
       });
@@ -245,15 +249,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       );
-      if (selectedReason == null || !mounted) return;
+      if (selectedReason == null || !mounted) {
+        return;
+      }
       await widget.profileRepository.reportUser(username, selectedReason);
-      if (mounted) AppToast.success(context, 'Report submitted. Thank you!');
+      if (mounted) {
+        AppToast.success(context, 'Report submitted. Thank you!');
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         AppToast.error(
           context,
           'Failed to submit report. You have reported this user before',
         );
+      }
     }
   }
 
@@ -279,6 +288,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => ProfileArticlesScreen(
+          profile: snapshot.profile,
+          repository: widget.profileRepository,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPhotosFeed() async {
+    final snapshot = await _profileFuture;
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ProfilePhotosScreen(
           profile: snapshot.profile,
           repository: widget.profileRepository,
         ),
@@ -368,6 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ProfileConnectionsType.following,
                             ),
                             onPosts: _openUpdatesFeed,
+                            mutualFollowers: dashboard.mutualFollowers,
                             onCopyProfileUrl: (username) =>
                                 _copyProfileUrl(username),
                             onReportUser: (username) => _reportUser(username),
@@ -388,11 +411,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _ProfileBody(
                             selectedTab: _selectedTab,
                             dashboard: dashboard,
-                            onSeeAllUpdates: _openUpdatesFeed,
+                            isCurrentUser:
+                                widget.currentUser?.username ==
+                                dashboard.profile.username,
+                            onSeeAllPhotos: _openPhotosFeed,
                             onSeeAllArticles: _openArticlesFeed,
-                            onOpenUpdate: _openUpdate,
-                            currentUser: widget.currentUser,
+                          ),
+                          const SizedBox(height: 18),
+                          _ProfileUpdatesTab(
+                            key: ValueKey<String>(
+                              'updates:${dashboard.profile.username}',
+                            ),
+                            profile: dashboard.profile,
+                            repository: widget.profileRepository,
                             updateRepository: widget.updateRepository,
+                            currentUser: widget.currentUser,
+                            onOpenUpdate: _openUpdate,
+                            onSeeAllUpdates: _openUpdatesFeed,
                           ),
                         ],
                       ),
@@ -486,6 +521,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.onFollowers,
     required this.onFollowing,
     required this.onPosts,
+    required this.mutualFollowers,
     this.onReportUser,
     this.onCopyProfileUrl,
     this.menuKey,
@@ -504,6 +540,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   final Future<void> Function() onFollowers;
   final Future<void> Function() onFollowing;
   final Future<void> Function() onPosts;
+  final List<ProfileMutualFollower> mutualFollowers;
   final Future<void> Function(String username)? onReportUser;
   final Future<void> Function(String username)? onCopyProfileUrl;
   final GlobalKey? menuKey;
@@ -627,9 +664,14 @@ class _ProfileHeaderCard extends StatelessWidget {
                 icon: Icons.location_on_outlined,
                 label: profile.locationLabel,
               ),
-            // Last seen info in header hidden (kept in About tab instead)
           ],
         ),
+        const SizedBox(height: 12),
+        _ProfileStatusRow(profile: profile),
+        if (mutualFollowers.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _MutualFollowersRow(mutualFollowers: mutualFollowers),
+        ],
       ],
     );
 
@@ -767,6 +809,265 @@ class _ProfileHeaderCard extends StatelessWidget {
   }
 }
 
+class _ProfileStatusRow extends StatelessWidget {
+  const _ProfileStatusRow({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final onlineColor = profile.isOnline
+        ? const Color(0xFF22C55E)
+        : const Color(0xFFFBBF24);
+    final deviceLabel = switch (profile.device.toLowerCase()) {
+      'app' => 'HopefulMe App',
+      'desktop' => 'Desktop',
+      'mobile' => 'Mobile',
+      _ => profile.device.trim().isEmpty ? 'Mobile' : profile.device,
+    };
+    final deviceIcon = switch (profile.device.toLowerCase()) {
+      'desktop' => Icons.desktop_windows_outlined,
+      _ => Icons.phone_android_outlined,
+    };
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: onlineColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: onlineColor.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              profile.isOnline ? 'Online' : 'Last seen: ${profile.lastSeen}',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          '|',
+          style: TextStyle(
+            color: colors.textMuted.withValues(alpha: 0.5),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(deviceIcon, size: 15, color: colors.brand),
+            const SizedBox(width: 6),
+            Text(
+              deviceLabel,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MutualFollowersRow extends StatelessWidget {
+  const _MutualFollowersRow({required this.mutualFollowers});
+
+  final List<ProfileMutualFollower> mutualFollowers;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    if (mutualFollowers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final first = mutualFollowers.first;
+    final suffix = mutualFollowers.length > 1
+        ? ' & ${mutualFollowers.length - 1} others'
+        : '';
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          height: 22,
+          child: Stack(
+            children: [
+              for (var i = 0; i < mutualFollowers.length && i < 3; i++)
+                Positioned(
+                  left: i * 14,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.surface, width: 2),
+                    ),
+                    child: ClipOval(
+                      child: AppNetworkImage(
+                        imageUrl: mutualFollowers[i].photoUrl,
+                        fit: BoxFit.cover,
+                        backgroundColor: colors.avatarPlaceholder,
+                        placeholderLabel: mutualFollowers[i].displayName,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Followed by ${first.displayName}$suffix',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActivityLevelCard extends StatelessWidget {
+  const _ActivityLevelCard({required this.level, required this.showProgress});
+
+  final ProfileActivityLevel level;
+  final bool showProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final levelColor = _colorFromHex(level.color);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: levelColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(level.icon, style: const TextStyle(fontSize: 22)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Activity Rank',
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      level.name,
+                      style: TextStyle(
+                        color: levelColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showProgress)
+                Text(
+                  '${level.percent.round()}%',
+                  style: TextStyle(
+                    color: levelColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+            ],
+          ),
+          if (showProgress) ...[
+            const SizedBox(height: 14),
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: colors.border),
+              ),
+              child: FractionallySizedBox(
+                widthFactor: (level.percent.clamp(0, 100)) / 100,
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: levelColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Progress to next level is visible only to you.',
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 10.5,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+Color _colorFromHex(String value) {
+  final hex = value.replaceFirst('#', '').trim();
+  final normalized = hex.length == 6 ? 'FF$hex' : hex;
+  return Color(int.tryParse(normalized, radix: 16) ?? 0xFF94A3B8);
+}
+
 class _ProfileTabs extends StatelessWidget {
   const _ProfileTabs({
     required this.selectedTab,
@@ -828,20 +1129,16 @@ class _ProfileBody extends StatelessWidget {
   const _ProfileBody({
     required this.selectedTab,
     required this.dashboard,
-    required this.onSeeAllUpdates,
+    required this.isCurrentUser,
+    required this.onSeeAllPhotos,
     required this.onSeeAllArticles,
-    required this.onOpenUpdate,
-    required this.currentUser,
-    required this.updateRepository,
   });
 
   final _ProfileTab selectedTab;
   final ProfileDashboard dashboard;
-  final Future<void> Function() onSeeAllUpdates;
+  final bool isCurrentUser;
+  final Future<void> Function() onSeeAllPhotos;
   final Future<void> Function() onSeeAllArticles;
-  final Future<void> Function(ProfileContentItem item) onOpenUpdate;
-  final User? currentUser;
-  final UpdateRepository updateRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -864,21 +1161,17 @@ class _ProfileBody extends StatelessWidget {
       case _ProfileTab.timeline:
         return _ProfileTimeline(
           dashboard: dashboard,
-          onSeeAllUpdates: onSeeAllUpdates,
-          onOpenUpdate: onOpenUpdate,
-          isCurrentUser: currentUser?.username == dashboard.profile.username,
-          currentUser: currentUser,
-          updateRepository: updateRepository,
+          isCurrentUser: isCurrentUser,
         );
       case _ProfileTab.about:
         return _AboutTab(
           profile: dashboard.profile,
-          isCurrentUser: currentUser?.username == dashboard.profile.username,
+          isCurrentUser: isCurrentUser,
         );
       case _ProfileTab.photos:
-        return _PhotosTab(
+        return _PhotosPreviewTab(
           items: _latestUpdatePhotos(dashboard),
-          totalCount: dashboard.photosCount,
+          onViewAll: onSeeAllPhotos,
         );
       case _ProfileTab.articles:
         return _ArticlesTab(
@@ -892,19 +1185,11 @@ class _ProfileBody extends StatelessWidget {
 class _ProfileTimeline extends StatelessWidget {
   const _ProfileTimeline({
     required this.dashboard,
-    required this.onSeeAllUpdates,
-    required this.onOpenUpdate,
     required this.isCurrentUser,
-    required this.currentUser,
-    required this.updateRepository,
   });
 
   final ProfileDashboard dashboard;
-  final Future<void> Function() onSeeAllUpdates;
-  final Future<void> Function(ProfileContentItem item) onOpenUpdate;
   final bool isCurrentUser;
-  final User? currentUser;
-  final UpdateRepository updateRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -958,51 +1243,197 @@ class _ProfileTimeline extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: 2, bottom: 14),
-              child: Text(
-                'Updates',
-                style: TextStyle(
-                  color: context.appColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+      ],
+    );
+  }
+}
+
+class _ProfileUpdatesTab extends StatefulWidget {
+  const _ProfileUpdatesTab({
+    required this.profile,
+    required this.repository,
+    required this.updateRepository,
+    required this.currentUser,
+    required this.onOpenUpdate,
+    required this.onSeeAllUpdates,
+    super.key,
+  });
+
+  final ProfileSummary profile;
+  final ProfileRepository repository;
+  final UpdateRepository updateRepository;
+  final User? currentUser;
+  final Future<void> Function(ProfileContentItem item) onOpenUpdate;
+  final Future<void> Function() onSeeAllUpdates;
+
+  @override
+  State<_ProfileUpdatesTab> createState() => _ProfileUpdatesTabState();
+}
+
+class _ProfileUpdatesTabState extends State<_ProfileUpdatesTab> {
+  final List<ProfileContentItem> _items = <ProfileContentItem>[];
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileUpdatesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.username != widget.profile.username) {
+      _loadInitial();
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _page = 1;
+      _hasMore = true;
+      _items.clear();
+    });
+
+    try {
+      final page = await widget.repository.fetchUserUpdates(
+        widget.profile.username,
+        page: 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _hasMore = page.hasMore;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoading || _isLoadingMore || !_hasMore) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _page + 1;
+      final page = await widget.repository.fetchUserUpdates(
+        widget.profile.username,
+        page: nextPage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page = nextPage;
+        _items.addAll(page.items);
+        _hasMore = page.hasMore;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const _PanelCard(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return _PanelCard(
+        child: _EmptyState(label: 'Could not load updates right now'),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.pixels >=
+            notification.metrics.maxScrollExtent - 240) {
+          _loadMore();
+        }
+        return false;
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ActivityLevelCard(
+            level: widget.profile.activityLevel,
+            showProgress:
+                widget.currentUser?.username == widget.profile.username,
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 14),
+            child: Text(
+              'Updates',
+              style: TextStyle(
+                color: context.appColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (_items.isEmpty)
+            const _PanelCard(child: _EmptyState(label: 'No updates yet'))
+          else
+            ..._items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _UpdateCard(
+                  item: item,
+                  profile: widget.profile,
+                  currentUser: widget.currentUser,
+                  updateRepository: widget.updateRepository,
+                  onOpenUpdate: () => widget.onOpenUpdate(item),
                 ),
               ),
             ),
-            if (dashboard.updates.isEmpty)
-              const _PanelCard(child: _EmptyState(label: 'No updates yet'))
-            else
-              ...dashboard.updates.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _UpdateCard(
-                    item: item,
-                    profile: dashboard.profile,
-                    currentUser: currentUser,
-                    updateRepository: updateRepository,
-                    onOpenUpdate: () => onOpenUpdate(item),
-                  ),
+          if (_items.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: OutlinedButton.icon(
+                  onPressed: () => widget.onSeeAllUpdates(),
+                  icon: const Icon(Icons.expand_more),
+                  label: const Text('View all updates'),
                 ),
               ),
-            if (dashboard.updates.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: OutlinedButton.icon(
-                    onPressed: () => onSeeAllUpdates(),
-                    icon: const Icon(Icons.expand_more),
-                    label: const Text('See all updates'),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
+            ),
+          if (_isLoadingMore)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1093,15 +1524,22 @@ class _AboutTab extends StatelessWidget {
   }
 }
 
-class _PhotosTab extends StatelessWidget {
-  const _PhotosTab({required this.items, required this.totalCount});
+class _PhotosPreviewTab extends StatelessWidget {
+  const _PhotosPreviewTab({required this.items, required this.onViewAll});
 
   final List<ProfileContentItem> items;
-  final int totalCount;
+  final Future<void> Function() onViewAll;
 
   @override
   Widget build(BuildContext context) {
-    final photos = items.where((item) => item.photoUrl.isNotEmpty).toList();
+    final photos = items
+        .where((item) => item.photoUrl.trim().isNotEmpty)
+        .take(4)
+        .toList();
+    final galleryUrls = photos
+        .map((item) => ImageUrlResolver.resolveOriginal(item.photoUrl))
+        .where((url) => url.trim().isNotEmpty)
+        .toList();
 
     return _PanelCard(
       child: Column(
@@ -1110,15 +1548,6 @@ class _PhotosTab extends StatelessWidget {
           const Text(
             'Photos',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '$totalCount photos',
-            style: TextStyle(
-              color: context.appColors.textMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
           ),
           const SizedBox(height: 16),
           if (photos.isEmpty)
@@ -1137,9 +1566,10 @@ class _PhotosTab extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = photos[index];
                 return InkWell(
-                  onTap: () => FullscreenNetworkImageScreen.show(
+                  onTap: () => FullscreenNetworkImageScreen.showGallery(
                     context,
-                    imageUrl: ImageUrlResolver.resolveOriginal(item.photoUrl),
+                    imageUrls: galleryUrls,
+                    initialIndex: index,
                   ),
                   borderRadius: BorderRadius.circular(18),
                   child: ClipRRect(
@@ -1157,6 +1587,17 @@ class _PhotosTab extends StatelessWidget {
                 );
               },
             ),
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => onViewAll(),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Open full gallery'),
+              ),
+            ),
+          ],
         ],
       ),
     );

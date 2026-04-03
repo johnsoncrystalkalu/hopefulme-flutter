@@ -41,7 +41,6 @@ dependencies:
   http: ^1.2.2
   image_picker: ^1.1.2
   image_cropper: ^12.1.1
-  google_fonts: ^6.3.2
   phosphor_flutter: ^2.0.0
   shared_preferences: ^2.3.2
   webview_flutter: ^4.13.0

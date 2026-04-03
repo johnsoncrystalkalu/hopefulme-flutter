@@ -172,7 +172,7 @@ class ReusableUpdateCard extends StatelessWidget {
                 if (data.body.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-                    child: RichDisplayText(
+                    child: _ExpandableUpdateBody(
                       text: data.body,
                       style: TextStyle(
                         color: colors.textSecondary,
@@ -182,6 +182,7 @@ class ReusableUpdateCard extends StatelessWidget {
                       onMentionTap: onMentionTap,
                       onHashtagTap: onHashtagTap,
                       onLinkTap: onLinkTap,
+                      actionColor: colors.brand,
                     ),
                   ),
                 if (data.photoUrl.isNotEmpty) ...[
@@ -217,6 +218,85 @@ class ReusableUpdateCard extends StatelessWidget {
             const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+class _ExpandableUpdateBody extends StatefulWidget {
+  const _ExpandableUpdateBody({
+    required this.text,
+    required this.style,
+    required this.actionColor,
+    this.onMentionTap,
+    this.onHashtagTap,
+    this.onLinkTap,
+  });
+
+  final String text;
+  final TextStyle style;
+  final Color actionColor;
+  final Future<void> Function(String username)? onMentionTap;
+  final Future<void> Function(String hashtag)? onHashtagTap;
+  final Future<void> Function(String url)? onLinkTap;
+
+  @override
+  State<_ExpandableUpdateBody> createState() => _ExpandableUpdateBodyState();
+}
+
+class _ExpandableUpdateBodyState extends State<_ExpandableUpdateBody> {
+  static const int _wordLimit = 60;
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _ExpandableUpdateBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _expanded = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final words = widget.text.trim().split(RegExp(r'\s+'));
+    final hasOverflow = words.length > _wordLimit;
+    final collapsedText = hasOverflow
+        ? '${words.take(_wordLimit).join(' ')}...'
+        : widget.text;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichDisplayText(
+          text: _expanded ? widget.text : collapsedText,
+          style: widget.style,
+          onMentionTap: widget.onMentionTap,
+          onHashtagTap: widget.onHashtagTap,
+          onLinkTap: widget.onLinkTap,
+        ),
+        if (hasOverflow)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _expanded = !_expanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: Text(
+                  _expanded ? 'Show less' : 'Read more',
+                  style: TextStyle(
+                    color: widget.actionColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

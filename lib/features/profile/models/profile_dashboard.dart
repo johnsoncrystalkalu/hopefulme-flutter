@@ -11,6 +11,7 @@ class ProfileDashboard {
     required this.totalPosts,
     required this.updatesCount,
     required this.photosCount,
+    required this.mutualFollowers,
   });
 
   final ProfileSummary profile;
@@ -21,6 +22,7 @@ class ProfileDashboard {
   final int totalPosts;
   final int updatesCount;
   final int photosCount;
+  final List<ProfileMutualFollower> mutualFollowers;
 
   factory ProfileDashboard.fromJson(Map<String, dynamic> json) {
     final profile = ProfileSummary.fromJson(
@@ -36,6 +38,10 @@ class ProfileDashboard {
       totalPosts: parseInt(json['total_posts']),
       updatesCount: parseInt(json['updates_count']),
       photosCount: parseInt(json['photos_count']),
+      mutualFollowers: (json['mutual_followers'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(ProfileMutualFollower.fromJson)
+          .toList(),
     );
   }
 
@@ -136,6 +142,8 @@ class ProfileSummary {
     required this.followingCount,
     required this.views,
     required this.lastSeen,
+    required this.isOnline,
+    required this.activityLevel,
   });
 
   final int id;
@@ -160,6 +168,8 @@ class ProfileSummary {
   final int followingCount;
   final int views;
   final String lastSeen;
+  final bool isOnline;
+  final ProfileActivityLevel activityLevel;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
 
@@ -197,6 +207,64 @@ class ProfileSummary {
       followingCount: parseInt(json['following_count']),
       views: parseInt(json['views']),
       lastSeen: json['last_seen']?.toString() ?? '',
+      isOnline: parseBool(json['is_online']),
+      activityLevel: ProfileActivityLevel.fromJson(
+        json['activity_level'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      ),
+    );
+  }
+}
+
+class ProfileActivityLevel {
+  const ProfileActivityLevel({
+    required this.name,
+    required this.color,
+    required this.icon,
+    required this.percent,
+    required this.points,
+  });
+
+  final String name;
+  final String color;
+  final String icon;
+  final double percent;
+  final int points;
+
+  factory ProfileActivityLevel.fromJson(Map<String, dynamic> json) {
+    return ProfileActivityLevel(
+      name: json['name']?.toString() ?? '',
+      color: json['color']?.toString() ?? '#94a3b8',
+      icon: json['icon']?.toString() ?? '⭐',
+      percent: (json['percent'] as num?)?.toDouble() ?? 0,
+      points: parseInt(json['points']),
+    );
+  }
+}
+
+class ProfileMutualFollower {
+  const ProfileMutualFollower({
+    required this.id,
+    required this.username,
+    required this.fullname,
+    required this.photoUrl,
+    required this.isVerified,
+  });
+
+  final int id;
+  final String username;
+  final String fullname;
+  final String photoUrl;
+  final bool isVerified;
+
+  String get displayName => fullname.isNotEmpty ? fullname : username;
+
+  factory ProfileMutualFollower.fromJson(Map<String, dynamic> json) {
+    return ProfileMutualFollower(
+      id: parseInt(json['id']),
+      username: json['username']?.toString() ?? '',
+      fullname: json['fullname']?.toString() ?? '',
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      isVerified: parseBool(json['verified']),
     );
   }
 }
