@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -158,7 +159,11 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
         : (_newMembers.isNotEmpty ? _newMembers.first : null);
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(title: const Text('Meet New Friends')),
+      appBar: buildAppScreenAppBar(
+        context,
+        title: 'Meet New Friends',
+        subtitle: 'COMMUNITY',
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

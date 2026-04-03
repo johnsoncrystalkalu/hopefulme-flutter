@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   const AppColors._();
@@ -267,6 +268,15 @@ class AppTheme {
     required Brightness brightness,
     required AppThemeColors colors,
   }) {
+    final baseTextTheme = brightness == Brightness.dark
+        ? Typography.material2021().white
+        : Typography.material2021().black;
+    final textTheme = GoogleFonts.plusJakartaSansTextTheme(
+      baseTextTheme.apply(
+        bodyColor: colors.textPrimary,
+        displayColor: colors.textPrimary,
+      ),
+    );
     final colorScheme =
         ColorScheme.fromSeed(
           brightness: brightness,
@@ -290,16 +300,19 @@ class AppTheme {
       disabledColor: colors.textMuted,
       shadowColor: colors.shadow,
       extensions: <ThemeExtension<dynamic>>[colors],
-      textTheme: Typography.material2021().black.apply(
-        bodyColor: colors.textPrimary,
-        displayColor: colors.textPrimary,
-      ),
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
       progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
         foregroundColor: colors.textPrimary,
         elevation: 0,
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: colors.textPrimary,
+          fontSize: 21,
+          fontWeight: FontWeight.w800,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -314,6 +327,7 @@ class AppTheme {
           color: colors.textPrimary,
           fontSize: 13.5,
           fontWeight: FontWeight.w700,
+          fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -349,6 +363,7 @@ class AppTheme {
           vertical: 14,
         ),
         hintStyle: TextStyle(color: colors.textMuted),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: colors.textMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: colors.border),

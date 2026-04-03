@@ -34,33 +34,27 @@ class VerifiedNameText extends StatelessWidget {
       );
     }
 
-    return Wrap(
-      alignment: _wrapAlignmentFor(textAlign),
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 6,
-      children: [
-        Text(
-          name,
-          style: resolvedStyle,
-          textAlign: textAlign,
-          maxLines: maxLines,
-          overflow: overflow,
-        ),
-        Icon(
-          Icons.verified_rounded,
-          size: badgeSize,
-          color: const Color(0xFF2563EB),
-        ),
-      ],
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: name),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 6),
+              child: Icon(
+                Icons.verified_rounded,
+                size: badgeSize,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+      style: resolvedStyle,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: overflow,
     );
-  }
-
-  WrapAlignment _wrapAlignmentFor(TextAlign? align) {
-    return switch (align) {
-      TextAlign.center => WrapAlignment.center,
-      TextAlign.right || TextAlign.end => WrapAlignment.end,
-      TextAlign.justify => WrapAlignment.spaceBetween,
-      _ => WrapAlignment.start,
-    };
   }
 }

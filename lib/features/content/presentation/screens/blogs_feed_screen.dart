@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -302,6 +303,14 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
           color: colors.surface,
           borderRadius: BorderRadius.circular(26),
           border: Border.all(color: colors.borderStrong),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+              spreadRadius: -10,
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,9 +369,10 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
                   RichDisplayText(
                     text: entry.body,
                     style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 14,
-                      height: 1.55,
+                      color: colors.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.62,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -449,7 +459,11 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
     final colors = context.appColors;
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(title: const Text('Blog & Articles')),
+      appBar: buildAppScreenAppBar(
+        context,
+        title: 'Blog & Articles',
+        subtitle: 'LONG READS',
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

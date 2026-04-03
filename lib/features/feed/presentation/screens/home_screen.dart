@@ -2271,7 +2271,7 @@ class _HomeContent extends StatelessWidget {
             onOpenQuote: onOpenPostById,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         // Group feeds by type and let updates continue with the Activities feed.
         ...(() {
           final updates = homeUpdates;
@@ -2281,10 +2281,22 @@ class _HomeContent extends StatelessWidget {
 
           final widgets = <Widget>[];
           if (postsBlock.isNotEmpty) {
+            widgets.add(
+              Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: _SectionHeader(
+                  title: 'Post & News',
+                  eyebrow: 'DISCOVER',
+                  action: 'Browse all',
+                  icon: Icons.article_outlined,
+                  onActionTap: () => onOpenPostsFeed(initialCategory: 'All'),
+                ),
+              ),
+            );
             if (data.postCategories.isNotEmpty) {
               widgets.add(
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: _PostCategoryStrip(
                     categories: data.postCategories,
                     onSelectCategory: (category) =>
@@ -2315,7 +2327,7 @@ class _HomeContent extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
-                  vertical: 6,
+                  vertical: 4,
                 ),
                 child: _FeedExploreChip(
                   icon: Icons.article_outlined,
@@ -2324,9 +2336,19 @@ class _HomeContent extends StatelessWidget {
                 ),
               ),
             );
-            widgets.add(const SizedBox(height: 42));
+            widgets.add(const SizedBox(height: 52));
           }
           if (updates.isNotEmpty) {
+            widgets.add(
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: _SectionHeader(
+                  title: 'Activities',
+                  eyebrow: 'COMMUNITY',
+                  icon: Icons.bolt_rounded,
+                ),
+              ),
+            );
             widgets.addAll(
               updates.map(
                 (entry) => Padding(
@@ -2343,7 +2365,7 @@ class _HomeContent extends StatelessWidget {
                 ),
               ),
             );
-            widgets.add(const SizedBox(height: 42));
+            widgets.add(const SizedBox(height: 28));
           }
           if (isLoadingMoreUpdates) {
             widgets.add(
@@ -3676,11 +3698,19 @@ class _FeedExploreChip extends StatelessWidget {
       onTap: () => onTap(),
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: colors.surfaceMuted,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: colors.border),
+          border: Border.all(color: colors.borderStrong),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+              spreadRadius: -10,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -3724,51 +3754,98 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     this.action,
     this.accent,
+    this.eyebrow,
     this.leading,
+    this.icon,
     this.onActionTap,
   });
 
   final String title;
   final String? action;
   final String? accent;
+  final String? eyebrow;
   final Widget? leading;
+  final IconData? icon;
   final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final colors = context.appColors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (leading != null) ...[leading!, const SizedBox(width: 10)],
-        if (accent != null) ...[
-          Text(accent!, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Text(
-            title,
+        if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
+          Text(
+            eyebrow!,
             style: TextStyle(
-              color: context.appColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+              color: colors.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.1,
             ),
           ),
-        ),
-        if (action != null)
-          InkWell(
-            onTap: onActionTap,
-            borderRadius: BorderRadius.circular(999),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          const SizedBox(height: 6),
+        ],
+        Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 10)],
+            if (icon != null && leading == null) ...[
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colors.brand.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colors.brand.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Icon(icon, color: colors.brand, size: 18),
+              ),
+              const SizedBox(width: 10),
+            ],
+            if (accent != null) ...[
+              Text(accent!, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
               child: Text(
-                action!,
+                title,
                 style: TextStyle(
-                  color: context.appColors.brand,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
                 ),
               ),
             ),
-          ),
+            if (action != null)
+              InkWell(
+                onTap: onActionTap,
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: colors.borderStrong),
+                  ),
+                  child: Text(
+                    action!,
+                    style: TextStyle(
+                      color: colors.brand,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -3791,9 +3868,10 @@ class _SurfaceCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+            color: colors.shadow.withValues(alpha: 0.055),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+            spreadRadius: -10,
           ),
         ],
       ),

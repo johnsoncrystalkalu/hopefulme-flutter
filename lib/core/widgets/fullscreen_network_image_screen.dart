@@ -158,24 +158,60 @@ class _FullscreenNetworkImageScreenState
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        surfaceTintColor: Colors.black,
+        scrolledUnderElevation: 0,
         foregroundColor: Colors.white,
       ),
-      body: Center(
-        child: GestureDetector(
-          onLongPress: _showImageActions,
-          child: InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            child: SizedBox.expand(
-              child: AppNetworkImage(
-                imageUrl: widget.imageUrl,
-                fit: BoxFit.contain,
-                backgroundColor: Colors.black,
-                placeholderIcon: Icons.photo_outlined,
+      body: Stack(
+        children: [
+          Center(
+            child: GestureDetector(
+              onLongPress: _showImageActions,
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: SizedBox.expand(
+                  child: AppNetworkImage(
+                    imageUrl: widget.imageUrl,
+                    fit: BoxFit.contain,
+                    backgroundColor: Colors.black,
+                    placeholderIcon: Icons.photo_outlined,
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 28,
+            child: IgnorePointer(
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: const Text(
+                    'Long press to save',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

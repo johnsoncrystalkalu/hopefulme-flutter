@@ -145,10 +145,10 @@ class ReusableUpdateCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-            spreadRadius: -6,
+            color: colors.shadow.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+            spreadRadius: -10,
           ),
         ],
       ),

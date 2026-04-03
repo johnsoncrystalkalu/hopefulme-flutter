@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
@@ -201,7 +202,11 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appColors.scaffold,
-      appBar: AppBar(title: const Text('Activities')),
+      appBar: buildAppScreenAppBar(
+        context,
+        title: 'Activities',
+        subtitle: 'COMMUNITY',
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

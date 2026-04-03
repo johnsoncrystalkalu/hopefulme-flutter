@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -222,13 +223,12 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     return Scaffold(
       backgroundColor: context.appColors.scaffold,
-      appBar: AppBar(
-        title: const Text('Post & News'),
-        backgroundColor: colors.scaffold,
-        elevation: 0,
+      appBar: buildAppScreenAppBar(
+        context,
+        title: 'Post & News',
+        subtitle: 'Community',
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
