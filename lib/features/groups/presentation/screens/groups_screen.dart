@@ -126,8 +126,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> _openGroup(AppGroup group) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (context) => GroupThreadScreen(
           groupId: group.id,
           currentUser: widget.currentUser,
@@ -138,7 +138,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
         ),
       ),
     );
-    _loadInitial();
+    if (changed ?? false) {
+      await _loadInitial();
+    }
   }
 
   @override

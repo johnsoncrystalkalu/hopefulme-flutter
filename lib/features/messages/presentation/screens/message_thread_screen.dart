@@ -53,6 +53,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _showEmojiPicker = false;
+  bool _hasThreadChanges = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
   int _optimisticId = -1;
@@ -177,6 +178,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         return;
       }
       setState(() {
+        _hasThreadChanges = true;
         _messages = _messages
             .map((item) => item.id == optimisticId ? sent : item)
             .toList();
@@ -321,6 +323,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       await widget.repository.deleteMessage(message.id);
       if (!mounted) return;
       setState(() {
+        _hasThreadChanges = true;
         _messages = _messages.where((m) => m.id != message.id).toList();
       });
     } catch (error) {
@@ -344,17 +347,33 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     }
   }
 
+  void _closeThread() {
+    Navigator.of(context).pop(_hasThreadChanges);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final conversation = _conversation;
     final otherUser = conversation?.otherUser;
 
-    return Scaffold(
-      backgroundColor: colors.scaffold,
-      appBar: AppBar(
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _closeThread();
+      },
+      child: Scaffold(
+        backgroundColor: colors.scaffold,
+        appBar: AppBar(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
+        leading: IconButton(
+          onPressed: _closeThread,
+          icon: const Icon(Icons.arrow_back),
+        ),
         titleSpacing: 8,
         title: Row(
           children: [
@@ -419,7 +438,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
           ),
         ],
       ),
-      body: Column(
+        body: Column(
         children: [
           Expanded(
             child: _isLoading
@@ -791,6 +810,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

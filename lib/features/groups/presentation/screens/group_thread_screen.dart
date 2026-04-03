@@ -58,6 +58,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = false;
   bool _showEmojiPicker = false;
+  bool _hasThreadChanges = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
   int _optimisticId = -1;
@@ -158,6 +159,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
     try {
       await widget.repository.joinGroup(widget.groupId);
+      _hasThreadChanges = true;
       await _loadInitial();
     } catch (error) {
       if (!mounted) {
@@ -238,6 +240,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         return;
       }
       setState(() {
+        _hasThreadChanges = true;
         _messages = _messages
             .map((item) => item.id == optimisticId ? sent : item)
             .toList();
@@ -351,6 +354,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         return;
       }
       setState(() {
+        _hasThreadChanges = true;
         _messages = _messages.where((item) => item.id != message.id).toList();
       });
     } catch (error) {
@@ -588,6 +592,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     );
   }
 
+  void _closeThread() {
+    Navigator.of(context).pop(_hasThreadChanges);
+  }
+
   String _initialLoadErrorMessage(Object error) {
     if (error is ApiException) {
       final code = error.statusCode;
@@ -606,9 +614,21 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     final colors = context.appColors;
     final group = _group;
 
-    return Scaffold(
-      backgroundColor: colors.scaffold,
-      appBar: AppBar(
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _closeThread();
+      },
+      child: Scaffold(
+        backgroundColor: colors.scaffold,
+        appBar: AppBar(
+        leading: IconButton(
+          onPressed: _closeThread,
+          icon: const Icon(Icons.arrow_back),
+        ),
         titleSpacing: 8,
         title: group == null
             ? const Text('Group Chat')
@@ -876,6 +896,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                 ],
               ],
             ),
+          ),
     );
   }
 }

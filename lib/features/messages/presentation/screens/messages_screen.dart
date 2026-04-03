@@ -113,8 +113,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> _openConversation(ConversationListItem item) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (context) => MessageThreadScreen(
           repository: widget.repository,
           profileRepository: widget.profileRepository,
@@ -125,7 +125,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
       ),
     );
-    _loadInitial();
+    if ((changed ?? false) || item.unreadCount > 0) {
+      await _loadInitial();
+    }
   }
 
   Future<void> _openGroups() async {
