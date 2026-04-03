@@ -88,14 +88,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ValueNotifier<_TopBarSnapshot> _topBarSnapshot =
+      ValueNotifier(const _TopBarSnapshot());
   late Future<FeedDashboard> _dashboardFuture;
   late final NotificationNavigator _notificationNavigator;
   Timer? _pollingTimer;
-  List<AppNotification> _latestNotifications = const <AppNotification>[];
-  List<ConversationListItem> _latestConversations =
-      const <ConversationListItem>[];
-  int _unreadNotifications = 0;
-  int _unreadMessages = 0;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
 
@@ -114,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadShellPreferences();
     _refreshTopbarData();
     _pollingTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 30),
       (_) => _refreshTopbarData(silent: true),
     );
   }
@@ -122,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _topBarSnapshot.dispose();
     super.dispose();
   }
 
@@ -142,15 +140,22 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _latestNotifications = notifications.items.take(5).toList();
-        _unreadNotifications = notifications.unreadCount;
-        _latestConversations = conversations.take(5).toList();
-        _unreadMessages = conversations.fold<int>(
+      final nextSnapshot = _TopBarSnapshot(
+        notifications: _inAppNotificationsEnabled
+            ? notifications.items.take(5).toList()
+            : const <AppNotification>[],
+        unreadNotifications: _inAppNotificationsEnabled
+            ? notifications.unreadCount
+            : 0,
+        conversations: conversations.take(5).toList(),
+        unreadMessages: conversations.fold<int>(
           0,
           (sum, item) => sum + item.unreadCount,
-        );
-      });
+        ),
+      );
+      if (_topBarSnapshot.value != nextSnapshot) {
+        _topBarSnapshot.value = nextSnapshot;
+      }
     } catch (_) {
       if (!silent) {
         rethrow;
@@ -177,11 +182,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() {
       _inAppNotificationsEnabled = enabled;
-      if (!enabled) {
-        _latestNotifications = const <AppNotification>[];
-        _unreadNotifications = 0;
-      }
     });
+    if (!enabled) {
+      _topBarSnapshot.value = _topBarSnapshot.value.copyWith(
+        notifications: const <AppNotification>[],
+        unreadNotifications: 0,
+      );
+    }
     if (enabled) {
       await _refreshTopbarData(silent: true);
       if (mounted) {
@@ -588,30 +595,32 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _latestNotifications = _latestNotifications.map((entry) {
-          if (entry.id != item.id) {
-            return entry;
-          }
-          return AppNotification(
-            id: entry.id,
-            type: entry.type,
-            message: entry.message,
-            preview: entry.preview,
-            url: entry.url,
-            contentType: entry.contentType,
-            contentId: entry.contentId,
-            inspirationId: entry.inspirationId,
-            icon: entry.icon,
-            avatarUrl: entry.avatarUrl,
-            isRead: true,
-            createdAt: entry.createdAt,
-          );
-        }).toList();
-        if (_unreadNotifications > 0) {
-          _unreadNotifications -= 1;
+      final current = _topBarSnapshot.value;
+      final updatedNotifications = current.notifications.map((entry) {
+        if (entry.id != item.id) {
+          return entry;
         }
-      });
+        return AppNotification(
+          id: entry.id,
+          type: entry.type,
+          message: entry.message,
+          preview: entry.preview,
+          url: entry.url,
+          contentType: entry.contentType,
+          contentId: entry.contentId,
+          inspirationId: entry.inspirationId,
+          icon: entry.icon,
+          avatarUrl: entry.avatarUrl,
+          isRead: true,
+          createdAt: entry.createdAt,
+        );
+      }).toList();
+      _topBarSnapshot.value = current.copyWith(
+        notifications: updatedNotifications,
+        unreadNotifications: current.unreadNotifications > 0
+            ? current.unreadNotifications - 1
+            : 0,
+      );
     }
 
     if (!mounted) {
@@ -629,8 +638,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) {
       return;
     }
-    setState(() {
-      _latestNotifications = _latestNotifications.map((entry) {
+    final current = _topBarSnapshot.value;
+    _topBarSnapshot.value = current.copyWith(
+      notifications: current.notifications.map((entry) {
         return AppNotification(
           id: entry.id,
           type: entry.type,
@@ -645,9 +655,9 @@ class _HomeScreenState extends State<HomeScreen> {
           isRead: true,
           createdAt: entry.createdAt,
         );
-      }).toList();
-      _unreadNotifications = 0;
-    });
+      }).toList(),
+      unreadNotifications: 0,
+    );
   }
 
   Future<void> _handleLogout() async {
@@ -737,28 +747,31 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    _HomeTopBar(
-                      user: user,
-                      themeController: widget.themeController,
-                      latestNotifications: _latestNotifications,
-                      latestConversations: _latestConversations,
-                      unreadNotifications: _unreadNotifications,
-                      unreadMessages: _unreadMessages,
-                      onConversationTap: _openConversation,
-                      onMessageCenterTap: _openMessages,
-                      onNotificationTap: _markNotificationRead,
-                      onNotificationCenterTap: _openNotifications,
-                      onNotificationsMarkAllRead: _markAllNotificationsRead,
-                      onHomeTap: _goHome,
-                      onProfileTap: _openProfile,
-                      onMenuTap: isDesktop
-                          ? null
-                          : () {
-                              _scaffoldKey.currentState?.openDrawer();
-                            },
-                      onLogout: widget.authController.isLoading
-                          ? null
-                          : _handleLogout,
+                    ValueListenableBuilder<_TopBarSnapshot>(
+                      valueListenable: _topBarSnapshot,
+                      builder: (context, topBar, _) => _HomeTopBar(
+                        user: user,
+                        themeController: widget.themeController,
+                        latestNotifications: topBar.notifications,
+                        latestConversations: topBar.conversations,
+                        unreadNotifications: topBar.unreadNotifications,
+                        unreadMessages: topBar.unreadMessages,
+                        onConversationTap: _openConversation,
+                        onMessageCenterTap: _openMessages,
+                        onNotificationTap: _markNotificationRead,
+                        onNotificationCenterTap: _openNotifications,
+                        onNotificationsMarkAllRead: _markAllNotificationsRead,
+                        onHomeTap: _goHome,
+                        onProfileTap: _openProfile,
+                        onMenuTap: isDesktop
+                            ? null
+                            : () {
+                                _scaffoldKey.currentState?.openDrawer();
+                              },
+                        onLogout: widget.authController.isLoading
+                            ? null
+                            : _handleLogout,
+                      ),
                     ),
                     Expanded(
                       child: RefreshIndicator(
@@ -962,6 +975,89 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+class _TopBarSnapshot {
+  const _TopBarSnapshot({
+    this.notifications = const <AppNotification>[],
+    this.conversations = const <ConversationListItem>[],
+    this.unreadNotifications = 0,
+    this.unreadMessages = 0,
+  });
+
+  final List<AppNotification> notifications;
+  final List<ConversationListItem> conversations;
+  final int unreadNotifications;
+  final int unreadMessages;
+
+  _TopBarSnapshot copyWith({
+    List<AppNotification>? notifications,
+    List<ConversationListItem>? conversations,
+    int? unreadNotifications,
+    int? unreadMessages,
+  }) {
+    return _TopBarSnapshot(
+      notifications: notifications ?? this.notifications,
+      conversations: conversations ?? this.conversations,
+      unreadNotifications: unreadNotifications ?? this.unreadNotifications,
+      unreadMessages: unreadMessages ?? this.unreadMessages,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TopBarSnapshot &&
+        unreadNotifications == other.unreadNotifications &&
+        unreadMessages == other.unreadMessages &&
+        _sameNotifications(notifications, other.notifications) &&
+        _sameConversations(conversations, other.conversations);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    unreadNotifications,
+    unreadMessages,
+    notifications.length,
+    conversations.length,
+  );
+
+  static bool _sameNotifications(
+    List<AppNotification> a,
+    List<AppNotification> b,
+  ) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].isRead != b[i].isRead) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _sameConversations(
+    List<ConversationListItem> a,
+    List<ConversationListItem> b,
+  ) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].unreadCount != b[i].unreadCount ||
+          a[i].updatedAt != b[i].updatedAt) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

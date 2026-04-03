@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
@@ -66,6 +68,20 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _openForgotPassword() async {
+    final base = AppConfig.fromEnvironment().webBaseUrl;
+    final forgotPasswordUrl = '$base/forgot-password';
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => WebPageScreen(
+          title: 'Forgot Password',
+          url: forgotPasswordUrl,
+        ),
+      ),
+    );
   }
 
   @override
@@ -245,12 +261,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 ),
                                               ),
                                             ),
-                                            Text(
-                                              'Forgot password?',
-                                              style: TextStyle(
-                                                color: colors.brand,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
+                                            InkWell(
+                                              onTap:
+                                                  widget
+                                                      .authController
+                                                      .isSubmitting
+                                                  ? null
+                                                  : _openForgotPassword,
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 6,
+                                                    ),
+                                                child: Text(
+                                                  'Forgot password?',
+                                                  style: TextStyle(
+                                                    color: colors.brand,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],

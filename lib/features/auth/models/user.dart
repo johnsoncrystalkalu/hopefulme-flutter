@@ -36,8 +36,21 @@ class User {
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       theme: json['theme']?.toString() ?? '',
       isVerified:
-          json['verified']?.toString()?.toLowerCase() == 'true' ||
+          json['verified']?.toString().toLowerCase() == 'true' ||
           json['verified'] == true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'fullname': fullname,
+      'username': username,
+      'email': email,
+      'gender': gender,
+      'photo_url': photoUrl,
+      'theme': theme,
+      'verified': isVerified,
+    };
   }
 }

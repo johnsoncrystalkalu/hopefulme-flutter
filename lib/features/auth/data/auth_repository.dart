@@ -77,7 +77,9 @@ class AuthRepository {
   Future<User> currentUser() async {
     final response = await _apiClient.get('auth/me');
     final userJson = response['user'] as Map<String, dynamic>? ?? response;
-    return User.fromJson(userJson);
+    final user = User.fromJson(userJson);
+    await _apiClient.tokenStorage.saveCachedUser(user);
+    return user;
   }
 
   Future<void> pingPresence() async {
@@ -89,6 +91,7 @@ class AuthRepository {
       await _apiClient.post('auth/logout');
     } finally {
       await _apiClient.clearToken();
+      await _apiClient.tokenStorage.clearCachedUser();
     }
   }
 
@@ -102,6 +105,13 @@ class AuthRepository {
   Future<bool> hasToken() async {
     final token = await _apiClient.tokenStorage.readToken();
     return token != null && token.isNotEmpty;
+  }
+
+  Future<User?> readCachedUser() => _apiClient.tokenStorage.readCachedUser();
+
+  Future<void> clearLocalSession() async {
+    await _apiClient.clearToken();
+    await _apiClient.tokenStorage.clearCachedUser();
   }
 
   Future<User> _persistAuthResponse(Map<String, dynamic> response) async {
@@ -128,6 +138,8 @@ class AuthRepository {
       userJson ??= response['data'] as Map<String, dynamic>;
     }
 
-    return User.fromJson(userJson ?? <String, dynamic>{});
+    final user = User.fromJson(userJson ?? <String, dynamic>{});
+    await _apiClient.tokenStorage.saveCachedUser(user);
+    return user;
   }
 }

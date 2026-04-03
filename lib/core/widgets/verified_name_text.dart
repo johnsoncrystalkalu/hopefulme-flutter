@@ -39,14 +39,12 @@ class VerifiedNameText extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 6,
       children: [
-        Flexible(
-          child: Text(
-            name,
-            style: resolvedStyle,
-            textAlign: textAlign,
-            maxLines: maxLines,
-            overflow: overflow,
-          ),
+        Text(
+          name,
+          style: resolvedStyle,
+          textAlign: textAlign,
+          maxLines: maxLines,
+          overflow: overflow,
         ),
         Icon(
           Icons.verified_rounded,

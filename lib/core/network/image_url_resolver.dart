@@ -2,20 +2,24 @@ class ImageUrlResolver {
   const ImageUrlResolver._();
 
   static const String _baseUrl = 'https://ahopefulme.com';
- // static const String _baseUrl = 'http://127.0.0.1:8000';
+  static final Uri _baseUri = Uri.parse(_baseUrl);
+  // static const String _baseUrl = 'http://127.0.0.1:8000';
 
   static String resolve(String? url) {
-    if (url == null || url.trim().isEmpty) {
+    final trimmed = _sanitize(url);
+    if (trimmed.isEmpty) {
       return '';
     }
 
-    final trimmed = url.trim();
-
     if (_isAbsoluteUrl(trimmed)) {
-      return trimmed;
+      return _normalizeAbsoluteUrl(trimmed);
     }
 
-    return '$_baseUrl/$trimmed';
+    if (trimmed.startsWith('//')) {
+      return _normalizeAbsoluteUrl('https:$trimmed');
+    }
+
+    return _resolveRelativeUrl(trimmed);
   }
 
   static String resolveOriginal(String? url) {
@@ -23,41 +27,33 @@ class ImageUrlResolver {
   }
 
   static String avatar(String? url, {int size = 80}) {
-    if (url == null || url.trim().isEmpty) {
+    final trimmed = _sanitize(url);
+    if (trimmed.isEmpty) {
       return '';
     }
 
-    final trimmed = url.trim();
+    final resolved = resolve(trimmed);
 
-    String resolved;
-
-    if (_isAbsoluteUrl(trimmed)) {
-      resolved = trimmed;
-    } else {
-      resolved = '$_baseUrl/$trimmed';
+    if (size > 100) {
+      return resolved;
     }
 
-   if (size <= 100) {
-  if (_isAbsoluteUrl(trimmed) && !trimmed.contains('ahopefulme.com')) {
-    return trimmed;
-  }
+    if ((_isAbsoluteUrl(trimmed) || trimmed.startsWith('//')) &&
+        !resolved.contains('ahopefulme.com')) {
+      return resolved;
+    }
 
-  final cloudflarePattern = RegExp(r'/cdn-cgi/image/[^/]*/');
-  final stripped = resolved.replaceFirst(cloudflarePattern, '/');
+    final cloudflarePattern = RegExp(r'/cdn-cgi/image/[^/]*/');
+    final stripped = resolved.replaceFirst(cloudflarePattern, '/');
 
-  // Only apply Cloudflare transform if /storage/ exists in the URL
-  if (stripped.contains('/storage/')) {
-    return stripped.replaceFirst(
-      '/storage/',
-      '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
-    );
-  }
+    if (stripped.contains('/storage/')) {
+      return stripped.replaceFirst(
+        '/storage/',
+        '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
+      );
+    }
 
-  // Fallback — just return the resolved URL as-is
-  return stripped;
-}
-
-    return resolved;
+    return stripped;
   }
 
   static String thumbnail(String? url, {int size = 160}) {
@@ -66,5 +62,20 @@ class ImageUrlResolver {
 
   static bool _isAbsoluteUrl(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
+  }
+
+  static String _sanitize(String? value) {
+    return value?.trim().replaceAll('\\', '/') ?? '';
+  }
+
+  static String _normalizeAbsoluteUrl(String value) {
+    final uri = Uri.tryParse(Uri.encodeFull(value));
+    return uri?.toString() ?? value;
+  }
+
+  static String _resolveRelativeUrl(String value) {
+    final normalizedValue = value.replaceFirst(RegExp(r'^\./+'), '');
+    final encodedValue = Uri.encodeFull(normalizedValue);
+    return _baseUri.resolve(encodedValue).toString();
   }
 }

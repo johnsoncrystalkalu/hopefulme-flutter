@@ -1,15 +1,29 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
+import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
 
 class ProfileRepository {
-  ProfileRepository(this._authRepository);
+  ProfileRepository(this._authRepository, {PageCache? cache})
+    : _cache = cache ?? PageCache();
 
   final AuthRepository _authRepository;
+  final PageCache _cache;
 
   Future<ProfileDashboard> fetchProfile(String username) async {
-    final response = await _authRepository.get('profile/$username');
-    return ProfileDashboard.fromJson(response);
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername';
+    try {
+      final response = await _authRepository.get('profile/$normalizedUsername');
+      await _cache.save(key, response);
+      return ProfileDashboard.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileDashboard.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<(bool isFollowing, int followersCount)> toggleFollow(
@@ -26,44 +40,88 @@ class ProfileRepository {
     String username, {
     int page = 1,
   }) async {
-    final response = await _authRepository.get(
-      'profile/$username/followers',
-      queryParameters: {'page': page},
-    );
-    return ProfileConnectionPage.fromJson(response);
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername:followers:$page';
+    try {
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername/followers',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ProfileConnectionPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileConnectionPage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<ProfileConnectionPage> fetchFollowing(
     String username, {
     int page = 1,
   }) async {
-    final response = await _authRepository.get(
-      'profile/$username/following',
-      queryParameters: {'page': page},
-    );
-    return ProfileConnectionPage.fromJson(response);
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername:following:$page';
+    try {
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername/following',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ProfileConnectionPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileConnectionPage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<ProfileUpdatePage> fetchUserUpdates(
     String username, {
     int page = 1,
   }) async {
-    final response = await _authRepository.get(
-      'profile/$username/updates',
-      queryParameters: {'page': page},
-    );
-    return ProfileUpdatePage.fromJson(response);
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername:updates:$page';
+    try {
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername/updates',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ProfileUpdatePage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileUpdatePage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<ProfileUpdatePage> fetchUserBlogs(
     String username, {
     int page = 1,
   }) async {
-    final response = await _authRepository.get(
-      'profile/$username/blogs',
-      queryParameters: {'page': page},
-    );
-    return ProfileUpdatePage.fromJson(response);
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername:blogs:$page';
+    try {
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername/blogs',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return ProfileUpdatePage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ProfileUpdatePage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<void> sendInspiration({

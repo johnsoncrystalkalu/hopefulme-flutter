@@ -38,6 +38,7 @@ class AppNetworkImage extends StatelessWidget {
         label: placeholderLabel,
         icon: placeholderIcon,
         backgroundColor: bg,
+        sourceUrl: imageUrl,
       );
     } else {
       child = Image.network(
@@ -57,11 +58,17 @@ class AppNetworkImage extends StatelessWidget {
                 );
               }
             : null,
-        errorBuilder: (context, error, stackTrace) => _FallbackImage(
-          label: placeholderLabel,
-          icon: placeholderIcon,
-          backgroundColor: bg,
-        ),
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint(
+            'AppNetworkImage failed to load: "$imageUrl" error: $error',
+          );
+          return _FallbackImage(
+            label: placeholderLabel,
+            icon: placeholderIcon,
+            backgroundColor: bg,
+            sourceUrl: imageUrl,
+          );
+        },
       );
     }
 
@@ -86,17 +93,33 @@ class _ShimmerLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width ?? double.infinity,
-      height: height ?? 200,
-      color: backgroundColor,
-      child: const Center(
-        child: ShimmerBox(
-          width: double.infinity,
-          height: double.infinity,
-          borderRadius: 0,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolvedWidth = _resolveDimension(
+          explicitValue: width,
+          maxConstraint: constraints.maxWidth,
+        );
+        final resolvedHeight = _resolveDimension(
+          explicitValue: height,
+          maxConstraint: constraints.maxHeight,
+          fallbackValue: 200,
+        );
+
+        return SizedBox(
+          width: resolvedWidth,
+          height: resolvedHeight,
+          child: ColoredBox(
+            color: backgroundColor,
+            child: const Center(
+              child: ShimmerBox(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: 0,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -106,40 +129,75 @@ class _FallbackImage extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.backgroundColor,
+    this.sourceUrl,
   });
 
   final String? label;
   final IconData icon;
   final Color backgroundColor;
+  final String? sourceUrl;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final initials = _initials(label ?? '');
     final bg = backgroundColor;
+    final sourceHint = _sourceHint(sourceUrl);
 
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: bg,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: colors.textMuted, size: 26),
-          if (initials.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              initials,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolvedWidth = _resolveDimension(
+          maxConstraint: constraints.maxWidth,
+        );
+        final resolvedHeight = _resolveDimension(
+          maxConstraint: constraints.maxHeight,
+          fallbackValue: 200,
+        );
+
+        return SizedBox(
+          width: resolvedWidth,
+          height: resolvedHeight,
+          child: ColoredBox(
+            color: bg,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: colors.textMuted, size: 26),
+                  if (initials.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      initials,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                  if (sourceHint != null) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        sourceHint,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -153,4 +211,39 @@ class _FallbackImage extends StatelessWidget {
         .join();
     return parts;
   }
+
+  static String? _sourceHint(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(value);
+    if (uri == null) {
+      return value.length > 48 ? '${value.substring(0, 48)}...' : value;
+    }
+
+    final host = uri.host.isEmpty ? 'local' : uri.host;
+    final path = uri.pathSegments.isEmpty ? uri.path : uri.pathSegments.last;
+    if (path.isEmpty) {
+      return host;
+    }
+
+    return '$host/$path';
+  }
+}
+
+double? _resolveDimension({
+  double? explicitValue,
+  required double maxConstraint,
+  double? fallbackValue,
+}) {
+  if (explicitValue != null) {
+    return explicitValue;
+  }
+
+  if (maxConstraint.isFinite) {
+    return maxConstraint;
+  }
+
+  return fallbackValue;
 }

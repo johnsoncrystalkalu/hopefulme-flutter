@@ -32,6 +32,7 @@ class AuthController extends ChangeNotifier {
     try {
       final hasToken = await _authRepository.hasToken();
       if (!hasToken) {
+        _currentUser = null;
         _isAuthenticated = false;
         return;
       }
@@ -40,8 +41,17 @@ class AuthController extends ChangeNotifier {
       _isAuthenticated = true;
     } on ApiException catch (error) {
       _errorMessage = error.message;
-      _isAuthenticated = false;
-      await _authRepository.logout();
+      final cachedUser = await _authRepository.readCachedUser();
+      final isUnauthorized = error.statusCode == 401 || error.statusCode == 403;
+
+      if (cachedUser != null && !isUnauthorized) {
+        _currentUser = cachedUser;
+        _isAuthenticated = true;
+      } else {
+        _currentUser = null;
+        _isAuthenticated = false;
+        await _authRepository.clearLocalSession();
+      }
     } finally {
       _isBootstrapping = false;
       _setLoading(false);
