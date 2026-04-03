@@ -859,7 +859,7 @@ class _ProfileStatusRow extends StatelessWidget {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 12.5,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -2139,8 +2139,9 @@ class _ActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          gradient: highlighted ? context.appColors.brandGradient : null,
-          color: highlighted ? null : context.appColors.surfaceMuted,
+          color: highlighted
+              ? const Color(0xFF111111)
+              : context.appColors.surfaceMuted,
           border: highlighted
               ? null
               : Border.all(color: context.appColors.border),

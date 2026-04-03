@@ -1,15 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
+import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 
 class InspirationInboxScreen extends StatefulWidget {
-  const InspirationInboxScreen({required this.repository, super.key});
+  const InspirationInboxScreen({
+    required this.repository,
+    required this.profileRepository,
+    required this.messageRepository,
+    required this.updateRepository,
+    required this.currentUser,
+    super.key,
+  });
 
   final ContentRepository repository;
+  final ProfileRepository profileRepository;
+  final MessageRepository messageRepository;
+  final UpdateRepository updateRepository;
+  final User? currentUser;
 
   @override
   State<InspirationInboxScreen> createState() => _InspirationInboxScreenState();
@@ -149,6 +164,10 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                           onTap: () => openInspirationDetail(
                             context,
                             contentRepository: widget.repository,
+                            profileRepository: widget.profileRepository,
+                            messageRepository: widget.messageRepository,
+                            updateRepository: widget.updateRepository,
+                            currentUser: widget.currentUser,
                             inspirationId: item.id,
                           ),
                         ),

@@ -100,11 +100,13 @@ class AuthController extends ChangeNotifier {
 
     try {
       await _authRepository.logout();
-      _currentUser = null;
-      _isAuthenticated = false;
     } on ApiException catch (error) {
       _errorMessage = error.message;
     } finally {
+      // The repository clears the local token in a `finally`, so the app
+      // should always leave the signed-in state immediately.
+      _currentUser = null;
+      _isAuthenticated = false;
       _setLoading(false);
     }
   }

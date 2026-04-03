@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:hopefulme_flutter/features/content/presentation/screens/content_detail_screen.dart';
@@ -61,6 +62,10 @@ Future<BlogActionResult?> openBlogDetail(
 Future<void> openInspirationDetail(
   BuildContext context, {
   required ContentRepository contentRepository,
+  required ProfileRepository profileRepository,
+  required MessageRepository messageRepository,
+  required UpdateRepository updateRepository,
+  required User? currentUser,
   required int inspirationId,
 }) {
   return Navigator.of(context).push(
@@ -68,6 +73,10 @@ Future<void> openInspirationDetail(
       builder: (context) => InspirationDetailScreen(
         inspirationId: inspirationId,
         repository: contentRepository,
+        profileRepository: profileRepository,
+        messageRepository: messageRepository,
+        updateRepository: updateRepository,
+        currentUser: currentUser,
       ),
     ),
   );

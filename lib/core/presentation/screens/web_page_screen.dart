@@ -17,6 +17,8 @@ class WebPageScreen extends StatefulWidget {
 class _WebPageScreenState extends State<WebPageScreen> {
   late final WebViewController _controller;
   int _progress = 0;
+  String? _errorMessage;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -28,6 +30,16 @@ class _WebPageScreenState extends State<WebPageScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (_) {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _hasError = false;
+              _errorMessage = null;
+              _progress = 0;
+            });
+          },
           onProgress: (progress) {
             if (!mounted) {
               return;
@@ -36,9 +48,56 @@ class _WebPageScreenState extends State<WebPageScreen> {
               _progress = progress;
             });
           },
+          onWebResourceError: (error) {
+            if (!mounted || !_isMainFrameError(error)) {
+              return;
+            }
+            setState(() {
+              _hasError = true;
+              _errorMessage = _friendlyErrorMessage(error);
+            });
+          },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+  }
+
+  bool _isMainFrameError(WebResourceError error) {
+    final isMainFrame = error.isForMainFrame;
+    return isMainFrame == null || isMainFrame;
+  }
+
+  String _friendlyErrorMessage(WebResourceError error) {
+    final description = error.description.trim();
+    final lower = description.toLowerCase();
+
+    if (lower.contains('internet') ||
+        lower.contains('network') ||
+        lower.contains('host lookup') ||
+        lower.contains('timeout') ||
+        lower.contains('connection')) {
+      return 'Check your internet connection and try again.';
+    }
+
+    if (lower.contains('404') ||
+        lower.contains('not found') ||
+        lower.contains('unsupported')) {
+      return 'This page is not available right now.';
+    }
+
+    return 'This page could not be loaded right now.';
+  }
+
+  Future<void> _reload() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _hasError = false;
+      _errorMessage = null;
+      _progress = 0;
+    });
+    await _controller.loadRequest(Uri.parse(widget.url));
   }
 
   Future<void> _openInBrowser() async {
@@ -103,7 +162,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            onPressed: _controller.reload,
+            onPressed: _reload,
             icon: const Icon(Icons.refresh_rounded),
           ),
           IconButton(
@@ -119,7 +178,125 @@ class _WebPageScreenState extends State<WebPageScreen> {
               )
             : null,
       ),
-      body: WebViewWidget(controller: _controller),
+      body: _hasError
+          ? _WebPageErrorState(
+              title: widget.title,
+              message: _errorMessage ??
+                  'This page could not be loaded right now.',
+              onRetry: _reload,
+              onOpenInBrowser: _openInBrowser,
+            )
+          : WebViewWidget(controller: _controller),
+    );
+  }
+}
+
+class _WebPageErrorState extends StatelessWidget {
+  const _WebPageErrorState({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+    required this.onOpenInBrowser,
+  });
+
+  final String title;
+  final String message;
+  final Future<void> Function() onRetry;
+  final Future<void> Function() onOpenInBrowser;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: colors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.08),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
+                  spreadRadius: -18,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    gradient: context.appColors.brandGradient,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.wifi_off_rounded,
+                    color: Colors.white,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Unable to open page',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onRetry,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Try again'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: onOpenInBrowser,
+                  icon: const Icon(Icons.open_in_browser_rounded),
+                  label: const Text('Open in browser'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

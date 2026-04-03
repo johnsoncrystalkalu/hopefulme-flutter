@@ -4,18 +4,31 @@ import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
+import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
+import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
+import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 
 class InspirationDetailScreen extends StatefulWidget {
   const InspirationDetailScreen({
     required this.inspirationId,
     required this.repository,
+    required this.profileRepository,
+    required this.messageRepository,
+    required this.updateRepository,
+    required this.currentUser,
     super.key,
   });
 
   final int inspirationId;
   final ContentRepository repository;
+  final ProfileRepository profileRepository;
+  final MessageRepository messageRepository;
+  final UpdateRepository updateRepository;
+  final User? currentUser;
 
   @override
   State<InspirationDetailScreen> createState() =>
@@ -129,7 +142,13 @@ class _InspirationDetailScreenState extends State<InspirationDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _SenderRow(detail: detail),
+                                  _SenderRow(
+                                    detail: detail,
+                                    currentUser: widget.currentUser,
+                                    profileRepository: widget.profileRepository,
+                                    messageRepository: widget.messageRepository,
+                                    updateRepository: widget.updateRepository,
+                                  ),
                                   const SizedBox(height: 22),
                                   _MessageCard(detail: detail),
                                   const SizedBox(height: 20),
@@ -249,14 +268,25 @@ class _InspirationHero extends StatelessWidget {
 }
 
 class _SenderRow extends StatelessWidget {
-  const _SenderRow({required this.detail});
+  const _SenderRow({
+    required this.detail,
+    required this.currentUser,
+    required this.profileRepository,
+    required this.messageRepository,
+    required this.updateRepository,
+  });
 
   final InspirationDetail detail;
+  final User? currentUser;
+  final ProfileRepository profileRepository;
+  final MessageRepository messageRepository;
+  final UpdateRepository updateRepository;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final sender = detail.sender;
+    final senderUsername = sender?.username.trim() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -271,30 +301,57 @@ class _SenderRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  VerifiedNameText(
-                    name: detail.senderName,
-                    verified: sender?.isVerified ?? false,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: InkWell(
+                onTap: senderUsername.isEmpty
+                    ? null
+                    : () => openUserProfile(
+                        context,
+                        profileRepository: profileRepository,
+                        messageRepository: messageRepository,
+                        updateRepository: updateRepository,
+                        currentUser: currentUser,
+                        username: senderUsername,
+                      ),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      VerifiedNameText(
+                        name: detail.senderName,
+                        verified: sender?.isVerified ?? false,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatDetailedTimestamp(detail.createdAt),
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatDetailedTimestamp(detail.createdAt),
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+            if (senderUsername.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: colors.textMuted,
+                ),
+              ),
+            ],
           ],
         ),
         if (detail.isAnonymous || detail.isPublic) ...[

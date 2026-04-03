@@ -114,6 +114,10 @@ class NotificationNavigator {
       await openInspirationDetail(
         context,
         contentRepository: contentRepository,
+        profileRepository: profileRepository,
+        messageRepository: messageRepository,
+        updateRepository: updateRepository,
+        currentUser: currentUser,
         inspirationId: notification.inspirationId,
       );
       return true;

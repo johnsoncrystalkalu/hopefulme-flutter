@@ -594,8 +594,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openInspirations() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            InspirationInboxScreen(repository: widget.contentRepository),
+        builder: (context) => InspirationInboxScreen(
+          repository: widget.contentRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+        ),
       ),
     );
   }
