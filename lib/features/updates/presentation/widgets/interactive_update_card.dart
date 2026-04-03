@@ -9,6 +9,7 @@ import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_c
 class InteractiveUpdateCard extends StatefulWidget {
   const InteractiveUpdateCard({
     required this.updateId,
+    required this.updateType,
     required this.title,
     required this.body,
     required this.photoUrl,
@@ -31,6 +32,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   });
 
   final int updateId;
+  final String updateType;
   final String title;
   final String body;
   final String photoUrl;
@@ -65,6 +67,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   late AnimationController _likeController;
 
   bool get _isOwner => widget.currentUser?.username == widget.ownerUsername;
+  bool get _canEdit =>
+      _isOwner && widget.updateType.trim().toLowerCase() == 'update';
 
   @override
   void initState() {
@@ -243,6 +247,10 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       return const SizedBox.shrink();
     }
 
+    final isGeneratedActivity =
+        widget.updateType.trim().toLowerCase() != 'update';
+    final activityBadgeLabel = isGeneratedActivity ? widget.updateType : '';
+
     return ReusableUpdateCard(
       key: ValueKey('update-card-${widget.updateId}'),
       data: UpdateCardData(
@@ -255,6 +263,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         avatarUrl: widget.avatarUrl,
         fallbackLabel: widget.fallbackLabel,
         isVerified: widget.isVerified,
+        isGeneratedActivity: isGeneratedActivity,
+        activityBadgeLabel: activityBadgeLabel,
       ),
       onHeaderTap: widget.ownerUsername == null || widget.onOpenProfile == null
           ? null
@@ -281,7 +291,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         },
         itemBuilder: (context) => [
           const PopupMenuItem(value: 'view', child: Text('View Post')),
-          if (_isOwner)
+          if (_canEdit)
             const PopupMenuItem(value: 'edit', child: Text('Edit Update')),
           if (_isOwner)
             const PopupMenuItem(value: 'delete', child: Text('Delete Update')),

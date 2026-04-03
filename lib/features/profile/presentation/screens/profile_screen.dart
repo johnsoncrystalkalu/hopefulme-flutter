@@ -713,11 +713,11 @@ class _ProfileHeaderCard extends StatelessWidget {
                   SizedBox(width: isWide ? 20 : 0, height: isWide ? 0 : 18),
                   if (isWide) Expanded(child: identityBlock) else identityBlock,
                   SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 18),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: isCurrentUser
-                        ? [
+                  isCurrentUser
+                      ? Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
                             _ActionButton(
                               icon: Icons.photo_camera_outlined,
                               label: 'Change Photo',
@@ -728,34 +728,48 @@ class _ProfileHeaderCard extends StatelessWidget {
                               label: 'Edit Profile',
                               onTap: onEditProfile,
                             ),
-                          ]
-                        : [
-                            _ActionButton(
-                              icon: isTogglingFollow
-                                  ? Icons.hourglass_top
-                                  : isFollowing
-                                  ? Icons.check
-                                  : Icons.add,
+                          ],
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Expanded(
+                              child: _ActionButton(
+                                icon: isTogglingFollow
+                                    ? Icons.hourglass_top
+                                    : isFollowing
+                                    ? Icons.check
+                                    : Icons.add,
                               label: isTogglingFollow
                                   ? 'Please wait'
                                   : isFollowing
                                   ? 'Following'
                                   : 'Follow',
                               highlighted: !isFollowing,
+                              compact: true,
                               onTap: onToggleFollow,
                             ),
-                            _ActionButton(
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ActionButton(
                               icon: Icons.chat_bubble_outline,
                               label: 'Chat',
+                              compact: true,
                               onTap: onMessage,
                             ),
-                            _ActionButton(
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ActionButton(
                               icon: Icons.auto_awesome_outlined,
                               label: 'Inspire',
+                              compact: true,
                               onTap: onInspire,
                             ),
+                          ),
                           ],
-                  ),
+                        ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -858,7 +872,7 @@ class _ProfileStatusRow extends StatelessWidget {
               profile.isOnline ? 'Online' : 'Last seen: ${profile.lastSeen}',
               style: TextStyle(
                 color: colors.textPrimary,
-                fontSize: 12.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1108,7 +1122,7 @@ class _ProfileTabs extends StatelessWidget {
             ),
             _TabButton(
               label: 'Photos',
-              badge: '$photosCount',
+             // badge: '$photosCount',
               selected: selectedTab == _ProfileTab.photos,
               onTap: () => onSelected(_ProfileTab.photos),
             ),
@@ -1559,8 +1573,8 @@ class _PhotosPreviewTab extends StatelessWidget {
               itemCount: photos.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+                mainAxisSpacing: 5,
+                crossAxisSpacing: 5,
                 childAspectRatio: 1,
               ),
               itemBuilder: (context, index) {
@@ -1594,7 +1608,7 @@ class _PhotosPreviewTab extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => onViewAll(),
                 icon: const Icon(Icons.photo_library_outlined),
-                label: const Text('Open full gallery'),
+                label: const Text('View gallery'),
               ),
             ),
           ],
@@ -1758,6 +1772,7 @@ class _UpdateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InteractiveUpdateCard(
       updateId: item.id,
+      updateType: item.updateType,
       title: profile.displayName,
       body: item.body,
       photoUrl: item.photoUrl,
@@ -2012,7 +2027,7 @@ class _LargeAvatar extends StatelessWidget {
                     height: 38,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                       ),
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -2122,12 +2137,14 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     this.highlighted = false,
+    this.compact = false,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool highlighted;
+  final bool compact;
   final Future<void> Function()? onTap;
 
   @override
@@ -2136,11 +2153,14 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap == null ? null : () => onTap!.call(),
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 16,
+          vertical: compact ? 10 : 11,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           color: highlighted
-              ? const Color(0xFF111111)
+              ? const Color(0xFF1F2937)
               : context.appColors.surfaceMuted,
           border: highlighted
               ? null
@@ -2148,23 +2168,29 @@ class _ActionButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 16,
+              size: compact ? 15 : 16,
               color: highlighted
                   ? Colors.white
                   : context.appColors.textSecondary,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: highlighted
-                    ? Colors.white
-                    : context.appColors.textPrimary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
+            SizedBox(width: compact ? 6 : 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: TextStyle(
+                  color: highlighted
+                      ? Colors.white
+                      : context.appColors.textPrimary,
+                  fontSize: compact ? 12 : 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],

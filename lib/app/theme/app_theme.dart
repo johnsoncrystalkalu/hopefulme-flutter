@@ -81,7 +81,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color heroFallback;
   final Color shadow;
 
-  LinearGradient get brandGradient => LinearGradient(colors: [brand, accent]);
+  LinearGradient get brandGradient => LinearGradient(colors: [brand, brand]);
 
   static const light = AppThemeColors(
     brand: AppColors.brand,

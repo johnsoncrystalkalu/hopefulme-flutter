@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 class UpdateDetail {
   const UpdateDetail({
     required this.id,
+    required this.type,
     required this.status,
     required this.photoUrl,
     required this.originalPhotoUrl,
@@ -18,6 +19,7 @@ class UpdateDetail {
   });
 
   final int id;
+  final String type;
   final String status;
   final String photoUrl;
   final String originalPhotoUrl;
@@ -36,6 +38,7 @@ class UpdateDetail {
 
     return UpdateDetail(
       id: parseInt(json['id']),
+      type: json['type']?.toString() ?? '',
       status: _plainText(json['status']?.toString() ?? ''),
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(

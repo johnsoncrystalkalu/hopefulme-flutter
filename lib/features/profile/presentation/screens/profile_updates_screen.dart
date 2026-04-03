@@ -170,6 +170,7 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
                   final item = _items[index];
                   return InteractiveUpdateCard(
                     updateId: item.id,
+                    updateType: item.updateType,
                     title: widget.profile.displayName,
                     body: item.body,
                     photoUrl: item.photoUrl,

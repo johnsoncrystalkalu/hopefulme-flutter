@@ -125,6 +125,7 @@ class FeedEntry {
   const FeedEntry({
     required this.id,
     required this.type,
+    required this.updateType,
     required this.title,
     required this.body,
     required this.photoUrl,
@@ -139,6 +140,7 @@ class FeedEntry {
 
   final int id;
   final String type;
+  final String updateType;
   final String title;
   final String body;
   final String photoUrl;
@@ -157,6 +159,7 @@ class FeedEntry {
     return FeedEntry(
       id: parseInt(json['id']),
       type: json['type']?.toString() ?? 'post',
+      updateType: (json['update_type'] ?? json['type'])?.toString() ?? '',
       title:
           json['title']?.toString() ??
           userJson?['fullname']?.toString() ??

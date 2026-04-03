@@ -118,6 +118,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       _future = Future.value(
         UpdateDetail(
           id: detail.id,
+          type: detail.type,
           status: detail.status,
           photoUrl: detail.photoUrl,
           originalPhotoUrl: detail.originalPhotoUrl,
@@ -154,6 +155,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         _future = Future.value(
           UpdateDetail(
             id: detail.id,
+            type: detail.type,
             status: detail.status,
             photoUrl: detail.photoUrl,
             originalPhotoUrl: detail.originalPhotoUrl,
@@ -414,52 +416,97 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return WillPopScope(
-      onWillPop: () async {
-        _close();
-        return false;
-      },
-      child: Scaffold(
-        backgroundColor: context.appColors.scaffold,
-        appBar: AppBar(
-          backgroundColor: context.appColors.surface,
-          surfaceTintColor: context.appColors.surface,
-          leading: IconButton(
-            onPressed: _close,
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ),
-        body: FutureBuilder<UpdateDetail>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return FutureBuilder<UpdateDetail>(
+      future: _future,
+      builder: (context, snapshot) {
+        final detail = snapshot.data;
+        final isOwner =
+            detail != null &&
+            widget.currentUser?.username == detail.user.username;
+        final canEdit =
+            detail != null &&
+            isOwner &&
+            detail.type.trim().toLowerCase() == 'update';
 
-            if (snapshot.hasError && !snapshot.hasData) {
-              return AppStatusState.fromError(
-                error: snapshot.error ?? 'Unable to load this update.',
-                actionLabel: 'Try again',
-                onAction: _refresh,
-              );
-            }
+        return WillPopScope(
+          onWillPop: () async {
+            _close();
+            return false;
+          },
+          child: Scaffold(
+            backgroundColor: context.appColors.scaffold,
+            appBar: AppBar(
+              backgroundColor: context.appColors.surface,
+              surfaceTintColor: context.appColors.surface,
+              leading: IconButton(
+                onPressed: _close,
+                icon: const Icon(Icons.arrow_back),
+              ),
+              actions: [
+                if (detail != null)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_horiz),
+                    onSelected: (value) async {
+                      switch (value) {
+                        case 'share':
+                          await _shareUpdate(detail);
+                          break;
+                        case 'edit':
+                          await _editUpdate(detail);
+                          break;
+                        case 'delete':
+                          await _deleteUpdate(detail);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'share',
+                        child: Text('Share To...'),
+                      ),
+                      if (canEdit)
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Edit Update'),
+                        ),
+                      if (isOwner)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete Update'),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+            body: Builder(
+              builder: (context) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            final detail = snapshot.data;
-            if (detail == null) {
-              return const SizedBox.shrink();
-            }
+                if (snapshot.hasError && !snapshot.hasData) {
+                  return AppStatusState.fromError(
+                    error: snapshot.error ?? 'Unable to load this update.',
+                    actionLabel: 'Try again',
+                    onAction: _refresh,
+                  );
+                }
 
-            final isOwner =
-                widget.currentUser?.username == detail.user.username;
-            final colors = context.appColors;
+                if (detail == null) {
+                  return const SizedBox.shrink();
+                }
 
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                children: [
+                final colors = context.appColors;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                final isGeneratedActivity =
+                    detail.type.trim().toLowerCase() != 'update';
+
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
                   Container(
                     decoration: BoxDecoration(
                       color: colors.surface,
@@ -527,53 +574,34 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   ),
                                 ),
                               ),
-                              PopupMenuButton<String>(
-                                onSelected: (value) async {
-                                  switch (value) {
-                                    case 'share':
-                                      await _shareUpdate(detail);
-                                      break;
-                                    case 'edit':
-                                      await _editUpdate(detail);
-                                      break;
-                                    case 'delete':
-                                      await _deleteUpdate(detail);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'share',
-                                    child: Text('Share To...'),
-                                  ),
-                                  if (isOwner)
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('Edit Update'),
-                                    ),
-                                  if (isOwner)
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete Update'),
-                                    ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
                         if (detail.status.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                            child: RichDisplayText(
-                              text: detail.status,
-                              style: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 15,
-                                height: 1.6,
-                              ),
-                              onMentionTap: _openProfile,
-                              onHashtagTap: _openSearchQuery,
-                              onLinkTap: _handleLinkTap,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichDisplayText(
+                                  text: detail.status,
+                                  style: TextStyle(
+                                    color: isGeneratedActivity
+                                        ? colors.textMuted.withValues(
+                                            alpha: 0.82,
+                                          )
+                                        : colors.textSecondary,
+                                    fontSize: isGeneratedActivity ? 14 : 15,
+                                    height: 1.6,
+                                    fontWeight: isGeneratedActivity
+                                        ? FontWeight.w400
+                                        : FontWeight.w500,
+                                  ),
+                                  onMentionTap: _openProfile,
+                                  onHashtagTap: _openSearchQuery,
+                                  onLinkTap: _handleLinkTap,
+                                ),
+                              ],
                             ),
                           ),
                         if (detail.photoUrl.isNotEmpty)
@@ -758,12 +786,14 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                       ],
                     ),
                   ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

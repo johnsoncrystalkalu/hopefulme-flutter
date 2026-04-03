@@ -31,7 +31,7 @@ class ContentRepository {
   Future<ContentDetail> fetchPost(int id) async {
     final key = 'post:$id';
     try {
-      final response = await _authRepository.get('posts/$id');
+      final response = await _authRepository.get('post/$id');
       await _cache.save(key, response);
       return ContentDetail.fromApi(
         response['post'] as Map<String, dynamic>? ?? <String, dynamic>{},

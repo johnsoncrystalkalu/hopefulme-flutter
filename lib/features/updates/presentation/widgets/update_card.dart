@@ -16,6 +16,8 @@ class UpdateCardData {
     required this.avatarUrl,
     required this.fallbackLabel,
     this.isVerified = false,
+    this.isGeneratedActivity = false,
+    this.activityBadgeLabel = '',
   });
 
   final String title;
@@ -27,6 +29,8 @@ class UpdateCardData {
   final String avatarUrl;
   final String fallbackLabel;
   final bool isVerified;
+  final bool isGeneratedActivity;
+  final String activityBadgeLabel;
 }
 
 class ReusableUpdateCard extends StatelessWidget {
@@ -57,6 +61,12 @@ class ReusableUpdateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final String imageUrl = data.photoUrl;
+    final bodyColor = data.isGeneratedActivity
+        ? colors.textMuted.withValues(alpha: 0.82)
+        : colors.textSecondary;
+    final actionColor = data.isGeneratedActivity
+        ? colors.textMuted.withValues(alpha: 0.9)
+        : colors.brand;
 
     final header = Row(
       children: [
@@ -175,14 +185,17 @@ class ReusableUpdateCard extends StatelessWidget {
                     child: _ExpandableUpdateBody(
                       text: data.body,
                       style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 14,
+                        color: bodyColor,
+                        fontSize: data.isGeneratedActivity ? 13.25 : 14,
                         height: 1.55,
+                        fontWeight: data.isGeneratedActivity
+                            ? FontWeight.w400
+                            : FontWeight.w500,
                       ),
                       onMentionTap: onMentionTap,
                       onHashtagTap: onHashtagTap,
                       onLinkTap: onLinkTap,
-                      actionColor: colors.brand,
+                      actionColor: actionColor,
                     ),
                   ),
                 if (data.photoUrl.isNotEmpty) ...[

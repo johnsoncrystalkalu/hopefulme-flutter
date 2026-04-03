@@ -317,7 +317,7 @@ class _MyGroupCard extends StatelessWidget {
               : null,
           gradient: group.photoUrl.isEmpty
               ? const LinearGradient(
-                  colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                  colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                 )
               : null,
         ),

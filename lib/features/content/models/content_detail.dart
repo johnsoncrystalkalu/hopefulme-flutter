@@ -87,6 +87,7 @@ class ContentDetail {
     return FeedEntry(
       id: id,
       type: kind,
+      updateType: '',
       title: title,
       body: body,
       photoUrl: photoUrl,

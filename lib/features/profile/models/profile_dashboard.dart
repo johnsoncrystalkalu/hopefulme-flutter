@@ -292,6 +292,8 @@ class ProfileEditOptions {
 class ProfileContentItem {
   const ProfileContentItem({
     required this.id,
+    required this.type,
+    required this.updateType,
     required this.title,
     required this.body,
     required this.photoUrl,
@@ -303,6 +305,8 @@ class ProfileContentItem {
   });
 
   final int id;
+  final String type;
+  final String updateType;
   final String title;
   final String body;
   final String photoUrl;
@@ -315,6 +319,8 @@ class ProfileContentItem {
   factory ProfileContentItem.fromJson(Map<String, dynamic> json) {
     return ProfileContentItem(
       id: parseInt(json['id']),
+      type: json['type']?.toString() ?? 'update',
+      updateType: json['update_type']?.toString() ?? '',
       title: _plainText(json['title']?.toString() ?? ''),
       body: _plainText(
         json['content']?.toString() ?? json['status']?.toString() ?? '',

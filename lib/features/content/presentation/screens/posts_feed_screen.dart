@@ -568,7 +568,7 @@ class _FeedStylePostCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),

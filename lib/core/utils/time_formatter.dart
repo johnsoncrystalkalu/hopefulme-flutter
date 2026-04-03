@@ -26,10 +26,10 @@ String formatRelativeTimestamp(String input) {
   if (diff.inDays < 30) {
     return '${(diff.inDays / 7).floor()}w ago';
   }
-  if (diff.inDays < 365) {
+  if (diff.inDays < 180) {
     return '${(diff.inDays / 30).floor()}mo ago';
   }
-  return '${(diff.inDays / 365).floor()}y ago';
+  return _formatShortDate(parsed);
 }
 
 String formatDetailedTimestamp(String input) {
@@ -89,6 +89,10 @@ String _formatTime(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final period = value.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $period';
+}
+
+String _formatShortDate(DateTime value) {
+  return '${value.day} ${_monthName(value.month)} ${value.year}';
 }
 
 String _monthName(int month) {

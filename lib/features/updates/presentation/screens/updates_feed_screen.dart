@@ -248,6 +248,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                     child: InteractiveUpdateCard(
                       key: ValueKey('updates-feed-${entry.id}-${entry.createdAt}'),
                       updateId: entry.id,
+                      updateType: entry.updateType,
                       title: entry.user?.displayName ?? entry.title,
                       body: entry.body,
                       photoUrl: entry.photoUrl,

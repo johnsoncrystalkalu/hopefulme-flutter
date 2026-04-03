@@ -2133,7 +2133,7 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gradient = item.active
-        ? const LinearGradient(colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)])
+        ? const LinearGradient(colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)])
         : null;
 
     return Container(
@@ -2728,7 +2728,7 @@ class _StoriesRow extends StatelessWidget {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                       ),
                     ),
                     child: _Avatar(
@@ -3381,7 +3381,7 @@ class _PostFeedCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -3430,6 +3430,7 @@ class _UpdateFeedCard extends StatelessWidget {
       child: InteractiveUpdateCard(
         key: ValueKey('home-update-${entry.id}-${entry.createdAt}'),
         updateId: entry.id,
+        updateType: entry.updateType,
         title: entry.user?.displayName ?? entry.title,
         body: entry.body,
         photoUrl: entry.photoUrl,

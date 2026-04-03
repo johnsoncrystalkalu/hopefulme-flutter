@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:http/http.dart' as http;
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -335,6 +336,27 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
   }
 
+  String _slugifyTitle(String value) {
+    final slug = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    return slug;
+  }
+
+  Future<void> _copyPostLink(ContentDetail detail) async {
+    final slug = _slugifyTitle(detail.title);
+    final url = slug.isEmpty
+        ? 'https://ahopefulme.com/posts/${detail.id}'
+        : 'https://ahopefulme.com/posts/${detail.id}-$slug';
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) {
+      return;
+    }
+    AppToast.info(context, 'Post link copied to clipboard');
+  }
+
   String _postMetaLine(ContentDetail detail) {
     final parts = <String>[
       if (detail.tag.trim().isNotEmpty) detail.tag.trim(),
@@ -406,6 +428,43 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       return 'gif';
     }
     return 'jpg';
+  }
+
+  Widget _buildPostImageActions(
+    AppThemeColors colors, {
+    required String primaryUrl,
+    required String secondaryUrl,
+  }) {
+    final primary = primaryUrl.trim();
+    final secondary = secondaryUrl.trim();
+    if (primary.isEmpty && secondary.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 14,
+        runSpacing: 6,
+        children: [
+          if (primary.isNotEmpty)
+            _MediaActionChip(
+              icon: Icons.download_rounded,
+              label: 'Save image',
+              onTap: () => _downloadImage(primary),
+              colors: colors,
+            ),
+          if (secondary.isNotEmpty)
+            _MediaActionChip(
+              icon: Icons.download_rounded,
+              label: 'Save second image',
+              onTap: () => _downloadImage(secondary),
+              colors: colors,
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPostHeader(ContentDetail detail, AppThemeColors colors) {
@@ -501,35 +560,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     );
   }
 
-  Widget _buildPostImageActions(
-    AppThemeColors colors, {
-    required String primaryUrl,
-    required String? secondaryUrl,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        children: [
-          if (primaryUrl.trim().isNotEmpty)
-            _MediaActionChip(
-              icon: Icons.download_rounded,
-              label: 'Save image',
-              onTap: () => _downloadImage(primaryUrl),
-              colors: colors,
-            ),
-          if ((secondaryUrl ?? '').trim().isNotEmpty)
-            _MediaActionChip(
-              icon: Icons.collections_outlined,
-              label: 'Save second image',
-              onTap: () => _downloadImage(secondaryUrl!),
-              colors: colors,
-            ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildImageBlock({
     required BuildContext context,
@@ -581,6 +611,28 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           backgroundColor: colors.surface,
           surfaceTintColor: colors.surface,
           title: Text(widget.kind == 'blog' ? 'Article' : 'Post'),
+          actions: [
+            if (widget.kind == 'post')
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (value) async {
+                  if (value != 'copy_link') {
+                    return;
+                  }
+                  final detail = await _future;
+                  if (!mounted) {
+                    return;
+                  }
+                  await _copyPostLink(detail);
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'copy_link',
+                    child: Text('Copy post link'),
+                  ),
+                ],
+              ),
+          ],
         ),
         body: FutureBuilder<ContentDetail>(
           future: _future,
