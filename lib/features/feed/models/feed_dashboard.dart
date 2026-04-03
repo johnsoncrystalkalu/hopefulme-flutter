@@ -9,6 +9,7 @@ class FeedDashboard {
     required this.onlineUsers,
     required this.todayBirthdays,
     required this.trendingQuotes,
+    required this.postCategories,
   });
 
   final List<FeedEntry> feed;
@@ -17,6 +18,7 @@ class FeedDashboard {
   final List<FeedUser> onlineUsers;
   final List<FeedUser> todayBirthdays;
   final List<QuoteCard> trendingQuotes;
+  final List<String> postCategories;
 
   factory FeedDashboard.fromJson(Map<String, dynamic> json) {
     return FeedDashboard(
@@ -32,6 +34,10 @@ class FeedDashboard {
         FeedUser.fromJson,
       ),
       trendingQuotes: _mapList(json['trending_quotes'], QuoteCard.fromJson),
+      postCategories: (json['post_categories'] as List<dynamic>? ?? <dynamic>[])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(),
     );
   }
 

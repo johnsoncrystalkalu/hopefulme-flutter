@@ -791,7 +791,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(
                                 16,
-                                16,
+                                8,
                                 16,
                                 showBottomNav ? 28 : 24,
                               ),
@@ -2117,25 +2117,33 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(padding: const EdgeInsets.only(bottom: 16)),
+        const SizedBox(height: 4),
         _StoriesRow(
           users: data.onlineUsers,
           onUserTap: onOpenProfile,
           onCreateUpdate: onCreateUpdate,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
         _ComposerCard(user: user, onCreateUpdate: onCreateUpdate),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         if (data.todayBirthdays.isNotEmpty) ...[
           _BirthdayCelebrationStrip(
             users: data.todayBirthdays,
             onOpenProfile: onOpenProfile,
             onViewAll: () => onOpenTodayBirthdays(data.todayBirthdays),
           ),
+          const SizedBox(height: 8),
+        ],
+        if (data.postCategories.isNotEmpty) ...[
+          _PostCategoryStrip(
+            categories: data.postCategories,
+            onSelectCategory: (category) =>
+                onOpenPostsFeed(initialCategory: category),
+          ),
           const SizedBox(height: 10),
         ],
         Padding(
-          padding: const EdgeInsets.only(top: 20),
+          padding: const EdgeInsets.only(top: 12),
           child: _SectionHeader(
             title: 'Random Quotes for you',
             leading: Container(
@@ -2172,6 +2180,38 @@ class _HomeContent extends StatelessWidget {
               .toList();
 
           final widgets = <Widget>[];
+          if (postsBlock.isNotEmpty) {
+            widgets.addAll(
+              postsBlock.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _FeedEntryCard(
+                    entry: entry,
+                    currentUser: user,
+                    onOpenProfile: onOpenProfile,
+                    onOpenUpdate: onOpenUpdate,
+                    onOpenPost: onOpenPost,
+                    onOpenBlog: onOpenBlog,
+                    onOpenHashtag: onOpenHashtag,
+                    updateRepository: updateRepository,
+                  ),
+                ),
+              ),
+            );
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                child: _FeedExploreChip(
+                  icon: Icons.article_outlined,
+                  label: 'View more posts',
+                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
+                ),
+              ),
+            );
+          }
           if (updates.isNotEmpty) {
             widgets.addAll(
               updates.map(
@@ -2244,38 +2284,6 @@ class _HomeContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-                ),
-              ),
-            );
-          }
-          if (postsBlock.isNotEmpty) {
-            widgets.addAll(
-              postsBlock.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _FeedEntryCard(
-                    entry: entry,
-                    currentUser: user,
-                    onOpenProfile: onOpenProfile,
-                    onOpenUpdate: onOpenUpdate,
-                    onOpenPost: onOpenPost,
-                    onOpenBlog: onOpenBlog,
-                    onOpenHashtag: onOpenHashtag,
-                    updateRepository: updateRepository,
-                  ),
-                ),
-              ),
-            );
-            widgets.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
-                ),
-                child: _FeedExploreChip(
-                  icon: Icons.article_outlined,
-                  label: 'View more posts',
-                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
                 ),
               ),
             );
@@ -2444,6 +2452,54 @@ class _QuotesSectionSkeleton extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PostCategoryStrip extends StatelessWidget {
+  const _PostCategoryStrip({
+    required this.categories,
+    required this.onSelectCategory,
+  });
+
+  final List<String> categories;
+  final Future<void> Function(String category) onSelectCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isAll = category.toLowerCase() == 'all';
+          return FilterChip(
+            label: Text(category),
+            selected: isAll,
+            showCheckmark: false,
+            onSelected: (_) => onSelectCategory(category),
+            labelStyle: TextStyle(
+              color: isAll ? Colors.white : colors.textSecondary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+            side: BorderSide(
+              color: isAll ? colors.brand : colors.borderStrong,
+            ),
+            backgroundColor: colors.surface,
+            selectedColor: colors.brand,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          );
+        },
+      ),
     );
   }
 }
@@ -2681,7 +2737,7 @@ class _ComposerCard extends StatelessWidget {
                 const Spacer(), // This pushes the button to the far right
                 // The "Publish" Button (Inline)
                 SizedBox(
-                  height: 40, // Match the height of the chips for symmetry
+                  height: 30, // Match the height of the chips for symmetry
                   child: FilledButton.icon(
                     onPressed: () => onCreateUpdate(),
                     style: FilledButton.styleFrom(
@@ -3134,12 +3190,12 @@ class _FeedEntryCard extends StatelessWidget {
         onOpenHashtag: onOpenHashtag,
         updateRepository: updateRepository,
       ),
-      'blog' => _BlogFeedCard(
-        entry: entry,
-        onOpenProfile: onOpenProfile,
-        onOpenBlog: onOpenBlog,
-        onOpenHashtag: onOpenHashtag,
-      ),
+      // 'blog' => _BlogFeedCard(
+      //   entry: entry,
+      //   onOpenProfile: onOpenProfile,
+      //   onOpenBlog: onOpenBlog,
+      //   onOpenHashtag: onOpenHashtag,
+      // ),
       _ => _PostFeedCard(
         entry: entry,
         onOpenPost: onOpenPost,
