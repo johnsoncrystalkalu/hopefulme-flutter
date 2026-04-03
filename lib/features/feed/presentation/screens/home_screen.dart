@@ -1080,7 +1080,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  gradient: colors.brandGradient,
+                  color: colors.brand,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -2226,7 +2226,7 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 6),
+        const SizedBox(height: 9),
         _StoriesRow(
           users: data.onlineUsers,
           onUserTap: onOpenProfile,

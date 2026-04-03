@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
+import 'package:http/http.dart' as http;
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
@@ -348,7 +350,27 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       return;
     }
     try {
-      final saved = await GallerySaver.saveImage(resolvedUrl);
+      final uri = Uri.tryParse(resolvedUrl);
+      if (uri == null) {
+        throw const FormatException('Invalid image URL');
+      }
+
+      final response = await http.get(uri);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Image request failed with status ${response.statusCode}',
+        );
+      }
+
+      final extension = _inferImageExtension(uri);
+      final tempDirectory = Directory.systemTemp;
+      final tempFile = File(
+        '${tempDirectory.path}${Platform.pathSeparator}'
+        'hopefulme_${DateTime.now().millisecondsSinceEpoch}.$extension',
+      );
+      await tempFile.writeAsBytes(response.bodyBytes, flush: true);
+
+      final saved = await GallerySaver.saveImage(tempFile.path);
       if (!mounted) {
         return;
       }
@@ -370,6 +392,20 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         );
       }
     }
+  }
+
+  String _inferImageExtension(Uri uri) {
+    final path = uri.path.toLowerCase();
+    if (path.endsWith('.png')) {
+      return 'png';
+    }
+    if (path.endsWith('.webp')) {
+      return 'webp';
+    }
+    if (path.endsWith('.gif')) {
+      return 'gif';
+    }
+    return 'jpg';
   }
 
   Widget _buildPostHeader(ContentDetail detail, AppThemeColors colors) {
@@ -471,22 +507,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     required String? secondaryUrl,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+        spacing: 16,
+        runSpacing: 8,
         children: [
           if (primaryUrl.trim().isNotEmpty)
             _MediaActionChip(
               icon: Icons.download_rounded,
-              label: 'Download image',
+              label: 'Save image',
               onTap: () => _downloadImage(primaryUrl),
               colors: colors,
             ),
           if ((secondaryUrl ?? '').trim().isNotEmpty)
             _MediaActionChip(
               icon: Icons.collections_outlined,
-              label: 'Download second image',
+              label: 'Save second image',
               onTap: () => _downloadImage(secondaryUrl!),
               colors: colors,
             ),
@@ -735,6 +771,32 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
                                   ),
+                                ),
+                              ],
+                              if (widget.kind == 'post' &&
+                                  (detail.label.trim().isNotEmpty ||
+                                      detail.photoUrl.isNotEmpty ||
+                                      detail.secondaryPhotoUrl.isNotEmpty)) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if (detail.label.trim().isNotEmpty)
+                                      _ContentPill(
+                                        label: detail.label.trim(),
+                                      ),
+                                    const Spacer(),
+                                    if (detail.photoUrl.isNotEmpty)
+                                      _MediaActionChip(
+                                        icon: Icons.download_rounded,
+                                        label: 'Save image',
+                                        onTap: () => _downloadImage(
+                                          detail.originalPhotoUrl.isNotEmpty
+                                              ? detail.originalPhotoUrl
+                                              : detail.photoUrl,
+                                        ),
+                                        colors: colors,
+                                      ),
+                                  ],
                                 ),
                               ],
                               if (detail.body.isNotEmpty) ...[
@@ -1308,28 +1370,51 @@ class _MediaActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: colors.borderStrong),
-        ),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: colors.brand),
+            Icon(icon, size: 15, color: colors.textMuted),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContentPill extends StatelessWidget {
+  const _ContentPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.border),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: colors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
