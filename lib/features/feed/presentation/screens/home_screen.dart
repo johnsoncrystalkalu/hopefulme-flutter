@@ -3243,6 +3243,7 @@ class _UpdateFeedCard extends StatelessWidget {
     final entry = this.entry;
     return RepaintBoundary(
       child: InteractiveUpdateCard(
+        key: ValueKey('home-update-${entry.id}-${entry.createdAt}'),
         updateId: entry.id,
         title: entry.user?.displayName ?? entry.title,
         body: entry.body,

@@ -84,6 +84,24 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant InteractiveUpdateCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final updateChanged = oldWidget.updateId != widget.updateId;
+    final bodyChanged = oldWidget.body != widget.body;
+    final likesChanged = oldWidget.likesCount != widget.likesCount;
+    final commentsChanged = oldWidget.commentsCount != widget.commentsCount;
+
+    if (updateChanged || bodyChanged || likesChanged || commentsChanged) {
+      _body = widget.body;
+      _likesCount = widget.likesCount;
+      _commentsCount = widget.commentsCount;
+      _liked = false;
+      _isDeleted = false;
+    }
+  }
+
   Future<void> _toggleLike() async {
     if (_busy) return;
     setState(() {
@@ -224,6 +242,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     }
 
     return ReusableUpdateCard(
+      key: ValueKey('update-card-${widget.updateId}'),
       data: UpdateCardData(
         title: widget.title,
         subtitle: 'UPDATE',

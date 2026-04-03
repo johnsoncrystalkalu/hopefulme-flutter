@@ -209,7 +209,8 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                 cacheExtent: 1200,
                 padding: const EdgeInsets.all(16),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0) + 1,
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _ActivitiesComposerCard(
@@ -229,6 +230,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                   final entry = _items[itemIndex];
                   return RepaintBoundary(
                     child: InteractiveUpdateCard(
+                      key: ValueKey('updates-feed-${entry.id}-${entry.createdAt}'),
                       updateId: entry.id,
                       title: entry.user?.displayName ?? entry.title,
                       body: entry.body,
