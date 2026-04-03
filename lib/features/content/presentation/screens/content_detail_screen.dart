@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
@@ -341,6 +342,159 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return parts.join(' • ');
   }
 
+  Future<void> _downloadImage(String imageUrl) async {
+    final resolvedUrl = imageUrl.trim();
+    if (resolvedUrl.isEmpty) {
+      return;
+    }
+    try {
+      final saved = await GallerySaver.saveImage(resolvedUrl);
+      if (!mounted) {
+        return;
+      }
+      if (saved == true) {
+        AppToast.success(context, 'Image saved to your gallery.');
+        return;
+      }
+    } catch (_) {
+      // Fall back to opening the image externally below.
+    }
+
+    final uri = Uri.tryParse(resolvedUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (mounted) {
+        AppToast.info(
+          context,
+          'Could not save directly, so the image was opened externally.',
+        );
+      }
+    }
+  }
+
+  Widget _buildPostHeader(ContentDetail detail, AppThemeColors colors) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(bottom: BorderSide(color: colors.borderStrong)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const ClipOval(
+                  child: Image(
+                    image: AssetImage('assets/images/hopefulme-logo.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            AppConfig.appName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.verified_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _postMetaLine(detail),
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (detail.title.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              detail.title,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostImageActions(
+    AppThemeColors colors, {
+    required String primaryUrl,
+    required String? secondaryUrl,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          if (primaryUrl.trim().isNotEmpty)
+            _MediaActionChip(
+              icon: Icons.download_rounded,
+              label: 'Download image',
+              onTap: () => _downloadImage(primaryUrl),
+              colors: colors,
+            ),
+          if ((secondaryUrl ?? '').trim().isNotEmpty)
+            _MediaActionChip(
+              icon: Icons.collections_outlined,
+              label: 'Download second image',
+              onTap: () => _downloadImage(secondaryUrl!),
+              colors: colors,
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImageBlock({
     required BuildContext context,
     required String imageUrl,
@@ -425,6 +579,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (widget.kind == 'post')
+                          _buildPostHeader(detail, colors),
                         if (widget.kind == 'post' &&
                             detail.videoUrl.trim().isNotEmpty)
                           _PostVideoEmbed(videoUrl: detail.videoUrl)
@@ -434,8 +590,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                             imageUrl: detail.photoUrl,
                             originalImageUrl: detail.originalPhotoUrl,
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(28),
+                              top: Radius.zero,
                             ),
+                          ),
+                        if (widget.kind == 'post' &&
+                            detail.photoUrl.isNotEmpty &&
+                            detail.videoUrl.trim().isEmpty)
+                          _buildPostImageActions(
+                            colors,
+                            primaryUrl: detail.originalPhotoUrl.isNotEmpty
+                                ? detail.originalPhotoUrl
+                                : detail.photoUrl,
+                            secondaryUrl: detail.originalSecondaryPhotoUrl
+                                    .trim()
+                                    .isNotEmpty
+                                ? detail.originalSecondaryPhotoUrl
+                                : detail.secondaryPhotoUrl,
                           ),
                         Padding(
                           padding: const EdgeInsets.all(20),
@@ -487,111 +657,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     ),
                                   ),
                                 ),
-                              if (widget.kind == 'post') ...[
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    14,
-                                    16,
-                                    14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.surfaceMuted,
-                                    borderRadius: BorderRadius.circular(22),
-                                    border: Border.all(
-                                      color: colors.borderStrong,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 42,
-                                        height: 42,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: colors.shadow.withValues(
-                                                alpha: 0.08,
-                                              ),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const ClipOval(
-                                          child: Image(
-                                            image: AssetImage(
-                                              'assets/images/hopefulme-logo.png',
-                                            ),
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    AppConfig.appName,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: colors.textPrimary,
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w900,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Icon(
-                                                  Icons.verified_rounded,
-                                                  size: 18,
-                                                  color: colors.brand,
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              _postMetaLine(detail),
-                                              style: TextStyle(
-                                                color: colors.textMuted,
-                                                fontSize: 10.5,
-                                                fontWeight: FontWeight.w800,
-                                                letterSpacing: 1.1,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (detail.title.isNotEmpty) ...[
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    detail.title,
-                                    style: TextStyle(
-                                      color: colors.textPrimary,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
-                              ] else if (detail.user != null) ...[
+                              if (widget.kind == 'post')
+                                const SizedBox.shrink()
+                              else if (detail.user != null) ...[
                                 const SizedBox(height: 14),
                                 InkWell(
                                   onTap: () => openUserProfile(
@@ -699,6 +767,17 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                       detail.originalSecondaryPhotoUrl,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
+                                if (widget.kind == 'post')
+                                  _buildPostImageActions(
+                                    colors,
+                                    primaryUrl: '',
+                                    secondaryUrl: detail
+                                            .originalSecondaryPhotoUrl
+                                            .trim()
+                                            .isNotEmpty
+                                        ? detail.originalSecondaryPhotoUrl
+                                        : detail.secondaryPhotoUrl,
+                                  ),
                               ],
                               const SizedBox(height: 18),
                               Wrap(
@@ -1207,6 +1286,51 @@ class _MetaChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MediaActionChip extends StatelessWidget {
+  const _MediaActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.colors,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final AppThemeColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.borderStrong),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: colors.brand),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

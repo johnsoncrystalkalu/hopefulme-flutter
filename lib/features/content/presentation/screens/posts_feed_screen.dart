@@ -500,69 +500,68 @@ class _FeedStylePostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return InkWell(
-      onTap: () => onOpenPost(entry),
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: colors.borderStrong),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (entry.photoUrl.isNotEmpty)
-              InkWell(
-                onTap: () => onOpenPost(entry),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(26),
-                  ),
-                  child: Image.network(
-                    entry.photoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox(
-                          height: 180,
-                          child: Center(
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colors.borderStrong),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (entry.photoUrl.isNotEmpty)
+            InkWell(
+              onTap: () => onOpenPost(entry),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
+                child: Image.network(
+                  entry.photoUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                    height: 180,
+                    child: Center(
+                      child: Icon(Icons.broken_image_outlined),
+                    ),
                   ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.title,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.title,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                   ),
-                  if (entry.body.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    RichDisplayText(
-                      text: entry.body,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 14,
-                        height: 1.55,
-                      ),
-                      onMentionTap: onOpenProfile,
-                      onHashtagTap: onOpenHashtag,
-                      onLinkTap: onOpenLink,
+                ),
+                if (entry.body.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  RichDisplayText(
+                    text: entry.body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 14,
+                      height: 1.55,
                     ),
-                  ],
-                  const SizedBox(height: 18),
-                  Container(
+                    onMentionTap: onOpenProfile,
+                    onHashtagTap: onOpenHashtag,
+                    onLinkTap: onOpenLink,
+                  ),
+                ],
+                const SizedBox(height: 18),
+                InkWell(
+                  onTap: () => onOpenPost(entry),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 10,
@@ -582,11 +581,11 @@ class _FeedStylePostCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

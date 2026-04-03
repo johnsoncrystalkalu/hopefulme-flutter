@@ -166,46 +166,43 @@ class ReusableUpdateCard extends StatelessWidget {
                   ),
           ),
           if (data.body.isNotEmpty || data.photoUrl.isNotEmpty)
-            InkWell(
-              onTap: onCardTap,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (data.body.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-                      child: RichDisplayText(
-                        text: data.body,
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 14,
-                          height: 1.55,
-                        ),
-                        onMentionTap: onMentionTap,
-                        onHashtagTap: onHashtagTap,
-                        onLinkTap: onLinkTap,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (data.body.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+                    child: RichDisplayText(
+                      text: data.body,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        height: 1.55,
                       ),
+                      onMentionTap: onMentionTap,
+                      onHashtagTap: onHashtagTap,
+                      onLinkTap: onLinkTap,
                     ),
-                  if (data.photoUrl.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    InkWell(
-                      onTap: onImageTap,
-                      child: ClipRRect(
-                        child: SizedBox(
+                  ),
+                if (data.photoUrl.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  InkWell(
+                    onTap: onImageTap ?? onCardTap,
+                    child: ClipRRect(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: AppNetworkImage(
+                          imageUrl: imageUrl,
                           width: double.infinity,
-                          child: AppNetworkImage(
-                            imageUrl: imageUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            backgroundColor: colors.surfaceMuted,
-                            placeholderLabel: data.fallbackLabel,
-                          ),
+                          fit: BoxFit.cover,
+                          backgroundColor: colors.surfaceMuted,
+                          placeholderLabel: data.fallbackLabel,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
           if (footer != null) ...[
             const SizedBox(height: 12),
