@@ -101,6 +101,11 @@ class _AvatarWithLoading extends StatelessWidget {
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
+          filterQuality: FilterQuality.low,
+          cacheWidth: (radius * 2 * MediaQuery.of(context).devicePixelRatio)
+              .round(),
+          cacheHeight: (radius * 2 * MediaQuery.of(context).devicePixelRatio)
+              .round(),
           loadingBuilder: showShimmer
               ? (context, child, loadingProgress) {
                   if (loadingProgress == null) {

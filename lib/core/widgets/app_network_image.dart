@@ -30,6 +30,9 @@ class AppNetworkImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final bg = backgroundColor ?? colors.surfaceMuted;
+    final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    final cacheWidth = _resolveCacheDimension(width, dpr);
+    final cacheHeight = _resolveCacheDimension(height, dpr);
 
     Widget child;
 
@@ -38,14 +41,16 @@ class AppNetworkImage extends StatelessWidget {
         label: placeholderLabel,
         icon: placeholderIcon,
         backgroundColor: bg,
-        sourceUrl: imageUrl,
       );
     } else {
       child = Image.network(
         imageUrl,
         width: width,
         height: height,
+        cacheWidth: cacheWidth,
+        cacheHeight: cacheHeight,
         fit: fit,
+        filterQuality: FilterQuality.low,
         loadingBuilder: showShimmer
             ? (context, child, loadingProgress) {
                 if (loadingProgress == null) {
@@ -58,17 +63,11 @@ class AppNetworkImage extends StatelessWidget {
                 );
               }
             : null,
-        errorBuilder: (context, error, stackTrace) {
-          debugPrint(
-            'AppNetworkImage failed to load: "$imageUrl" error: $error',
-          );
-          return _FallbackImage(
-            label: placeholderLabel,
-            icon: placeholderIcon,
-            backgroundColor: bg,
-            sourceUrl: imageUrl,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _FallbackImage(
+          label: placeholderLabel,
+          icon: placeholderIcon,
+          backgroundColor: bg,
+        ),
       );
     }
 
@@ -129,20 +128,17 @@ class _FallbackImage extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.backgroundColor,
-    this.sourceUrl,
   });
 
   final String? label;
   final IconData icon;
   final Color backgroundColor;
-  final String? sourceUrl;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final initials = _initials(label ?? '');
     final bg = backgroundColor;
-    final sourceHint = _sourceHint(sourceUrl);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -175,23 +171,6 @@ class _FallbackImage extends StatelessWidget {
                       ),
                     ),
                   ],
-                  if (sourceHint != null) ...[
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        sourceHint,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -211,25 +190,6 @@ class _FallbackImage extends StatelessWidget {
         .join();
     return parts;
   }
-
-  static String? _sourceHint(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-
-    final uri = Uri.tryParse(value);
-    if (uri == null) {
-      return value.length > 48 ? '${value.substring(0, 48)}...' : value;
-    }
-
-    final host = uri.host.isEmpty ? 'local' : uri.host;
-    final path = uri.pathSegments.isEmpty ? uri.path : uri.pathSegments.last;
-    if (path.isEmpty) {
-      return host;
-    }
-
-    return '$host/$path';
-  }
 }
 
 double? _resolveDimension({
@@ -246,4 +206,12 @@ double? _resolveDimension({
   }
 
   return fallbackValue;
+}
+
+int? _resolveCacheDimension(double? dimension, double dpr) {
+  if (dimension == null || !dimension.isFinite || dimension <= 0) {
+    return null;
+  }
+
+  return (dimension * dpr).round();
 }

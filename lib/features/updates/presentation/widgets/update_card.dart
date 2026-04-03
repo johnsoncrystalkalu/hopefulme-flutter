@@ -188,7 +188,6 @@ class ReusableUpdateCard extends StatelessWidget {
                     InkWell(
                       onTap: onImageTap,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
                         child: SizedBox(
                           width: double.infinity,
                           child: AppNetworkImage(

@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
-import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
@@ -15,7 +13,6 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
-import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -206,6 +203,10 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
               onRefresh: _loadInitial,
               child: ListView.separated(
                 controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                cacheExtent: 1200,
                 padding: const EdgeInsets.all(16),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0) + 1,
                 separatorBuilder: (_, __) => const SizedBox(height: 14),
@@ -226,25 +227,27 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                   }
 
                   final entry = _items[itemIndex];
-                  return InteractiveUpdateCard(
-                    updateId: entry.id,
-                    title: entry.user?.displayName ?? entry.title,
-                    body: entry.body,
-                    photoUrl: entry.photoUrl,
-                    avatarUrl: entry.user?.photoUrl ?? '',
-                    fallbackLabel: entry.user?.displayName ?? entry.title,
-                    device: entry.device,
-                    createdAt: entry.createdAt,
-                    likesCount: entry.likesCount,
-                    commentsCount: entry.commentsCount,
-                    views: entry.views,
-                    updateRepository: widget.updateRepository,
-                    currentUser: widget.currentUser,
-                    ownerUsername: entry.user?.username,
-                    isVerified: entry.user?.isVerified ?? false,
-                    onOpenProfile: _openProfile,
-                    onOpenUpdate: () => _openUpdate(entry),
-                    onOpenHashtag: _openSearchQuery,
+                  return RepaintBoundary(
+                    child: InteractiveUpdateCard(
+                      updateId: entry.id,
+                      title: entry.user?.displayName ?? entry.title,
+                      body: entry.body,
+                      photoUrl: entry.photoUrl,
+                      avatarUrl: entry.user?.photoUrl ?? '',
+                      fallbackLabel: entry.user?.displayName ?? entry.title,
+                      device: entry.device,
+                      createdAt: entry.createdAt,
+                      likesCount: entry.likesCount,
+                      commentsCount: entry.commentsCount,
+                      views: entry.views,
+                      updateRepository: widget.updateRepository,
+                      currentUser: widget.currentUser,
+                      ownerUsername: entry.user?.username,
+                      isVerified: entry.user?.isVerified ?? false,
+                      onOpenProfile: _openProfile,
+                      onOpenUpdate: () => _openUpdate(entry),
+                      onOpenHashtag: _openSearchQuery,
+                    ),
                   );
                 },
               ),

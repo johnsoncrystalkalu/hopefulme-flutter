@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
 //import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
@@ -17,6 +15,7 @@ import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/community/presentation/screens/meet_new_friends_screen.dart';
@@ -692,8 +691,25 @@ class _HomeScreenState extends State<HomeScreen> {
     final colors = context.appColors;
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1180;
-    final showRightRail = width >= 1380;
     final showBottomNav = width < 960;
+    final sidebar = RepaintBoundary(
+      child: _HomeSidebar(
+        user: user,
+        onSearchTap: _openSearch,
+        onHomeTap: _goHome,
+        onPostsTap: _openPostsFeed,
+        onBlogsTap: _openBlogsFeed,
+        onActivitiesTap: _openActivities,
+        onGroupsTap: _openGroups,
+        onLibraryTap: _openLibrary,
+        onInspirationsTap: _openInspirations,
+        onStoreTap: _openStorePage,
+        onTvTap: _openTvPage,
+        onOutreachTap: _openOutreachPage,
+        onMeetNewFriendsTap: _openMeetNewFriends,
+        onLogoutTap: _handleLogout,
+      ),
+    );
 
     return Scaffold(
       key: _scaffoldKey,
@@ -703,100 +719,130 @@ class _HomeScreenState extends State<HomeScreen> {
           ? null
           : Drawer(
               width: 256,
-              child: _HomeSidebar(
-                user: user,
-                onSearchTap: _openSearch,
-                onHomeTap: _goHome,
-                onPostsTap: _openPostsFeed,
-                onBlogsTap: _openBlogsFeed,
-                onActivitiesTap: _openActivities,
-                onGroupsTap: _openGroups,
-                onLibraryTap: _openLibrary,
-                onInspirationsTap: _openInspirations,
-                onStoreTap: _openStorePage,
-                onTvTap: _openTvPage,
-                onOutreachTap: _openOutreachPage,
-                onMeetNewFriendsTap: _openMeetNewFriends,
-                onLogoutTap: _handleLogout,
-              ),
+              child: sidebar,
             ),
-      body: FutureBuilder<FeedDashboard>(
-        future: _dashboardFuture,
-        builder: (context, snapshot) {
-          final dashboard = snapshot.data;
-
-          return Row(
-            children: [
-              if (isDesktop)
-                _HomeSidebar(
-                  user: user,
-                  onSearchTap: _openSearch,
-                  onHomeTap: _goHome,
-                  onPostsTap: _openPostsFeed,
-                  onBlogsTap: _openBlogsFeed,
-                  onActivitiesTap: _openActivities,
-                  onGroupsTap: _openGroups,
-                  onLibraryTap: _openLibrary,
-                  onInspirationsTap: _openInspirations,
-                  onStoreTap: _openStorePage,
-                  onTvTap: _openTvPage,
-                  onOutreachTap: _openOutreachPage,
-                  onMeetNewFriendsTap: _openMeetNewFriends,
-                  onLogoutTap: _handleLogout,
-                ),
-              Expanded(
-                child: Column(
-                  children: [
-                    ValueListenableBuilder<_TopBarSnapshot>(
-                      valueListenable: _topBarSnapshot,
-                      builder: (context, topBar, _) => _HomeTopBar(
-                        user: user,
-                        themeController: widget.themeController,
-                        latestNotifications: topBar.notifications,
-                        latestConversations: topBar.conversations,
-                        unreadNotifications: topBar.unreadNotifications,
-                        unreadMessages: topBar.unreadMessages,
-                        onConversationTap: _openConversation,
-                        onMessageCenterTap: _openMessages,
-                        onNotificationTap: _markNotificationRead,
-                        onNotificationCenterTap: _openNotifications,
-                        onNotificationsMarkAllRead: _markAllNotificationsRead,
-                        onHomeTap: _goHome,
-                        onProfileTap: _openProfile,
-                        onMenuTap: isDesktop
-                            ? null
-                            : () {
-                                _scaffoldKey.currentState?.openDrawer();
-                              },
-                        onLogout: widget.authController.isLoading
-                            ? null
-                            : _handleLogout,
-                      ),
+      body: Row(
+        children: [
+          if (isDesktop) sidebar,
+          Expanded(
+            child: Column(
+              children: [
+                RepaintBoundary(
+                  child: ValueListenableBuilder<_TopBarSnapshot>(
+                    valueListenable: _topBarSnapshot,
+                    builder: (context, topBar, _) => _HomeTopBar(
+                      user: user,
+                      themeController: widget.themeController,
+                      latestNotifications: topBar.notifications,
+                      latestConversations: topBar.conversations,
+                      unreadNotifications: topBar.unreadNotifications,
+                      unreadMessages: topBar.unreadMessages,
+                      onConversationTap: _openConversation,
+                      onMessageCenterTap: _openMessages,
+                      onNotificationTap: _markNotificationRead,
+                      onNotificationCenterTap: _openNotifications,
+                      onNotificationsMarkAllRead: _markAllNotificationsRead,
+                      onHomeTap: _goHome,
+                      onProfileTap: _openProfile,
+                      onMenuTap: isDesktop
+                          ? null
+                          : () {
+                              _scaffoldKey.currentState?.openDrawer();
+                            },
+                      onLogout: widget.authController.isLoading
+                          ? null
+                          : _handleLogout,
                     ),
-                    Expanded(
-                      child: RefreshIndicator(
+                  ),
+                ),
+                Expanded(
+                  child: FutureBuilder<FeedDashboard>(
+                    future: _dashboardFuture,
+                    builder: (context, snapshot) {
+                      final dashboard = snapshot.data;
+                      return RefreshIndicator(
                         onRefresh: _refreshDashboard,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(
-                            16,
-                            16,
-                            16,
-                            showBottomNav ? 28 : 24,
+                        child: CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
                           ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final fitsRail = constraints.maxWidth >= 1380;
-                              if (fitsRail) {
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 900,
-                                        ),
-                                        child: _HomeContent(
+                          cacheExtent: 1400,
+                          slivers: [
+                            SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                showBottomNav ? 28 : 24,
+                              ),
+                              sliver: SliverToBoxAdapter(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final fitsRail = constraints.maxWidth >= 1380;
+                                    if (fitsRail) {
+                                      return Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 900,
+                                              ),
+                                              child: _HomeContent(
+                                                user: user,
+                                                dashboard: dashboard,
+                                                onCreateUpdate:
+                                                    _openCreateUpdate,
+                                                onOpenProfile:
+                                                    _openUserProfile,
+                                                onOpenUpdate:
+                                                    _openUpdateDetail,
+                                                onOpenPost: _openPostDetail,
+                                                onOpenPostById:
+                                                    _openPostById,
+                                                onOpenBlog: _openBlogDetail,
+                                                onOpenUpdatesFeed:
+                                                    _openActivities,
+                                                onOpenPostsFeed:
+                                                    _openPostsFeed,
+                                                onOpenBlogsFeed:
+                                                    _openBlogsFeed,
+                                                onOpenHashtag:
+                                                    _openSearchQuery,
+                                                onOpenTodayBirthdays:
+                                                    _openTodayBirthdays,
+                                                updateRepository:
+                                                    widget.updateRepository,
+                                                isLoading:
+                                                    snapshot.connectionState ==
+                                                        ConnectionState.waiting &&
+                                                    dashboard == null,
+                                                error: snapshot.error
+                                                    ?.toString(),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 24),
+                                          SizedBox(
+                                            width: 360,
+                                            child: RepaintBoundary(
+                                              child: _RightRail(
+                                                user: user,
+                                                dashboard: dashboard,
+                                                onOpenProfile:
+                                                    _openUserProfile,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _HomeContent(
                                           user: user,
                                           dashboard: dashboard,
                                           onCreateUpdate: _openCreateUpdate,
@@ -805,7 +851,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onOpenPost: _openPostDetail,
                                           onOpenPostById: _openPostById,
                                           onOpenBlog: _openBlogDetail,
-                                          onOpenUpdatesFeed: _openActivities,
+                                          onOpenUpdatesFeed:
+                                              _openActivities,
                                           onOpenPostsFeed: _openPostsFeed,
                                           onOpenBlogsFeed: _openBlogsFeed,
                                           onOpenHashtag: _openSearchQuery,
@@ -819,63 +866,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                               dashboard == null,
                                           error: snapshot.error?.toString(),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    SizedBox(
-                                      width: 360,
-                                      child: _RightRail(
-                                        user: user,
-                                        dashboard: dashboard,
-                                        onOpenProfile: _openUserProfile,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _HomeContent(
-                                    user: user,
-                                    dashboard: dashboard,
-                                    onCreateUpdate: _openCreateUpdate,
-                                    onOpenProfile: _openUserProfile,
-                                    onOpenUpdate: _openUpdateDetail,
-                                    onOpenPost: _openPostDetail,
-                                    onOpenPostById: _openPostById,
-                                    onOpenBlog: _openBlogDetail,
-                                    onOpenUpdatesFeed: _openActivities,
-                                    onOpenPostsFeed: _openPostsFeed,
-                                    onOpenBlogsFeed: _openBlogsFeed,
-                                    onOpenHashtag: _openSearchQuery,
-                                    onOpenTodayBirthdays: _openTodayBirthdays,
-                                    updateRepository: widget.updateRepository,
-                                    isLoading:
-                                        snapshot.connectionState ==
-                                            ConnectionState.waiting &&
-                                        dashboard == null,
-                                    error: snapshot.error?.toString(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _RightRail(
-                                    user: user,
-                                    dashboard: dashboard,
-                                    onOpenProfile: _openUserProfile,
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
+                                        const SizedBox(height: 16),
+                                        RepaintBoundary(
+                                          child: _RightRail(
+                                            user: user,
+                                            dashboard: dashboard,
+                                            onOpenProfile:
+                                                _openUserProfile,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1728,7 +1743,8 @@ class _HomeSidebar extends StatelessWidget {
     return Container(
       width: 256,
       decoration: BoxDecoration(color: colors.sidebar),
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
@@ -1777,99 +1793,86 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _SidebarSection(
-                    title: 'Community',
-                    items: [
-                      _SidebarItemData(
-                        HeroIcons.home,
-                        'Home',
-                        true,
-                        onTap: onHomeTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.newspaper,
-                        'Post & News',
-                        false,
-                        onTap: onPostsTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.bolt,
-                        'Activities',
-                        false,
-                        onTap: onActivitiesTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.chatBubbleLeftRight,
-                        'Group Chats',
-                        false,
-                        onTap: onGroupsTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.userPlus,
-                        'Meet New Friends',
-                        false,
-                        onTap: onMeetNewFriendsTap,
-                      ),
-                    ],
-                  ),
-                  _SidebarSection(
-                    title: 'Content',
-                    items: [
-                      _SidebarItemData(
-                        HeroIcons.pencilSquare,
-                        'Blog & Articles',
-                        false,
-                        onTap: onBlogsTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.sparkles,
-                        'Inspirations',
-                        false,
-                        onTap: onInspirationsTap,
-                      ),
-                    ],
-                  ),
-                  _SidebarSection(
-                    title: 'Resources',
-                    items: [
-                      _SidebarItemData(
-                        HeroIcons.bookOpen,
-                        'Library',
-                        false,
-                        onTap: onLibraryTap,
-                      ),
-                    ],
-                  ),
-                  _SidebarSection(
-                    title: 'Web',
-                    items: [
-                      _SidebarItemData(
-                        HeroIcons.shoppingBag,
-                        'Marketplace',
-                        false,
-                        onTap: onStoreTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.tv,
-                        'HopefulMe TV',
-                        false,
-                        onTap: onTvTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.heart,
-                        'Outreach',
-                        false,
-                        onTap: onOutreachTap,
-                      ),
-                    ],
-                  ),
-                ],
+          _SidebarSection(
+            title: 'Community',
+            items: [
+              _SidebarItemData(HeroIcons.home, 'Home', true, onTap: onHomeTap),
+              _SidebarItemData(
+                HeroIcons.newspaper,
+                'Post & News',
+                false,
+                onTap: onPostsTap,
               ),
-            ),
+              _SidebarItemData(
+                HeroIcons.bolt,
+                'Activities',
+                false,
+                onTap: onActivitiesTap,
+              ),
+              _SidebarItemData(
+                HeroIcons.chatBubbleLeftRight,
+                'Group Chats',
+                false,
+                onTap: onGroupsTap,
+              ),
+              _SidebarItemData(
+                HeroIcons.userPlus,
+                'Meet New Friends',
+                false,
+                onTap: onMeetNewFriendsTap,
+              ),
+            ],
+          ),
+          _SidebarSection(
+            title: 'Content',
+            items: [
+              _SidebarItemData(
+                HeroIcons.pencilSquare,
+                'Blog & Articles',
+                false,
+                onTap: onBlogsTap,
+              ),
+              _SidebarItemData(
+                HeroIcons.sparkles,
+                'Inspirations',
+                false,
+                onTap: onInspirationsTap,
+              ),
+            ],
+          ),
+          _SidebarSection(
+            title: 'Resources',
+            items: [
+              _SidebarItemData(
+                HeroIcons.bookOpen,
+                'Library',
+                false,
+                onTap: onLibraryTap,
+              ),
+            ],
+          ),
+          _SidebarSection(
+            title: 'Web',
+            items: [
+              _SidebarItemData(
+                HeroIcons.shoppingBag,
+                'Marketplace',
+                false,
+                onTap: onStoreTap,
+              ),
+              _SidebarItemData(
+                HeroIcons.tv,
+                'HopefulMe TV',
+                false,
+                onTap: onTvTap,
+              ),
+              _SidebarItemData(
+                HeroIcons.heart,
+                'Outreach',
+                false,
+                onTap: onOutreachTap,
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
@@ -2071,10 +2074,7 @@ class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 80),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const _HomeLoadingSkeleton();
     }
 
     if (error != null && dashboard == null) {
@@ -2088,13 +2088,6 @@ class _HomeContent extends StatelessWidget {
     if (data == null) {
       return const SizedBox.shrink();
     }
-
-    // Group feed items by type to provide clear "View more" navigation for each section
-    final updates = data.feed.where((e) => e.type == 'update').toList();
-    final blogs = data.feed.where((e) => e.type == 'blog').toList();
-    final posts = data.feed
-        .where((e) => e.type != 'update' && e.type != 'blog')
-        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2265,6 +2258,238 @@ class _HomeContent extends StatelessWidget {
           return widgets;
         }()),
       ],
+    );
+  }
+}
+
+class _HomeLoadingSkeleton extends StatelessWidget {
+  const _HomeLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: 16),
+        _StoriesRowSkeleton(),
+        SizedBox(height: 18),
+        _ComposerCardSkeleton(),
+        SizedBox(height: 18),
+        _BirthdayStripSkeleton(),
+        SizedBox(height: 18),
+        _QuotesSectionSkeleton(),
+        SizedBox(height: 20),
+        _FeedCardSkeleton(),
+        SizedBox(height: 16),
+        _FeedCardSkeleton(),
+        SizedBox(height: 16),
+        _FeedCardSkeleton(),
+      ],
+    );
+  }
+}
+
+class _StoriesRowSkeleton extends StatelessWidget {
+  const _StoriesRowSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 6,
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          return const SizedBox(
+            width: 70,
+            child: Column(
+              children: [
+                ShimmerCircle(size: 60),
+                SizedBox(height: 8),
+                ShimmerBox(width: 54, height: 10, borderRadius: 999),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ComposerCardSkeleton extends StatelessWidget {
+  const _ComposerCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Row(
+            children: [
+              ShimmerCircle(size: 44),
+              SizedBox(width: 12),
+              Expanded(child: ShimmerBox(height: 44, borderRadius: 18)),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: ShimmerBox(height: 12, borderRadius: 999)),
+              SizedBox(width: 12),
+              Expanded(child: ShimmerBox(height: 12, borderRadius: 999)),
+              SizedBox(width: 12),
+              Expanded(child: ShimmerBox(height: 12, borderRadius: 999)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BirthdayStripSkeleton extends StatelessWidget {
+  const _BirthdayStripSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(18),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ShimmerCircle(size: 34),
+              SizedBox(width: 10),
+              Expanded(child: ShimmerBox(width: 180, height: 16)),
+              SizedBox(width: 16),
+              ShimmerBox(width: 56, height: 12, borderRadius: 999),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              ShimmerCircle(size: 42),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: 140, height: 12),
+                    SizedBox(height: 8),
+                    ShimmerBox(width: 90, height: 10),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuotesSectionSkeleton extends StatelessWidget {
+  const _QuotesSectionSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Row(
+          children: [
+            ShimmerBox(width: 34, height: 34, borderRadius: 12),
+            SizedBox(width: 10),
+            Expanded(child: ShimmerBox(width: 180, height: 16)),
+            SizedBox(width: 12),
+            ShimmerBox(width: 58, height: 12, borderRadius: 999),
+          ],
+        ),
+        SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: _QuoteCardSkeleton()),
+            SizedBox(width: 12),
+            Expanded(child: _QuoteCardSkeleton()),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _QuoteCardSkeleton extends StatelessWidget {
+  const _QuoteCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(12),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerBox(height: 150, borderRadius: 18),
+          SizedBox(height: 12),
+          ShimmerBox(width: 110, height: 12),
+          SizedBox(height: 8),
+          ShimmerBox(width: 90, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedCardSkeleton extends StatelessWidget {
+  const _FeedCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(18),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ShimmerCircle(size: 44),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: 132, height: 13),
+                    SizedBox(height: 8),
+                    ShimmerBox(width: 96, height: 10),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          ShimmerBox(height: 12),
+          SizedBox(height: 8),
+          ShimmerBox(height: 12),
+          SizedBox(height: 8),
+          ShimmerBox(width: 180, height: 12),
+          SizedBox(height: 16),
+          ShimmerBox(height: 220, borderRadius: 22),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              ShimmerBox(width: 64, height: 12, borderRadius: 999),
+              SizedBox(width: 12),
+              ShimmerBox(width: 64, height: 12, borderRadius: 999),
+              SizedBox(width: 12),
+              ShimmerBox(width: 64, height: 12, borderRadius: 999),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3016,25 +3241,27 @@ class _UpdateFeedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entry = this.entry;
-    return InteractiveUpdateCard(
-      updateId: entry.id,
-      title: entry.user?.displayName ?? entry.title,
-      body: entry.body,
-      photoUrl: entry.photoUrl,
-      avatarUrl: entry.user?.photoUrl ?? '',
-      fallbackLabel: entry.user?.displayName ?? entry.title,
-      isVerified: entry.user?.isVerified ?? false,
-      device: entry.device,
-      createdAt: entry.createdAt,
-      likesCount: entry.likesCount,
-      commentsCount: entry.commentsCount,
-      views: entry.views,
-      updateRepository: updateRepository,
-      onOpenUpdate: () => onOpenUpdate(entry),
-      currentUser: currentUser,
-      ownerUsername: entry.user?.username,
-      onOpenProfile: onOpenProfile,
-      onOpenHashtag: onOpenHashtag,
+    return RepaintBoundary(
+      child: InteractiveUpdateCard(
+        updateId: entry.id,
+        title: entry.user?.displayName ?? entry.title,
+        body: entry.body,
+        photoUrl: entry.photoUrl,
+        avatarUrl: entry.user?.photoUrl ?? '',
+        fallbackLabel: entry.user?.displayName ?? entry.title,
+        isVerified: entry.user?.isVerified ?? false,
+        device: entry.device,
+        createdAt: entry.createdAt,
+        likesCount: entry.likesCount,
+        commentsCount: entry.commentsCount,
+        views: entry.views,
+        updateRepository: updateRepository,
+        onOpenUpdate: () => onOpenUpdate(entry),
+        currentUser: currentUser,
+        ownerUsername: entry.user?.username,
+        onOpenProfile: onOpenProfile,
+        onOpenHashtag: onOpenHashtag,
+      ),
     );
   }
 }
