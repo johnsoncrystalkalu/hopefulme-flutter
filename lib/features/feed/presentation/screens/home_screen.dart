@@ -131,34 +131,54 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
+    final currentSnapshot = _topBarSnapshot.value;
+
+    dynamic notifications;
+    Object? notificationsError;
     try {
-      final notifications = await widget.notificationRepository.fetchPage(
-        page: 1,
-      );
-      final conversations = await widget.messageRepository.fetchConversations();
-      if (!mounted) {
-        return;
-      }
-      final nextSnapshot = _TopBarSnapshot(
-        notifications: _inAppNotificationsEnabled
-            ? notifications.items.take(5).toList()
-            : const <AppNotification>[],
-        unreadNotifications: _inAppNotificationsEnabled
-            ? notifications.unreadCount
-            : 0,
-        conversations: conversations.take(5).toList(),
-        unreadMessages: conversations.fold<int>(
-          0,
-          (sum, item) => sum + item.unreadCount,
-        ),
-      );
-      if (_topBarSnapshot.value != nextSnapshot) {
-        _topBarSnapshot.value = nextSnapshot;
-      }
-    } catch (_) {
+      notifications = await widget.notificationRepository.fetchPage(page: 1);
+    } catch (error) {
+      notificationsError = error;
+    }
+
+    List<ConversationListItem>? conversations;
+    Object? conversationsError;
+    try {
+      conversations = await widget.messageRepository.fetchConversations();
+    } catch (error) {
+      conversationsError = error;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (notificationsError != null && conversationsError != null) {
       if (!silent) {
-        rethrow;
+        throw conversationsError;
       }
+      return;
+    }
+
+    final nextSnapshot = _TopBarSnapshot(
+      notifications: notifications != null
+          ? (_inAppNotificationsEnabled
+                ? notifications.items.take(5).toList()
+                : const <AppNotification>[])
+          : currentSnapshot.notifications,
+      unreadNotifications: notifications != null
+          ? (_inAppNotificationsEnabled ? notifications.unreadCount as int : 0)
+          : currentSnapshot.unreadNotifications,
+      conversations: conversations != null
+          ? conversations.take(5).toList()
+          : currentSnapshot.conversations,
+      unreadMessages: conversations != null
+          ? conversations.fold<int>(0, (sum, item) => sum + item.unreadCount)
+          : currentSnapshot.unreadMessages,
+    );
+
+    if (_topBarSnapshot.value != nextSnapshot) {
+      _topBarSnapshot.value = nextSnapshot;
     }
   }
 
@@ -1068,7 +1088,12 @@ class _TopBarSnapshot {
     for (var i = 0; i < a.length; i++) {
       if (a[i].id != b[i].id ||
           a[i].unreadCount != b[i].unreadCount ||
-          a[i].updatedAt != b[i].updatedAt) {
+          a[i].updatedAt != b[i].updatedAt ||
+          a[i].otherUser.photoUrl != b[i].otherUser.photoUrl ||
+          a[i].latestMessage?.id != b[i].latestMessage?.id ||
+          a[i].latestMessage?.status != b[i].latestMessage?.status ||
+          a[i].latestMessage?.message != b[i].latestMessage?.message ||
+          a[i].latestMessage?.photoUrl != b[i].latestMessage?.photoUrl) {
         return false;
       }
     }

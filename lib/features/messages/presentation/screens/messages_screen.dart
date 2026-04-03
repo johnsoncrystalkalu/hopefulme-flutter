@@ -41,7 +41,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   List<ConversationListItem> _allItems = <ConversationListItem>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
-  String? _error;
+  Object? _error;
   int _page = 0;
   static const int _pageSize = 20;
 
@@ -74,7 +74,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       _appendPage();
     } catch (error) {
       setState(() {
-        _error = error.toString();
+        _error = error;
       });
     } finally {
       if (mounted) {
@@ -218,6 +218,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
+                  _InboxHeroCard(
+                    unreadTotal: unreadTotal,
+                    totalChats: _allItems.length,
+                    onlineItems: onlineItems,
+                    onOpenConversation: _openConversation,
+                  ),
+                  const SizedBox(height: 18),
                   if (onlineItems.isNotEmpty) ...[
                     Text(
                       'Online Now',
@@ -239,7 +246,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         itemBuilder: (context, index) {
                           final item = onlineItems[index];
                           return GestureDetector(
-                            onTap: () => _openProfile(item.otherUser.username),
+                            onTap: () => _openConversation(item),
                             child: SizedBox(
                               width: 64,
                               child: Column(
@@ -251,7 +258,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                         backgroundImage:
                                             item.otherUser.photoUrl.isNotEmpty
                                             ? NetworkImage(
-                                                item.otherUser.photoUrl,
+                                                ImageUrlResolver.avatar(
+                                                  item.otherUser.photoUrl,
+                                                  size: 80,
+                                                ),
                                               )
                                             : null,
                                         child: item.otherUser.photoUrl.isEmpty
@@ -327,6 +337,13 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final latest = item.latestMessage;
+    final isSentByMe = latest != null && latest.senderId != item.otherUser.id;
+    final showsPhotoOnly =
+        latest != null &&
+        latest.photoUrl.isNotEmpty &&
+        latest.message.trim().isEmpty;
+
     return Material(
       color: item.unreadCount > 0 ? colors.unreadSurface : colors.surface,
       borderRadius: BorderRadius.circular(22),
@@ -402,28 +419,47 @@ class _ConversationTile extends StatelessWidget {
                         Text(
                           formatConversationListTimestamp(item.updatedAt),
                           style: TextStyle(
-                            color: colors.textMuted,
+                            color: item.unreadCount > 0
+                                ? colors.brand
+                                : colors.textMuted,
                             fontSize: 11,
+                            fontWeight: item.unreadCount > 0
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      item.latestMessage?.message.isNotEmpty == true
-                          ? item.latestMessage!.message
-                          : 'Say hello!',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: item.unreadCount > 0
-                            ? colors.textSecondary
-                            : colors.textMuted,
-                        fontSize: 12.5,
-                        fontWeight: item.unreadCount > 0
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
+                    Row(
+                      children: [
+                        if (isSentByMe) ...[
+                          _ConversationDeliveryStatus(
+                            status: latest.status,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Text(
+                            showsPhotoOnly
+                                ? 'Photo'
+                                : latest?.message.isNotEmpty == true
+                                ? latest!.message
+                                : 'Say hello!',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: item.unreadCount > 0
+                                  ? colors.textSecondary
+                                  : colors.textMuted,
+                              fontSize: 12.5,
+                              fontWeight: item.unreadCount > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -464,6 +500,150 @@ class _ConversationTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InboxHeroCard extends StatelessWidget {
+  const _InboxHeroCard({
+    required this.unreadTotal,
+    required this.totalChats,
+    required this.onlineItems,
+    required this.onOpenConversation,
+  });
+
+  final int unreadTotal;
+  final int totalChats;
+  final List<ConversationListItem> onlineItems;
+  final Future<void> Function(ConversationListItem item) onOpenConversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF171E34), Color(0xFF3D5AFE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Inbox',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Messages',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  unreadTotal > 0
+                      ? '$unreadTotal unread · $totalChats chats'
+                      : '$totalChats chats',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onlineItems.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                SizedBox(
+                  width: 96,
+                  height: 36,
+                  child: Stack(
+                    children: [
+                      for (var i = 0; i < onlineItems.take(3).length; i++)
+                        Positioned(
+                          right: i * 22,
+                          child: GestureDetector(
+                            onTap: () => onOpenConversation(onlineItems[i]),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: colors.surface,
+                              backgroundImage:
+                                  onlineItems[i].otherUser.photoUrl.isNotEmpty
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        onlineItems[i].otherUser.photoUrl,
+                                        size: 64,
+                                      ),
+                                    )
+                                  : null,
+                              child: onlineItems[i].otherUser.photoUrl.isEmpty
+                                  ? const HeroIcon(HeroIcons.user, size: 16)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${onlineItems.length} online now',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.66),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConversationDeliveryStatus extends StatelessWidget {
+  const _ConversationDeliveryStatus({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isRead = status.trim().toLowerCase() == 'read';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.done_rounded,
+          size: 14,
+          color: isRead ? colors.brand : colors.textMuted,
+        ),
+        if (isRead)
+          Transform.translate(
+            offset: const Offset(-4, 0),
+            child: Icon(Icons.done_rounded, size: 14, color: colors.brand),
+          ),
+      ],
     );
   }
 }

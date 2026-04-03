@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -65,7 +63,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     super.initState();
     _loadThread();
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 2),
+      const Duration(seconds: 5),
       (_) => _loadThread(silent: true),
     );
   }
@@ -91,19 +89,26 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       if (!mounted) {
         return;
       }
+      final mergedMessages = silent
+          ? _mergeMessages(_messages, thread.messages)
+          : thread.messages;
+      final shouldStickToBottom =
+          !silent || _isNearBottom() || _messages.isEmpty;
       setState(() {
         _conversation = thread.conversation;
-        _messages = thread.messages;
+        _messages = mergedMessages;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
+      if (shouldStickToBottom) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+      }
     } catch (error) {
       if (!silent && mounted) {
         setState(() {
-          _error = error.toString();
+          _error = error;
         });
       }
     } finally {
@@ -118,7 +123,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    if (text.isEmpty && !hasPhoto) {
+    if ((text.isEmpty && !hasPhoto) || _isSending) {
       return;
     }
 
@@ -132,14 +137,25 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       recipientId: _conversation?.otherUser.id ?? 0,
       message: text,
       photoUrl: '',
+      replyId: _replyingTo?.id ?? 0,
       status: 'sending',
       createdAt: DateTime.now().toIso8601String(),
-      sender: _conversation?.latestMessage?.sender,
-      recipient: _conversation?.latestMessage?.recipient,
+      sender:
+          _conversation?.latestMessage?.sender ??
+          widget.currentUser?.toConversationUser(),
+      recipient: _conversation?.otherUser,
+      replyTo: _replyingTo == null
+          ? null
+          : ChatMessageReply(
+              id: _replyingTo!.id,
+              message: _replyingTo!.message,
+              sender: _replyingTo!.sender,
+            ),
       localImageBytes: localPhotoBytes,
     );
 
     setState(() {
+      _isSending = true;
       _error = null;
       _messages = [..._messages, optimisticMessage];
       _selectedPhoto = null;
@@ -154,6 +170,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       final sent = await widget.repository.sendMessage(
         widget.username,
         message: text,
+        replyId: _replyingTo?.id,
         photo: selectedPhoto,
       );
       if (!mounted) {
@@ -187,7 +204,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _isSending = false;
+        });
       }
     }
   }
@@ -417,14 +436,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final item = _messages[index];
-                      final isMine =
-                          item.senderId != item.recipientId &&
-                          item.sender?.username != widget.username;
-                      final showAvatar =
-                          !isMine &&
-                          (index == 0 ||
-                              _messages[index - 1].sender?.username !=
-                                  item.sender?.username);
+                      final isMine = widget.currentUser != null
+                          ? item.senderId == widget.currentUser!.id
+                          : item.sender?.username != widget.username;
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -434,29 +448,6 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                               : MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            if (!isMine) ...[
-                              // SizedBox(
-                              //   width: 30,
-                              //   child: showAvatar
-                              //       ? CircleAvatar(
-                              //           radius: 14,
-                              //           backgroundImage:
-                              //               item.sender?.photoUrl.isNotEmpty ==
-                              //                   true
-                              //               ? NetworkImage(
-                              //                   item.sender!.photoUrl,
-                              //                 )
-                              //               : null,
-                              //           child:
-                              //               item.sender?.photoUrl.isEmpty ??
-                              //                   true
-                              //               ? const Icon(Icons.person, size: 14)
-                              //               : null,
-                              //         )
-                              //       : const SizedBox.shrink(),
-                              // ),
-                              // const SizedBox(width: 8),
-                            ],
                             Flexible(
                               child: GestureDetector(
                                 onLongPressStart: (details) async {
@@ -568,6 +559,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (item.replyTo != null) ...[
+                                        _ThreadReplyQuote(
+                                          reply: item.replyTo!,
+                                          isMine: isMine,
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
                                       if (item.photoUrl.isNotEmpty ||
                                           item.localImageBytes != null) ...[
                                         ClipRRect(
@@ -625,7 +623,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
-                                            formatRelativeTimestamp(
+                                            formatConversationListTimestamp(
                                               item.createdAt,
                                             ),
                                             style: TextStyle(
@@ -757,7 +755,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                       const SizedBox(width: 10),
                       AppSendActionButton(
                         onPressed: _sendMessage,
-                        isBusy: false,
+                        isBusy: _isSending,
                       ),
                     ],
                   ),
@@ -795,6 +793,60 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         ],
       ),
     );
+  }
+}
+
+extension on User {
+  ConversationUser toConversationUser() {
+    return ConversationUser(
+      id: id,
+      username: username,
+      fullname: fullname,
+      photoUrl: ImageUrlResolver.resolve(photoUrl),
+      lastSeen: '',
+      isOnline: false,
+      isVerified: isVerified,
+    );
+  }
+}
+
+extension on _MessageThreadScreenState {
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) {
+      return true;
+    }
+    final position = _scrollController.position;
+    return (position.maxScrollExtent - position.pixels) < 140;
+  }
+
+  List<ChatMessage> _mergeMessages(
+    List<ChatMessage> existing,
+    List<ChatMessage> incoming,
+  ) {
+    final merged = <int, ChatMessage>{};
+    for (final message in existing) {
+      merged[message.id] = message;
+    }
+    for (final message in incoming) {
+      merged[message.id] = message;
+    }
+    final pending = existing.where((message) => message.id < 0);
+    for (final message in pending) {
+      merged.putIfAbsent(message.id, () => message);
+    }
+    final items = merged.values.toList()
+      ..sort((a, b) {
+        final aTime = DateTime.tryParse(a.createdAt);
+        final bTime = DateTime.tryParse(b.createdAt);
+        if (aTime != null && bTime != null) {
+          final timeCompare = aTime.compareTo(bTime);
+          if (timeCompare != 0) {
+            return timeCompare;
+          }
+        }
+        return a.id.compareTo(b.id);
+      });
+    return items;
   }
 }
 
@@ -848,6 +900,60 @@ class _ReplyPreview extends StatelessWidget {
   }
 }
 
+class _ThreadReplyQuote extends StatelessWidget {
+  const _ThreadReplyQuote({required this.reply, required this.isMine});
+
+  final ChatMessageReply reply;
+  final bool isMine;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: isMine
+            ? Colors.white.withValues(alpha: 0.12)
+            : colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isMine
+              ? Colors.white.withValues(alpha: 0.18)
+              : colors.borderStrong,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            reply.sender?.displayName ?? 'User',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isMine ? Colors.white : colors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (reply.message.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              reply.message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isMine ? Colors.white70 : colors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _MessageDeliveryStatus extends StatelessWidget {
   const _MessageDeliveryStatus({required this.status});
 
@@ -859,7 +965,7 @@ class _MessageDeliveryStatus extends StatelessWidget {
     final isRead = normalized == 'read' || normalized == 'seen';
     final iconColor = isRead
         ? const Color(0xFFBFE0FF)
-        : Colors.white.withOpacity(0.82);
+        : Colors.white.withValues(alpha: 0.82);
 
     return Row(
       mainAxisSize: MainAxisSize.min,

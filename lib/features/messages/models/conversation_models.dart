@@ -111,10 +111,12 @@ class ChatMessage {
     required this.recipientId,
     required this.message,
     required this.photoUrl,
+    required this.replyId,
     required this.status,
     required this.createdAt,
     required this.sender,
     required this.recipient,
+    required this.replyTo,
     this.localImageBytes,
   });
 
@@ -124,10 +126,12 @@ class ChatMessage {
   final int recipientId;
   final String message;
   final String photoUrl;
+  final int replyId;
   final String status;
   final String createdAt;
   final ConversationUser? sender;
   final ConversationUser? recipient;
+  final ChatMessageReply? replyTo;
   final Uint8List? localImageBytes;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -138,12 +142,38 @@ class ChatMessage {
       recipientId: parseInt(json['recipient_id']),
       message: json['message']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      replyId: parseInt(json['reply_id']),
       status: json['status']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
       sender: (json['sender'] as Map<String, dynamic>?)?.let(
         ConversationUser.fromJson,
       ),
       recipient: (json['recipient'] as Map<String, dynamic>?)?.let(
+        ConversationUser.fromJson,
+      ),
+      replyTo: (json['reply_to'] as Map<String, dynamic>?)?.let(
+        ChatMessageReply.fromJson,
+      ),
+    );
+  }
+}
+
+class ChatMessageReply {
+  const ChatMessageReply({
+    required this.id,
+    required this.message,
+    required this.sender,
+  });
+
+  final int id;
+  final String message;
+  final ConversationUser? sender;
+
+  factory ChatMessageReply.fromJson(Map<String, dynamic> json) {
+    return ChatMessageReply(
+      id: parseInt(json['id']),
+      message: json['message']?.toString() ?? '',
+      sender: (json['sender'] as Map<String, dynamic>?)?.let(
         ConversationUser.fromJson,
       ),
     );
