@@ -75,21 +75,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
                   child: Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.shadow,
-                          blurRadius: 60,
-                          offset: Offset(0, 20),
+                    child: RepaintBoundary(
+                      child: Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.shadow,
+                              blurRadius: 60,
+                              offset: const Offset(0, 20),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
@@ -138,7 +140,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: colors.dangerSoft,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: colors.dangerText.withOpacity(0.35),
+                                  color: colors.dangerText.withValues(
+                                    alpha: 0.35,
+                                  ),
                                 ),
                               ),
                               child: Text(
@@ -322,10 +326,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 gradient: colors.brandGradient,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
-                                  BoxShadow(
-                                    color: colors.brand.withOpacity(0.28),
+                                BoxShadow(
+                                    color: colors.brand.withValues(alpha: 0.28),
                                     blurRadius: 30,
-                                    offset: Offset(0, 10),
+                                    offset: const Offset(0, 10),
                                   ),
                                 ],
                               ),
@@ -397,6 +401,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -426,7 +432,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       prefixText: prefixText,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: colors.surfaceMuted.withOpacity(0.92),
+      fillColor: colors.surfaceMuted.withValues(alpha: 0.92),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),

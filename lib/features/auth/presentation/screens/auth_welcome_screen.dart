@@ -16,7 +16,7 @@ class AuthWelcomeScreen extends StatefulWidget {
 
 class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
   final PageController _pageController = PageController();
-  int _pageIndex = 0;
+  final ValueNotifier<int> _pageIndex = ValueNotifier<int>(0);
 
   // Refined slide data using your brand's core palette
   static const List<_OnboardingSlideData> _slides = [
@@ -53,13 +53,13 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _pageIndex.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isLastPage = _pageIndex == _slides.length - 1;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -108,174 +108,196 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
 
                 // Main Content
                 Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _slides.length,
-                    onPageChanged: (i) => setState(() => _pageIndex = i),
-                    itemBuilder: (context, i) =>
-                        _RefinedSlide(data: _slides[i]),
+                  child: RepaintBoundary(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _slides.length,
+                      allowImplicitScrolling: true,
+                      onPageChanged: (i) => _pageIndex.value = i,
+                      itemBuilder: (context, i) =>
+                          _RefinedSlide(data: _slides[i]),
+                    ),
                   ),
                 ),
 
                 // Footer Actions
-                Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      // Page Indicators - Slim & Modern
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          _slides.length,
-                          (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            height: 6,
-                            width: _pageIndex == index ? 32 : 6,
-                            decoration: BoxDecoration(
-                              color: _pageIndex == index
-                                  ? colors.brand
-                                  : colors.borderStrong,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Action Buttons
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: colors.brandGradient,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.brand.withOpacity(0.28),
-                                blurRadius: 24,
-                                offset: Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: isLastPage
-                                ? () => Navigator.pushNamed(
-                                    context,
-                                    RegisterScreen.routeName,
-                                  )
-                                : () => _pageController.nextPage(
-                                    duration: const Duration(milliseconds: 500),
-                                    curve: Curves.easeInOutCubic,
+                RepaintBoundary(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _pageIndex,
+                    builder: (context, pageIndex, _) {
+                      final isLastPage = pageIndex == _slides.length - 1;
+                      return Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                _slides.length,
+                                (index) => AnimatedContainer(
+                                  duration: const Duration(milliseconds: 220),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
                                   ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: Text(
-                              isLastPage ? 'Create Free Account' : 'Continue',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (isLastPage) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: colors.surface,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: colors.brand.withOpacity(0.14),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.shadow.withOpacity(0.35),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: TextButton(
-                            onPressed: () => Navigator.pushNamed(
-                              context,
-                              LoginScreen.routeName,
-                            ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: colors.textPrimary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 42,
-                                  height: 42,
+                                  height: 6,
+                                  width: pageIndex == index ? 32 : 6,
                                   decoration: BoxDecoration(
-                                    color: colors.brand.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Icon(
-                                    Icons.login_rounded,
-                                    color: colors.brand,
-                                    size: 20,
+                                    color: pageIndex == index
+                                        ? colors.brand
+                                        : colors.borderStrong,
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 60,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: colors.brandGradient,
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: colors.brand.withValues(
+                                        alpha: 0.28,
+                                      ),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton(
+                                  onPressed: isLastPage
+                                      ? () => Navigator.pushNamed(
+                                          context,
+                                          RegisterScreen.routeName,
+                                        )
+                                      : () => _pageController.nextPage(
+                                          duration: const Duration(
+                                            milliseconds: 380,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                        ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isLastPage
+                                        ? 'Create Free Account'
+                                        : 'Continue',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (isLastPage) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: colors.surface,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: colors.brand.withValues(alpha: 0.14),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: colors.shadow.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: TextButton(
+                                  onPressed: () => Navigator.pushNamed(
+                                    context,
+                                    LoginScreen.routeName,
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: colors.textPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        'Already a member?',
-                                        style: TextStyle(
-                                          color: colors.textMuted,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: colors.brand.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.login_rounded,
+                                          color: colors.brand,
+                                          size: 20,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Sign in to your account',
-                                        style: TextStyle(
-                                          color: colors.textPrimary,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Already a member?',
+                                              style: TextStyle(
+                                                color: colors.textMuted,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Sign in to your account',
+                                              style: TextStyle(
+                                                color: colors.textPrimary,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
                                         ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: colors.brand,
+                                        size: 20,
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  color: colors.brand,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
+                      );
+                    },
                   ),
                 ),
               ],

@@ -24,3 +24,7 @@ flutter run -d 27be0f2b --dart-define=API_BASE_URL=http://10.142.136.163:8000/ap
 
 flutter run -d 27be0f2b
 flutter run -d 27be0f2b --debug
+
+
+How do i turn on or off indepth debug moderror messages across the app.
+So users dont see the moel or api that has issue but see genrric issue.

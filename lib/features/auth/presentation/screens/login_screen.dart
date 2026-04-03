@@ -22,6 +22,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _showPassword = false;
+  bool _didPrecacheHero = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheHero) {
+      return;
+    }
+    _didPrecacheHero = true;
+    precacheImage(
+      const AssetImage('assets/images/login-community.jpg'),
+      context,
+    );
+  }
 
   @override
   void dispose() {
@@ -101,7 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 return Row(
                   children: [
-                    if (showHero) const Expanded(child: _AuthHeroPanel()),
+                    if (showHero)
+                      const Expanded(
+                        child: RepaintBoundary(child: _AuthHeroPanel()),
+                      ),
                     Expanded(
                       child: Center(
                         child: SingleChildScrollView(
@@ -163,22 +180,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                Container(
-                                  padding: const EdgeInsets.all(28),
-                                  decoration: BoxDecoration(
-                                    color: colors.surface,
-                                    borderRadius: BorderRadius.circular(40),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: colors.shadow,
-                                        blurRadius: 60,
-                                        offset: Offset(0, 20),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Form(
-                                    key: _formKey,
-                                    child: Column(
+                                RepaintBoundary(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(28),
+                                    decoration: BoxDecoration(
+                                      color: colors.surface,
+                                      borderRadius: BorderRadius.circular(40),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: colors.shadow,
+                                          blurRadius: 60,
+                                          offset: const Offset(0, 20),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Form(
+                                      key: _formKey,
+                                      child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
@@ -210,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                   BorderRadius.circular(20),
                                               border: Border.all(
                                                 color: colors.dangerText
-                                                    .withOpacity(0.35),
+                                                    .withValues(alpha: 0.35),
                                               ),
                                             ),
                                             child: Text(
@@ -350,9 +368,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: colors.brand
-                                                      .withOpacity(0.28),
+                                                      .withValues(alpha: 0.28),
                                                   blurRadius: 30,
-                                                  offset: Offset(0, 10),
+                                                  offset: const Offset(0, 10),
                                                 ),
                                               ],
                                             ),
@@ -441,13 +459,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ],
                                     ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 14),
                                 Text(
                                   'Default API URL is configured from app environment.',
                                   style: TextStyle(
-                                    color: colors.textMuted.withOpacity(0.7),
+                                    color: colors.textMuted.withValues(
+                                      alpha: 0.7,
+                                    ),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -476,7 +497,7 @@ class _LoginScreenState extends State<LoginScreen> {
       hintText: hintText,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: colors.surfaceMuted.withOpacity(0.92),
+      fillColor: colors.surfaceMuted.withValues(alpha: 0.92),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
@@ -502,7 +523,11 @@ class _AuthHeroPanel extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset('assets/images/login-community.jpg', fit: BoxFit.cover),
+        Image.asset(
+          'assets/images/login-community.jpg',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.low,
+        ),
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
