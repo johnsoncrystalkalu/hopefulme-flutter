@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -110,20 +111,19 @@ Future<void> _initOneSignal() async {
       navigatorKey: _navigatorKey,
     );
 
-    // 1b. Listen for subscription changes (This fixes the "Not Subscribed" sync issue)
     OneSignalService.instance.addSubscriptionObserver((state) {
       if (state.current.id != null && state.current.optedIn == true) {
-        debugPrint('OneSignal Subscription detected: ${state.current.id}');
         _syncOneSignalPlayerId();
       }
     });
 
-    // 2. Sync immediately if already logged in (e.g., app restart)
     if (_authController.isAuthenticated) {
       await _syncOneSignalPlayerId();
     }
   } catch (e) {
-    debugPrint('OneSignal initialization failed: $e');
+    if (kDebugMode) {
+      debugPrint('OneSignal initialization failed: $e');
+    }
   }
 }
 
@@ -131,27 +131,20 @@ Future<void> _syncOneSignalPlayerId() async {
   if (!_authController.isAuthenticated) return;
 
   try {
-    final user = _authController.currentUser; // Assuming you have access to user data
+    final user = _authController.currentUser;
     if (user != null) {
-      // 1. Link the Laravel User ID to OneSignal (External ID)
-      // This is the most reliable way to send notifications from Laravel
       await OneSignalService.instance.setExternalUserId(user.id.toString());
     }
 
-    // 2. Get the Player ID (Push Subscription ID)
     final playerId = await OneSignalService.instance.getPlayerId();
     
     if (playerId != null) {
-      // 3. Save it to your Laravel database via API
       await _authController.authRepository.registerOneSignalPlayerId(playerId);
-      debugPrint('OneSignal Sync Successful: $playerId');
-    } else {
-      // If null, it means the device is still registering. 
-      // OneSignal will automatically retry subscription in the background.
-      debugPrint('OneSignal Player ID not ready yet.');
     }
   } catch (e) {
-    debugPrint('Failed to sync OneSignal: $e');
+    if (kDebugMode) {
+      debugPrint('Failed to sync OneSignal: $e');
+    }
   }
 }
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 class OneSignalService {
@@ -13,34 +12,16 @@ class OneSignalService {
     if (_isInitialized) return;
     _navigatorKey = navigatorKey;
 
-    // 1. Set Debugging before init if you're troubleshooting
-    if (kDebugMode) {
-      OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-    }
-
-    // 2. Initialize
     OneSignal.initialize(appId);
-    
-    // 3. Request permissions (Best to do this after a user logs in, but fine here)
+
     await OneSignal.Notifications.requestPermission(true);
 
-    // 4. Foreground Listener
     OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-      debugPrint('Notification received in foreground: ${event.notification.title}');
-      
-      // By default, OneSignal WILL display the notification. 
-      // You only call event.notification.display() if you want to force it 
-      // after some custom logic or if you called event.preventDefault().
-      
-      final data = event.notification.additionalData;
-      if (data != null) {
-        _handleNotificationData(data);
-      }
+      event.preventDefault();
+      event.notification.display();
     });
 
-    // 5. Click Listener
     OneSignal.Notifications.addClickListener((event) {
-      debugPrint('Notification clicked: ${event.notification.body}');
       final data = event.notification.additionalData;
       if (data != null) {
         _handleNotificationData(data);
@@ -60,9 +41,6 @@ void _handleNotificationData(Map<String, dynamic> data) {
   final contentId = data['content_id']?.toString();
   final orderId = data['order_id']?.toString();
   final inspirationId = data['inspiration_id']?.toString();
-  final conversationId = data['conversation_id']?.toString();
-
-  debugPrint('Notification type: $type');
 
   switch (type) {
 
@@ -116,8 +94,6 @@ void _handleNotificationData(Map<String, dynamic> data) {
       break;
 
     default:
-      debugPrint('Unknown notification type: $type');
-      // Optionally navigate to home/notifications screen
       Navigator.pushNamed(context, '/notifications');
       break;
   }
@@ -127,15 +103,12 @@ void _handleNotificationData(Map<String, dynamic> data) {
     OneSignal.User.pushSubscription.addObserver(onChanged);
   }
 
-  // Improved Player ID (Subscription ID) fetch
   Future<String?> getPlayerId() async {
-    // In v5, the Player ID is specifically the pushSubscriptionId
     return OneSignal.User.pushSubscription.id;
   }
 
   Future<void> setExternalUserId(String userId) async {
-    // This links your Laravel User ID to OneSignal
-    await OneSignal.login(userId);
+    await OneSignal.login(_normalizeExternalUserId(userId));
   }
 
   Future<void> removeExternalUserId() async {
@@ -147,11 +120,23 @@ void _handleNotificationData(Map<String, dynamic> data) {
   }
 
   Future<void> sendTag(String key, String value) async {
-    // In v5, tags are part of the User namespace
     await OneSignal.User.addTagWithKey(key, value);
   }
 
   Future<void> deleteTag(String key) async {
     await OneSignal.User.removeTag(key);
+  }
+
+  String normalizeExternalUserId(String userId) {
+    return _normalizeExternalUserId(userId);
+  }
+
+  String _normalizeExternalUserId(String userId) {
+    final trimmed = userId.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    return trimmed.startsWith('user_') ? trimmed : 'user_$trimmed';
   }
 }
