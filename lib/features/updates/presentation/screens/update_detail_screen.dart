@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UpdateDetailResult {
   const UpdateDetailResult({
@@ -94,6 +95,16 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       _future = widget.repository.fetchUpdate(widget.updateId);
     });
     await _future;
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   Future<void> _toggleLike(UpdateDetail detail) async {
@@ -562,6 +573,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               ),
                               onMentionTap: _openProfile,
                               onHashtagTap: _openSearchQuery,
+                              onLinkTap: _handleLinkTap,
                             ),
                           ),
                         if (detail.photoUrl.isNotEmpty)
@@ -734,6 +746,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                     _openProfile(comment.user.username),
                                 onMentionTap: _openProfile,
                                 onHashtagTap: _openSearchQuery,
+                                onLinkTap: _handleLinkTap,
                                 onReplyTap: () =>
                                     _replyToComment(detail, comment),
                                 onDelete: () => _deleteComment(comment),
@@ -761,6 +774,7 @@ class _CommentTile extends StatelessWidget {
     required this.onProfileTap,
     required this.onMentionTap,
     required this.onHashtagTap,
+    required this.onLinkTap,
     required this.onReplyTap,
     required this.onDelete,
     required this.isOwner,
@@ -770,6 +784,7 @@ class _CommentTile extends StatelessWidget {
   final VoidCallback onProfileTap;
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
   final VoidCallback onReplyTap;
   final VoidCallback onDelete;
   final bool isOwner;
@@ -860,6 +875,7 @@ class _CommentTile extends StatelessWidget {
                   ),
                   onMentionTap: onMentionTap,
                   onHashtagTap: onHashtagTap,
+                  onLinkTap: onLinkTap,
                 ),
                 const SizedBox(height: 10),
                 InkWell(
@@ -883,6 +899,7 @@ class _CommentTile extends StatelessWidget {
                         reply: reply,
                         onMentionTap: onMentionTap,
                         onHashtagTap: onHashtagTap,
+                        onLinkTap: onLinkTap,
                       ),
                     ),
                   ),
@@ -901,11 +918,13 @@ class _ReplyTile extends StatelessWidget {
     required this.reply,
     required this.onMentionTap,
     required this.onHashtagTap,
+    required this.onLinkTap,
   });
 
   final UpdateCommentReply reply;
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -939,6 +958,7 @@ class _ReplyTile extends StatelessWidget {
             ),
             onMentionTap: onMentionTap,
             onHashtagTap: onHashtagTap,
+            onLinkTap: onLinkTap,
           ),
         ],
       ),

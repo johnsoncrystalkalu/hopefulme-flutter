@@ -13,6 +13,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PostsFeedScreen extends StatefulWidget {
   const PostsFeedScreen({
@@ -199,6 +200,16 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
     );
   }
 
+  Future<void> _handleLinkTap(String url) async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+  }
+
   void _selectCategory(String category) {
     if (_selectedCategory == category) {
       return;
@@ -265,6 +276,7 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
                     onOpenPost: _openPost,
                     onOpenProfile: _openProfile,
                     onOpenHashtag: _openSearchQuery,
+                    onOpenLink: _handleLinkTap,
                   );
                 },
               ),
@@ -476,12 +488,14 @@ class _FeedStylePostCard extends StatelessWidget {
     required this.onOpenPost,
     required this.onOpenProfile,
     required this.onOpenHashtag,
+    required this.onOpenLink,
   });
 
   final FeedEntry entry;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
 
   @override
   Widget build(BuildContext context) {
@@ -544,6 +558,7 @@ class _FeedStylePostCard extends StatelessWidget {
                       ),
                       onMentionTap: onOpenProfile,
                       onHashtagTap: onOpenHashtag,
+                      onLinkTap: onOpenLink,
                     ),
                   ],
                   const SizedBox(height: 18),

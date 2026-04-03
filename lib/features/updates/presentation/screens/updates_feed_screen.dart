@@ -16,6 +16,7 @@ import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UpdatesFeedScreen extends StatefulWidget {
   const UpdatesFeedScreen({
@@ -174,6 +175,16 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
     );
   }
 
+  Future<void> _handleLinkTap(String url) async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
+  }
+
   Future<void> _openCreateUpdate() async {
     final created = await UpdateSubmissionModal.show(
       context,
@@ -249,6 +260,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                       onOpenProfile: _openProfile,
                       onOpenUpdate: () => _openUpdate(entry),
                       onOpenHashtag: _openSearchQuery,
+                      onOpenLink: _handleLinkTap,
                     ),
                   );
                 },

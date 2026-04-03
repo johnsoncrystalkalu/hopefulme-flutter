@@ -37,6 +37,7 @@ class ReusableUpdateCard extends StatelessWidget {
     this.onImageTap,
     this.onMentionTap,
     this.onHashtagTap,
+    this.onLinkTap,
     this.headerTrailing,
     this.footer,
     super.key,
@@ -48,6 +49,7 @@ class ReusableUpdateCard extends StatelessWidget {
   final VoidCallback? onImageTap;
   final Future<void> Function(String username)? onMentionTap;
   final Future<void> Function(String hashtag)? onHashtagTap;
+  final Future<void> Function(String url)? onLinkTap;
   final Widget? headerTrailing;
   final Widget? footer;
 
@@ -181,6 +183,7 @@ class ReusableUpdateCard extends StatelessWidget {
                         ),
                         onMentionTap: onMentionTap,
                         onHashtagTap: onHashtagTap,
+                        onLinkTap: onLinkTap,
                       ),
                     ),
                   if (data.photoUrl.isNotEmpty) ...[

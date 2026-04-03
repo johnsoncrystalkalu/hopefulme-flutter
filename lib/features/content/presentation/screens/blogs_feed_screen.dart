@@ -18,6 +18,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BlogsFeedScreen extends StatefulWidget {
   const BlogsFeedScreen({
@@ -162,6 +163,16 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
         _upsertEntry(result.detail!.toFeedEntry());
       }
     });
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   bool _isOwner(FeedEntry entry) {
@@ -357,6 +368,7 @@ class _BlogsFeedScreenState extends State<BlogsFeedScreen> {
                     overflow: TextOverflow.ellipsis,
                     onMentionTap: _openProfile,
                     onHashtagTap: _openSearchQuery,
+                    onLinkTap: _handleLinkTap,
                   ),
                   const SizedBox(height: 14),
                   Row(

@@ -25,6 +25,7 @@ class InteractiveUpdateCard extends StatefulWidget {
     this.ownerUsername,
     this.onOpenProfile,
     this.onOpenHashtag,
+    this.onOpenLink,
     this.isVerified = false,
     super.key,
   });
@@ -47,6 +48,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   final String? ownerUsername;
   final Future<void> Function(String username)? onOpenProfile;
   final Future<void> Function(String hashtag)? onOpenHashtag;
+  final Future<void> Function(String url)? onOpenLink;
 
   @override
   State<InteractiveUpdateCard> createState() => _InteractiveUpdateCardState();
@@ -261,6 +263,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       onImageTap: () => widget.onOpenUpdate(),
       onMentionTap: widget.onOpenProfile,
       onHashtagTap: widget.onOpenHashtag,
+      onLinkTap: widget.onOpenLink,
       headerTrailing: PopupMenuButton<String>(
         icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8)),
         onSelected: (value) async {

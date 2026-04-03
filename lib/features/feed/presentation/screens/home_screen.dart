@@ -928,6 +928,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     _openPostsFeed,
                                                 onOpenHashtag:
                                                     _openSearchQuery,
+                                                onOpenLink:
+                                                    _handleLinkTap,
                                                 onOpenTodayBirthdays:
                                                     _openTodayBirthdays,
                                                 updateRepository:
@@ -974,6 +976,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onOpenBlog: _openBlogDetail,
                                           onOpenPostsFeed: _openPostsFeed,
                                           onOpenHashtag: _openSearchQuery,
+                                          onOpenLink: _handleLinkTap,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
                                           updateRepository:
@@ -2177,6 +2180,7 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenBlog,
     required this.onOpenPostsFeed,
     required this.onOpenHashtag,
+    required this.onOpenLink,
     required this.onOpenTodayBirthdays,
     required this.updateRepository,
     required this.isLoading,
@@ -2195,6 +2199,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function(FeedEntry entry) onOpenBlog;
   final Future<void> Function({String initialCategory}) onOpenPostsFeed;
   final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final UpdateRepository updateRepository;
   final bool isLoading;
@@ -2300,6 +2305,7 @@ class _HomeContent extends StatelessWidget {
                     onOpenPost: onOpenPost,
                     onOpenBlog: onOpenBlog,
                     onOpenHashtag: onOpenHashtag,
+                    onOpenLink: onOpenLink,
                     updateRepository: updateRepository,
                   ),
                 ),
@@ -2331,6 +2337,7 @@ class _HomeContent extends StatelessWidget {
                     onOpenProfile: onOpenProfile,
                     onOpenUpdate: onOpenUpdate,
                     onOpenHashtag: onOpenHashtag,
+                    onOpenLink: onOpenLink,
                     updateRepository: updateRepository,
                   ),
                 ),
@@ -3225,6 +3232,7 @@ class _FeedEntryCard extends StatelessWidget {
     required this.onOpenPost,
     required this.onOpenBlog,
     required this.onOpenHashtag,
+    required this.onOpenLink,
     required this.updateRepository,
   });
 
@@ -3235,6 +3243,7 @@ class _FeedEntryCard extends StatelessWidget {
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
   final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
   final UpdateRepository updateRepository;
 
   @override
@@ -3246,6 +3255,7 @@ class _FeedEntryCard extends StatelessWidget {
         onOpenProfile: onOpenProfile,
         onOpenUpdate: onOpenUpdate,
         onOpenHashtag: onOpenHashtag,
+        onOpenLink: onOpenLink,
         updateRepository: updateRepository,
       ),
       // 'blog' => _BlogFeedCard(
@@ -3259,6 +3269,7 @@ class _FeedEntryCard extends StatelessWidget {
         onOpenPost: onOpenPost,
         onOpenProfile: onOpenProfile,
         onOpenHashtag: onOpenHashtag,
+        onOpenLink: onOpenLink,
       ),
     };
   }
@@ -3270,12 +3281,14 @@ class _PostFeedCard extends StatelessWidget {
     required this.onOpenPost,
     required this.onOpenProfile,
     required this.onOpenHashtag,
+    required this.onOpenLink,
   });
 
   final FeedEntry entry;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
 
   @override
   Widget build(BuildContext context) {
@@ -3327,6 +3340,7 @@ class _PostFeedCard extends StatelessWidget {
                       ),
                       onMentionTap: onOpenProfile,
                       onHashtagTap: onOpenHashtag,
+                      onLinkTap: onOpenLink,
                     ),
                   ],
                   const SizedBox(height: 18),
@@ -3367,6 +3381,7 @@ class _UpdateFeedCard extends StatelessWidget {
     required this.onOpenProfile,
     required this.onOpenUpdate,
     required this.onOpenHashtag,
+    required this.onOpenLink,
     required this.updateRepository,
   });
 
@@ -3375,6 +3390,7 @@ class _UpdateFeedCard extends StatelessWidget {
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
   final UpdateRepository updateRepository;
 
   @override
@@ -3401,6 +3417,7 @@ class _UpdateFeedCard extends StatelessWidget {
         ownerUsername: entry.user?.username,
         onOpenProfile: onOpenProfile,
         onOpenHashtag: onOpenHashtag,
+        onOpenLink: onOpenLink,
       ),
     );
   }

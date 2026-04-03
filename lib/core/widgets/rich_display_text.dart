@@ -32,7 +32,9 @@ class RichDisplayText extends StatefulWidget {
 }
 
 class _RichDisplayTextState extends State<RichDisplayText> {
-  static final RegExp _pattern = RegExp(r'(@[A-Za-z0-9_]+|#[A-Za-z0-9_]+|(?:https?|ftp):\/\/[^\s/$.?#].[^\s]*)');
+  static final RegExp _pattern = RegExp(
+    r'(@[A-Za-z0-9_]+|#[A-Za-z0-9_]+|(?:(?:https?|ftp):\/\/|www\.)[^\s<>()]+)',
+  );
   final List<TapGestureRecognizer> _recognizers = <TapGestureRecognizer>[];
   List<InlineSpan>? _cachedSpans;
   String? _lastProcessedText;
@@ -81,7 +83,7 @@ class _RichDisplayTextState extends State<RichDisplayText> {
       final isHashtag = token.startsWith('#');
       final isUrl = !isMention && !isHashtag;
 
-      final value = isUrl ? token : token.substring(1);
+      final value = isUrl ? _normalizeUrl(token) : token.substring(1);
       
       final Function(String)? onTap = isUrl 
           ? widget.onLinkTap 
@@ -122,6 +124,14 @@ class _RichDisplayTextState extends State<RichDisplayText> {
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w700,
     );
+  }
+
+  String _normalizeUrl(String input) {
+    final trimmed = input.trim();
+    if (trimmed.toLowerCase().startsWith('www.')) {
+      return 'https://$trimmed';
+    }
+    return trimmed;
   }
 
   void _disposeRecognizers() {

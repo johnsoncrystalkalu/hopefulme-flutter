@@ -113,11 +113,18 @@ class UpdateCommentReply {
 
 String _plainText(String input) {
   return input
-      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'</p\s*>', caseSensitive: false), '\n\n')
+      .replaceAll(RegExp(r'<[^>]*>'), '')
       .replaceAll('&nbsp;', ' ')
       .replaceAll('&amp;', '&')
       .replaceAll('&quot;', '"')
       .replaceAll('&#39;', "'")
-      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll('&#039;', "'")
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n')
+      .replaceAll(RegExp(r'[ \t\f\v]+'), ' ')
+      .replaceAll(RegExp(r' *\n *'), '\n')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 }
