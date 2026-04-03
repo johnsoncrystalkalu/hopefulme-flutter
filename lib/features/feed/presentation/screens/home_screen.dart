@@ -87,6 +87,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ScrollController _homeScrollController = ScrollController();
   final ValueNotifier<_TopBarSnapshot> _topBarSnapshot =
       ValueNotifier(const _TopBarSnapshot());
   late Future<FeedDashboard> _dashboardFuture;
@@ -94,11 +95,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
+  List<FeedEntry> _homeUpdates = const <FeedEntry>[];
+  bool _isLoadingMoreHomeUpdates = false;
+  bool _hasMoreHomeUpdates = true;
+  int _homeUpdatesPage = 1;
 
   @override
   void initState() {
     super.initState();
-    _dashboardFuture = widget.feedRepository.fetchDashboard();
+    _homeScrollController.addListener(_handleHomeScroll);
+    _dashboardFuture = _createDashboardFuture();
     _notificationNavigator = NotificationNavigator(
       profileRepository: widget.profileRepository,
       contentRepository: widget.contentRepository,
@@ -118,16 +124,104 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _homeScrollController.dispose();
     _topBarSnapshot.dispose();
     super.dispose();
   }
 
+  Future<FeedDashboard> _createDashboardFuture() {
+    final future = widget.feedRepository.fetchDashboard();
+    future.then(_seedHomeUpdatesFromDashboard).catchError((_) {});
+    return future;
+  }
+
   Future<void> _refreshDashboard() async {
     setState(() {
-      _dashboardFuture = widget.feedRepository.fetchDashboard();
+      _homeUpdates = const <FeedEntry>[];
+      _homeUpdatesPage = 1;
+      _hasMoreHomeUpdates = true;
+      _isLoadingMoreHomeUpdates = false;
+      _dashboardFuture = _createDashboardFuture();
     });
 
     await _dashboardFuture;
+  }
+
+  void _seedHomeUpdatesFromDashboard(FeedDashboard dashboard) {
+    final updates = dashboard.feed
+        .where((entry) => entry.type == 'update')
+        .toList(growable: false);
+    if (!mounted) {
+      _homeUpdates = updates;
+      _homeUpdatesPage = 1;
+      _hasMoreHomeUpdates = true;
+      _isLoadingMoreHomeUpdates = false;
+      return;
+    }
+    setState(() {
+      _homeUpdates = updates;
+      _homeUpdatesPage = 1;
+      _hasMoreHomeUpdates = true;
+      _isLoadingMoreHomeUpdates = false;
+    });
+  }
+
+  void _handleHomeScroll() {
+    if (!_homeScrollController.hasClients) {
+      return;
+    }
+    final position = _homeScrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 280) {
+      _loadMoreHomeUpdates();
+    }
+  }
+
+  Future<void> _loadMoreHomeUpdates() async {
+    if (_isLoadingMoreHomeUpdates || !_hasMoreHomeUpdates) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMoreHomeUpdates = true;
+    });
+
+    try {
+      final nextPage = _homeUpdatesPage + 1;
+      final page = await widget.feedRepository.fetchUpdatesPage(page: nextPage);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _homeUpdatesPage = page.currentPage;
+        _hasMoreHomeUpdates = page.hasMore;
+        _homeUpdates = _mergeFeedEntries(_homeUpdates, page.items);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _hasMoreHomeUpdates = false;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreHomeUpdates = false;
+        });
+      }
+    }
+  }
+
+  List<FeedEntry> _mergeFeedEntries(List<FeedEntry> existing, List<FeedEntry> next) {
+    final merged = <FeedEntry>[...existing];
+    final seenIds = merged.map((entry) => entry.id).toSet();
+    for (final entry in next) {
+      if (seenIds.add(entry.id)) {
+        merged.add(entry);
+      }
+    }
+    return List<FeedEntry>.unmodifiable(merged);
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
@@ -241,7 +335,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() {
       _selectedBottomNav = 0;
-      _dashboardFuture = widget.feedRepository.fetchDashboard();
+      _homeUpdates = const <FeedEntry>[];
+      _homeUpdatesPage = 1;
+      _hasMoreHomeUpdates = true;
+      _isLoadingMoreHomeUpdates = false;
+      _dashboardFuture = _createDashboardFuture();
     });
   }
 
@@ -783,6 +881,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return RefreshIndicator(
                         onRefresh: _refreshDashboard,
                         child: CustomScrollView(
+                          controller: _homeScrollController,
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
@@ -812,6 +911,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                               child: _HomeContent(
                                                 user: user,
                                                 dashboard: dashboard,
+                                                homeUpdates: _homeUpdates,
+                                                isLoadingMoreUpdates:
+                                                    _isLoadingMoreHomeUpdates,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
                                                 onOpenProfile:
@@ -822,12 +924,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 onOpenPostById:
                                                     _openPostById,
                                                 onOpenBlog: _openBlogDetail,
-                                                onOpenUpdatesFeed:
-                                                    _openActivities,
                                                 onOpenPostsFeed:
                                                     _openPostsFeed,
-                                                onOpenBlogsFeed:
-                                                    _openBlogsFeed,
                                                 onOpenHashtag:
                                                     _openSearchQuery,
                                                 onOpenTodayBirthdays:
@@ -865,16 +963,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _HomeContent(
                                           user: user,
                                           dashboard: dashboard,
+                                          homeUpdates: _homeUpdates,
+                                          isLoadingMoreUpdates:
+                                              _isLoadingMoreHomeUpdates,
                                           onCreateUpdate: _openCreateUpdate,
                                           onOpenProfile: _openUserProfile,
                                           onOpenUpdate: _openUpdateDetail,
                                           onOpenPost: _openPostDetail,
                                           onOpenPostById: _openPostById,
                                           onOpenBlog: _openBlogDetail,
-                                          onOpenUpdatesFeed:
-                                              _openActivities,
                                           onOpenPostsFeed: _openPostsFeed,
-                                          onOpenBlogsFeed: _openBlogsFeed,
                                           onOpenHashtag: _openSearchQuery,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
@@ -2069,15 +2167,15 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.user,
     required this.dashboard,
+    required this.homeUpdates,
+    required this.isLoadingMoreUpdates,
     required this.onCreateUpdate,
     required this.onOpenProfile,
     required this.onOpenUpdate,
     required this.onOpenPost,
     required this.onOpenPostById,
     required this.onOpenBlog,
-    required this.onOpenUpdatesFeed,
     required this.onOpenPostsFeed,
-    required this.onOpenBlogsFeed,
     required this.onOpenHashtag,
     required this.onOpenTodayBirthdays,
     required this.updateRepository,
@@ -2087,15 +2185,15 @@ class _HomeContent extends StatelessWidget {
 
   final User? user;
   final FeedDashboard? dashboard;
+  final List<FeedEntry> homeUpdates;
+  final bool isLoadingMoreUpdates;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(int postId) onOpenPostById;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
-  final Future<void> Function() onOpenUpdatesFeed;
   final Future<void> Function({String initialCategory}) onOpenPostsFeed;
-  final Future<void> Function() onOpenBlogsFeed;
   final Future<void> Function(String hashtag) onOpenHashtag;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final UpdateRepository updateRepository;
@@ -2169,10 +2267,9 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Group feeds by type and render per-section with a "View more" CTA
+        // Group feeds by type and let updates continue with the Activities feed.
         ...(() {
-          final updates = data.feed.where((e) => e.type == 'update').toList();
-          final blogs = data.feed.where((e) => e.type == 'blog').toList();
+          final updates = homeUpdates;
           final postsBlock = data.feed
               .where((e) => e.type != 'update' && e.type != 'blog')
               .toList();
@@ -2228,75 +2325,24 @@ class _HomeContent extends StatelessWidget {
               updates.map(
                 (entry) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: _FeedEntryCard(
+                  child: _UpdateFeedCard(
                     entry: entry,
                     currentUser: user,
                     onOpenProfile: onOpenProfile,
                     onOpenUpdate: onOpenUpdate,
-                    onOpenPost: onOpenPost,
-                    onOpenBlog: onOpenBlog,
                     onOpenHashtag: onOpenHashtag,
                     updateRepository: updateRepository,
                   ),
-                ),
-              ),
-            );
-            widgets.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _FeedExploreChip(
-                      icon: Icons.dynamic_feed_rounded,
-                      label: 'View more updates',
-                      onTap: onOpenUpdatesFeed,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                 ),
               ),
             );
             widgets.add(const SizedBox(height: 42));
           }
-          if (blogs.isNotEmpty) {
-            widgets.addAll(
-              blogs.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _FeedEntryCard(
-                    entry: entry,
-                    currentUser: user,
-                    onOpenProfile: onOpenProfile,
-                    onOpenUpdate: onOpenUpdate,
-                    onOpenPost: onOpenPost,
-                    onOpenBlog: onOpenBlog,
-                    onOpenHashtag: onOpenHashtag,
-                    updateRepository: updateRepository,
-                  ),
-                ),
-              ),
-            );
+          if (isLoadingMoreUpdates) {
             widgets.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _FeedExploreChip(
-                      icon: Icons.auto_stories_outlined,
-                      label: 'View more blogs',
-                      onTap: onOpenBlogsFeed,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 28),
+                child: Center(child: CircularProgressIndicator()),
               ),
             );
           }

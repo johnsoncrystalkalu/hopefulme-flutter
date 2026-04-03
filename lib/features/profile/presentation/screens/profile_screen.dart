@@ -704,7 +704,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                             ),
                             _ActionButton(
                               icon: Icons.chat_bubble_outline,
-                              label: 'Message',
+                              label: 'Chat',
                               onTap: onMessage,
                             ),
                             _ActionButton(
