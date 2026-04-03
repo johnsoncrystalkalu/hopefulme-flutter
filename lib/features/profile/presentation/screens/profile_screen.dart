@@ -821,7 +821,7 @@ class _ProfileStatusRow extends StatelessWidget {
         ? const Color(0xFF22C55E)
         : const Color(0xFFFBBF24);
     final deviceLabel = switch (profile.device.toLowerCase()) {
-      'app' => 'HopefulMe App',
+      'app' => 'App',
       'desktop' => 'Desktop',
       'mobile' => 'Mobile',
       _ => profile.device.trim().isEmpty ? 'Mobile' : profile.device,

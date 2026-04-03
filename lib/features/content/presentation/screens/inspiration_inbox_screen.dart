@@ -127,7 +127,6 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     itemCount: _items.length + 1 + (_isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      // Hero section at index 0
                       if (index == 0) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 24),
@@ -135,7 +134,6 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                         );
                       }
 
-                      // Loading indicator at the end
                       if (index > _items.length) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
@@ -143,7 +141,6 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                         );
                       }
 
-                      // Items list
                       final item = _items[index - 1];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -174,54 +171,88 @@ class _HeroBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colors.brand.withValues(alpha: 0.95),
-            colors.brand.withValues(alpha: 0.85),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: colors.brandGradient,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Stack(
         children: [
-          // Dotted pattern overlay
           Positioned.fill(
-            child: CustomPaint(
-              painter: _DottedPatternPainter(
-                dotColor: Colors.white.withValues(alpha: 0.07),
+            child: Opacity(
+              opacity: 0.06,
+              child: CustomPaint(
+                painter: _DottedPatternPainter(dotColor: Colors.white),
               ),
             ),
           ),
-          // Content
+          Positioned.fill(
+            child: Center(
+              child: Container(
+                width: 236,
+                height: 236,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF7C3AED).withValues(alpha: 0.28),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 36),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text(
-                  '💙',
-                  style: TextStyle(fontSize: 48),
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 66,
+                    height: 66,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 34,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Your Inspirations',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
+                const SizedBox(height: 16),
+                const Align(
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Your Inspirations',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '$totalCount inspiration${totalCount != 1 ? 's' : ''} received so far 🌟',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                Align(
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$totalCount inspiration${totalCount != 1 ? 's' : ''} received so far',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.58),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
