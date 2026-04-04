@@ -2,18 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
+
+const List<String> _monthLabels = <String>[
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({
     required this.username,
     required this.repository,
+    this.showOnboardingIntro = false,
     super.key,
   });
 
   final String username;
   final ProfileRepository repository;
+  final bool showOnboardingIntro;
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -29,6 +47,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _cityController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  String _selectedBirthDay = '';
+  String _selectedBirthMonth = '';
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -89,6 +109,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _selectedRole = profile.role1;
       _selectedCountry = profile.location;
       _selectedState = profile.state;
+      final birthdayParts = profile.birthday.split('-');
+      _selectedBirthDay = birthdayParts.isNotEmpty ? birthdayParts.first.trim() : '';
+      _selectedBirthMonth = birthdayParts.length > 1
+          ? birthdayParts[1].trim()
+          : '';
       _roleOptions = options.roles;
       _countryOptions = options.countries;
 
@@ -166,11 +191,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         location: _selectedCountry.trim(),
         city: _cityController.text.trim(),
         state: _selectedState.trim(),
+        birthDay: _selectedBirthDay.trim(),
+        birthMonth: _selectedBirthMonth.trim(),
         phoneNumber: _phoneController.text.trim(),
         theme: _theme,
         password: _passwordController.text.trim(),
       );
       if (!mounted) {
+        return;
+      }
+      if (widget.showOnboardingIntro) {
+        await Navigator.of(context).pushNamedAndRemoveUntil(
+          HomeScreen.routeName,
+          (route) => false,
+        );
         return;
       }
       Navigator.of(context).pop(profile);
@@ -196,7 +230,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(title: const Text('Edit Profile')),
+      appBar: AppBar(
+        title: Text(
+          widget.showOnboardingIntro ? 'Complete Profile' : 'Edit Profile',
+        ),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -213,13 +251,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _HeroCard(
-                        fullname: _fullnameController.text.isNotEmpty
-                            ? _fullnameController.text
-                            : 'Your Profile',
-                        username: _usernameController.text,
-                      ),
-                      const SizedBox(height: 16),
+                      if (widget.showOnboardingIntro) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: colors.accentSoft,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: colors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome to HopefulMe! 🎉',
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Divider(color: colors.borderStrong, height: 1),
+                              const SizedBox(height: 10),
+                              Text(
+                                'You are special to us every day 💙. Please update your profile info to personalize your experience on our app.',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 13,
+                                  height: 1.55,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       const _CardTitle(
                         title: 'Basic Info',
                         subtitle: 'Keep your public identity fresh and clear.',
@@ -266,7 +334,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             _LabeledField(
                               label: 'Role / Title',
                               child: DropdownButtonFormField<String>(
-                                value: _selectedRole.isNotEmpty
+                                value:
+                                    _selectedRole.isNotEmpty &&
+                                        _roleOptions.contains(_selectedRole)
                                     ? _selectedRole
                                     : null,
                                 decoration: const InputDecoration(
@@ -346,7 +416,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 final countryField = _LabeledField(
                                   label: 'Country',
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedCountry.isNotEmpty
+                                    isExpanded: true,
+                                    value:
+                                        _selectedCountry.isNotEmpty &&
+                                            _countryOptions.contains(
+                                              _selectedCountry,
+                                            )
                                         ? _selectedCountry
                                         : null,
                                     decoration: const InputDecoration(
@@ -356,7 +431,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                         .map(
                                           (country) => DropdownMenuItem<String>(
                                             value: country,
-                                            child: Text(country),
+                                            child: Text(
+                                              country,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         )
                                         .toList(),
@@ -375,6 +453,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 final stateField = _LabeledField(
                                   label: 'State / Region',
                                   child: DropdownButtonFormField<String>(
+                                    isExpanded: true,
                                     value:
                                         _selectedState.isNotEmpty &&
                                             _stateOptions.contains(
@@ -393,11 +472,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                         .map(
                                           (state) => DropdownMenuItem<String>(
                                             value: state,
-                                            child: Text(state),
+                                            child: Text(
+                                              state,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         )
                                         .toList(),
-                                    onChanged: _selectedCountry.isEmpty
+                                    onChanged:
+                                        _selectedCountry.isEmpty ||
+                                            _loadingStates
                                         ? null
                                         : (value) {
                                             setState(() {
@@ -438,43 +522,116 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 keyboardType: TextInputType.phone,
                               ),
                             ),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth >= 620;
+                                final dayField = _LabeledField(
+                                  label: 'Birth Day',
+                                  child: DropdownButtonFormField<String>(
+                                    value: _selectedBirthDay.isNotEmpty
+                                        ? _selectedBirthDay
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Day',
+                                    ),
+                                    items: List<DropdownMenuItem<String>>.generate(
+                                      31,
+                                      (index) {
+                                        final day = '${index + 1}';
+                                        return DropdownMenuItem<String>(
+                                          value: day,
+                                          child: Text(day),
+                                        );
+                                      },
+                                    ),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedBirthDay = value ?? '';
+                                      });
+                                    },
+                                  ),
+                                );
+                                final monthField = _LabeledField(
+                                  label: 'Birth Month',
+                                  child: DropdownButtonFormField<String>(
+                                    value: _selectedBirthMonth.isNotEmpty
+                                        ? _selectedBirthMonth
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Month',
+                                    ),
+                                    items: List<DropdownMenuItem<String>>.generate(
+                                      _monthLabels.length,
+                                      (index) {
+                                        final month = '${index + 1}';
+                                        return DropdownMenuItem<String>(
+                                          value: month,
+                                          child: Text(_monthLabels[index]),
+                                        );
+                                      },
+                                    ),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedBirthMonth = value ?? '';
+                                      });
+                                    },
+                                  ),
+                                );
+
+                                return isWide
+                                    ? Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(child: dayField),
+                                          const SizedBox(width: 12),
+                                          Expanded(child: monthField),
+                                        ],
+                                      )
+                                    : Column(
+                                        children: [dayField, monthField],
+                                      );
+                              },
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      const _CardTitle(
-                        title: 'Security',
-                        subtitle:
-                            'Leave password blank if you are not changing it.',
-                      ),
-                      const SizedBox(height: 10),
-                      _EditCard(
-                        child: Column(
-                          children: [
-                            _LabeledField(
-                              label: 'New Password',
-                              child: TextFormField(
-                                controller: _passwordController,
-                                obscureText: true,
+                      if (!widget.showOnboardingIntro) ...[
+                        const SizedBox(height: 16),
+                        const _CardTitle(
+                          title: 'Security',
+                          subtitle:
+                              'Leave password blank if you are not changing it.',
+                        ),
+                        const SizedBox(height: 10),
+                        _EditCard(
+                          child: Column(
+                            children: [
+                              _LabeledField(
+                                label: 'New Password',
+                                child: TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: true,
+                                ),
                               ),
-                            ),
-                            if (_error != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    _error!.toString(),
-                                    style: TextStyle(
-                                      color: colors.dangerText,
-                                      fontWeight: FontWeight.w700,
+                              if (_error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      _error!.toString(),
+                                      style: TextStyle(
+                                        color: colors.dangerText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
@@ -507,80 +664,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       return null;
     };
-  }
-}
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.fullname, required this.username});
-
-  final String fullname;
-  final String username;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final initials = fullname
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0].toUpperCase())
-        .join();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF8FBFF), Color(0xFFF4F7FB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: colors.borderStrong),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: colors.accentSoft,
-            child: Text(
-              initials.isEmpty ? 'U' : initials,
-              style: TextStyle(
-                color: colors.accentSoftText,
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Edit Profile',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  username.trim().isEmpty ? fullname : '@$username',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

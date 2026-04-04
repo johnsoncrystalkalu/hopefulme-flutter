@@ -132,6 +132,7 @@ class ProfileSummary {
     required this.location,
     required this.city,
     required this.state,
+    required this.birthday,
     required this.phoneNumber,
     required this.theme,
     required this.device,
@@ -158,6 +159,7 @@ class ProfileSummary {
   final String location;
   final String city;
   final String state;
+  final String birthday;
   final String phoneNumber;
   final String theme;
   final String device;
@@ -197,6 +199,7 @@ class ProfileSummary {
       location: json['location']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
+      birthday: json['bdae']?.toString() ?? '',
       phoneNumber: json['phone_number']?.toString() ?? '',
       theme: json['theme']?.toString() ?? '',
       device: json['device']?.toString() ?? '',

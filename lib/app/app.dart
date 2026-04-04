@@ -291,7 +291,23 @@ Future<void> _syncOneSignalPlayerId() async {
             LoginScreen.routeName: (context) =>
                 LoginScreen(authController: _authController),
             RegisterScreen.routeName: (context) =>
-                RegisterScreen(authController: _authController),
+                RegisterScreen(
+                  authController: _authController,
+                  profileRepository: _profileRepository,
+                ),
+            HomeScreen.routeName: (context) => HomeScreen(
+              authController: _authController,
+              themeController: _themeController,
+              feedRepository: _feedRepository,
+              contentRepository: _contentRepository,
+              notificationRepository: _notificationRepository,
+              messageRepository: _messageRepository,
+              groupRepository: _groupRepository,
+              profileRepository: _profileRepository,
+              searchRepository: _searchRepository,
+              updateRepository: _updateRepository,
+              libraryRepository: _libraryRepository,
+            ),
             ProfileScreen.routeName: (context) => ProfileScreen(
               currentUser: _authController.currentUser,
               profileRepository: _profileRepository,

@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/widgets/auth_page_footer.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.authController, super.key});
@@ -463,15 +464,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 14),
-                                Text(
-                                  'Default API URL is configured from app environment.',
-                                  style: TextStyle(
-                                    color: colors.textMuted.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 12,
-                                  ),
-                                ),
+                                const AuthPageFooter(),
                               ],
                             ),
                           ),

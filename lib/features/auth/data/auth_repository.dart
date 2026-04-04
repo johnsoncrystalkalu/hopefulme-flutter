@@ -74,6 +74,15 @@ class AuthRepository {
     return _persistAuthResponse(response);
   }
 
+  Future<bool> checkUsernameAvailability(String username) async {
+    final normalized = username.trim().replaceFirst('@', '');
+    final response = await _apiClient.get(
+      'auth/check-username',
+      queryParameters: <String, dynamic>{'username': normalized},
+    );
+    return response['available'] == true;
+  }
+
   Future<User> currentUser() async {
     final response = await _apiClient.get('auth/me');
     final userJson = response['user'] as Map<String, dynamic>? ?? response;

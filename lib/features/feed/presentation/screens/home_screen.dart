@@ -68,6 +68,8 @@ class HomeScreen extends StatefulWidget {
     super.key,
   });
 
+  static const routeName = '/home';
+
   final AuthController authController;
   final ThemeController themeController;
   final FeedRepository feedRepository;

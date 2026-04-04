@@ -137,6 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               location: dashboard.profile.location,
               city: dashboard.profile.city,
               state: dashboard.profile.state,
+              birthday: dashboard.profile.birthday,
               phoneNumber: dashboard.profile.phoneNumber,
               theme: dashboard.profile.theme,
               device: dashboard.profile.device,
@@ -721,11 +722,13 @@ class _ProfileHeaderCard extends StatelessWidget {
                             _ActionButton(
                               icon: Icons.photo_camera_outlined,
                               label: 'Change Photo',
+                              compact: true,
                               onTap: onEditMedia,
                             ),
                             _ActionButton(
                               icon: Icons.edit_outlined,
                               label: 'Edit Profile',
+                              compact: true,
                               onTap: onEditProfile,
                             ),
                           ],
