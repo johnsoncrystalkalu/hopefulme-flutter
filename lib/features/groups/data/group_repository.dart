@@ -78,6 +78,16 @@ class GroupRepository {
     }
   }
 
+  Future<AppGroup> setTypingStatus(int groupId, {required bool isTyping}) async {
+    final response = await _authRepository.post(
+      'groups/$groupId/typing',
+      body: {'is_typing': isTyping},
+    );
+    return AppGroup.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<GroupMessage> sendMessage(
     int groupId, {
     required String message,
@@ -90,7 +100,7 @@ class GroupRepository {
             'groups/$groupId/messages',
             body: {
               'message': trimmed,
-              if (replyId != null) 'reply_id': replyId,
+              if (replyId case final value?) 'reply_id': value,
             },
           )
         : await _authRepository.postMultipart(

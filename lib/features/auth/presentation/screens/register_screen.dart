@@ -253,7 +253,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                'STEP 1 OF 3',
+                                'STEP 1 OF 2',
                                 style: TextStyle(
                                   color: colors.accentSoftText,
                                   fontSize: 10,

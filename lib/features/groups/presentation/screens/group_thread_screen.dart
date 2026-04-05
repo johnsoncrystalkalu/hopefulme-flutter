@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,15 +57,21 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = false;
   bool _showEmojiPicker = false;
+  bool _showJumpToBottom = false;
   bool _hasThreadChanges = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
   int _optimisticId = -1;
+  int _lastReadMessageId = 0;
+  bool _typingSent = false;
+  DateTime? _lastTypingPingAt;
+  Timer? _typingDebounce;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_handleComposerChanged);
     _scrollController.addListener(_handleScroll);
     _loadInitial();
     _pollTimer = Timer.periodic(
@@ -76,6 +83,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _typingDebounce?.cancel();
+    if (_typingSent) {
+      unawaited(_sendTypingStatus(false));
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -88,13 +99,17 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     });
 
     try {
-      final group = await widget.repository.fetchGroup(widget.groupId);
+      var group = await widget.repository.fetchGroup(widget.groupId);
       List<GroupMessage> messages = <GroupMessage>[];
       var hasMore = false;
       if (group.isMember) {
         final page = await widget.repository.fetchMessages(widget.groupId);
         messages = page.messages;
         hasMore = page.hasMore;
+        _lastReadMessageId = page.lastReadMessageId;
+        if (page.group != null) {
+          group = page.group!;
+        }
       }
 
       if (!mounted) {
@@ -135,7 +150,16 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         widget.groupId,
         afterId: latestId,
       );
-      if (!mounted || response.messages.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      if (response.group != null || _lastReadMessageId != response.lastReadMessageId) {
+        setState(() {
+          _group = response.group ?? _group;
+          _lastReadMessageId = response.lastReadMessageId;
+        });
+      }
+      if (response.messages.isEmpty) {
         return;
       }
       setState(() {
@@ -224,8 +248,11 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       _selectedPhotoBytes = null;
       _showEmojiPicker = false;
       _replyingTo = null;
+      _typingSent = false;
     });
+    _typingDebounce?.cancel();
     _controller.clear();
+    unawaited(_sendTypingStatus(false));
     _scrollToBottom();
 
     try {
@@ -392,6 +419,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       setState(() {
         _messages = _dedupeMessages([...response.messages, ..._messages]);
         _hasMore = response.hasMore;
+        _lastReadMessageId = response.lastReadMessageId;
+        _group = response.group ?? _group;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -412,6 +441,15 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   void _handleScroll() {
     if (!_scrollController.hasClients || _isLoading) {
       return;
+    }
+    final distanceFromBottom =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    final shouldShowJump = distanceFromBottom > 240;
+    if (shouldShowJump != _showJumpToBottom) {
+      setState(() {
+        _showJumpToBottom = shouldShowJump;
+      });
     }
     if (_scrollController.position.pixels <= 80) {
       unawaited(_loadOlder());
@@ -439,6 +477,53 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   List<GroupMessage> _dedupeMessages(List<GroupMessage> items) {
     final seen = <int>{};
     return items.where((item) => seen.add(item.id)).toList();
+  }
+
+  void _handleComposerChanged() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      _typingDebounce?.cancel();
+      if (_typingSent) {
+        unawaited(_sendTypingStatus(false));
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    if (!_typingSent ||
+        _lastTypingPingAt == null ||
+        now.difference(_lastTypingPingAt!) >= const Duration(seconds: 2)) {
+      _lastTypingPingAt = now;
+      unawaited(_sendTypingStatus(true));
+    }
+
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(seconds: 3), () {
+      if (_typingSent) {
+        unawaited(_sendTypingStatus(false));
+      }
+    });
+  }
+
+  Future<void> _sendTypingStatus(bool isTyping) async {
+    final group = _group;
+    if (group == null || !group.isMember || !mounted) {
+      return;
+    }
+
+    try {
+      final updatedGroup = await widget.repository.setTypingStatus(
+        widget.groupId,
+        isTyping: isTyping,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _typingSent = isTyping;
+        _group = updatedGroup;
+      });
+    } catch (_) {}
   }
 
   Future<void> _openProfile(String username) async {
@@ -645,10 +730,32 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     return localizations.formatMediumDate(local);
   }
 
+  int? _firstUnreadIndex() {
+    if (_lastReadMessageId <= 0) {
+      return null;
+    }
+
+    for (var index = 0; index < _messages.length; index++) {
+      final message = _messages[index];
+      if (message.userId != widget.currentUser?.id &&
+          message.id > _lastReadMessageId) {
+        return index;
+      }
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final group = _group;
+    final firstUnreadIndex = _firstUnreadIndex();
+    final typingUserName = group?.typingUserName.trim() ?? '';
+    final isSomeoneElseTyping =
+        group != null &&
+        typingUserName.isNotEmpty &&
+        group.typingUserId != widget.currentUser?.id;
 
     return PopScope<bool>(
       canPop: false,
@@ -739,65 +846,104 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                     ),
                   ),
                 Expanded(
-                  child: group == null
-                      ? const SizedBox.shrink()
-                      : !group.isMember
-                      ? _LockedGroupState(
-                          group: group,
-                          isJoining: _isJoining,
-                          onJoin: _joinGroup,
-                        )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                          itemCount:
-                              _messages.length + (_isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (_isLoadingMore && index == 0) {
-                              return const Padding(
-                                padding: EdgeInsets.only(bottom: 16),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: group == null
+                            ? const SizedBox.shrink()
+                            : !group.isMember
+                            ? _LockedGroupState(
+                                group: group,
+                                isJoining: _isJoining,
+                                onJoin: _joinGroup,
+                              )
+                            : ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                                itemCount:
+                                    _messages.length + (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (_isLoadingMore && index == 0) {
+                                    return const Padding(
+                                      padding: EdgeInsets.only(bottom: 16),
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  }
 
-                            final message =
-                                _messages[_isLoadingMore ? index - 1 : index];
-                            final messageIndex = _isLoadingMore
-                                ? index - 1
-                                : index;
-                            final isMine =
-                                widget.currentUser?.id == message.userId;
-                            return Column(
-                              children: [
-                                if (_shouldShowDateDivider(messageIndex))
-                                  _ChatDateDivider(
-                                    label: _formatDateDivider(message.createdAt),
-                                  ),
-                                _GroupMessageBubble(
-                                  message: message,
-                                  isMine: isMine,
-                                  canDelete: isMine || group.isOwner,
-                                  onProfileTap: message.sender == null
-                                      ? null
-                                      : () => _openProfile(
-                                            message.sender!.username,
-                                          ),
-                                  onReply: () {
-                                    setState(() {
-                                      _replyingTo = message;
-                                    });
-                                  },
-                                  onDelete: () => _deleteMessage(message),
-                                  onLinkTap: _handleLinkTap,
-                                ),
-                              ],
-                            );
-                          },
+                                  final message =
+                                      _messages[_isLoadingMore ? index - 1 : index];
+                                  final messageIndex = _isLoadingMore
+                                      ? index - 1
+                                      : index;
+                                  final isMine =
+                                      widget.currentUser?.id == message.userId;
+                                  final previousMessage = messageIndex > 0
+                                      ? _messages[messageIndex - 1]
+                                      : null;
+                                  final groupedWithPrevious =
+                                      previousMessage != null &&
+                                      previousMessage.userId == message.userId &&
+                                      !_shouldShowDateDivider(messageIndex);
+                                  return Column(
+                                    children: [
+                                      if (_shouldShowDateDivider(messageIndex))
+                                        _ChatDateDivider(
+                                          label: _formatDateDivider(message.createdAt),
+                                        ),
+                                      if (firstUnreadIndex != null &&
+                                          messageIndex == firstUnreadIndex)
+                                        const _ChatUnreadDivider(),
+                                      _GroupMessageBubble(
+                                        message: message,
+                                        isMine: isMine,
+                                        canDelete: isMine || group.isOwner,
+                                        showAvatar: !isMine && !groupedWithPrevious,
+                                        showSenderName: !isMine && !groupedWithPrevious,
+                                        compactTopSpacing: groupedWithPrevious,
+                                        onProfileTap: message.sender == null
+                                            ? null
+                                            : () => _openProfile(
+                                                  message.sender!.username,
+                                                ),
+                                        onReply: () {
+                                          setState(() {
+                                            _replyingTo = message;
+                                          });
+                                        },
+                                        onDelete: () => _deleteMessage(message),
+                                        onLinkTap: _handleLinkTap,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                      ),
+                      if (_showJumpToBottom)
+                        Positioned(
+                          right: 18,
+                          bottom: 16,
+                          child: FloatingActionButton.small(
+                            heroTag: 'group_jump_bottom',
+                            backgroundColor: colors.surface,
+                            foregroundColor: colors.textPrimary,
+                            onPressed: () => _scrollToBottom(),
+                            child: const Icon(Icons.keyboard_arrow_down_rounded),
+                          ),
                         ),
+                    ],
+                  ),
                 ),
                 if (group != null && group.isMember) ...[
+                  if (isSomeoneElseTyping)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _TypingIndicator(name: typingUserName),
+                      ),
+                    ),
                   if (_replyingTo != null)
                     _ReplyPreview(
                       message: _replyingTo!,
@@ -1139,11 +1285,43 @@ class _ChatDateDivider extends StatelessWidget {
   }
 }
 
+class _ChatUnreadDivider extends StatelessWidget {
+  const _ChatUnreadDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: colors.border)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              'New messages',
+              style: TextStyle(
+                color: colors.brand,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: colors.border)),
+        ],
+      ),
+    );
+  }
+}
+
 class _GroupMessageBubble extends StatelessWidget {
   const _GroupMessageBubble({
     required this.message,
     required this.isMine,
     required this.canDelete,
+    required this.showAvatar,
+    required this.showSenderName,
+    required this.compactTopSpacing,
     required this.onProfileTap,
     required this.onReply,
     required this.onDelete,
@@ -1153,6 +1331,9 @@ class _GroupMessageBubble extends StatelessWidget {
   final GroupMessage message;
   final bool isMine;
   final bool canDelete;
+  final bool showAvatar;
+  final bool showSenderName;
+  final bool compactTopSpacing;
   final VoidCallback? onProfileTap;
   final VoidCallback onReply;
   final VoidCallback onDelete;
@@ -1163,7 +1344,7 @@ class _GroupMessageBubble extends StatelessWidget {
     final colors = context.appColors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: compactTopSpacing ? 6 : 12),
       child: Row(
         mainAxisAlignment: isMine
             ? MainAxisAlignment.end
@@ -1171,24 +1352,27 @@ class _GroupMessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine) ...[
-            InkWell(
-              onTap: onProfileTap,
-              borderRadius: BorderRadius.circular(999),
-              child: CircleAvatar(
-                radius: 14,
-                backgroundImage: message.sender?.photoUrl.isNotEmpty == true
-                    ? NetworkImage(
-                        ImageUrlResolver.avatar(
-                          message.sender!.photoUrl,
-                          size: 42,
-                        ),
-                      )
-                    : null,
-                child: message.sender?.photoUrl.isEmpty ?? true
-                    ? const Icon(Icons.person, size: 14)
-                    : null,
-              ),
-            ),
+            if (showAvatar)
+              InkWell(
+                onTap: onProfileTap,
+                borderRadius: BorderRadius.circular(999),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundImage: message.sender?.photoUrl.isNotEmpty == true
+                      ? NetworkImage(
+                          ImageUrlResolver.avatar(
+                            message.sender!.photoUrl,
+                            size: 42,
+                          ),
+                        )
+                      : null,
+                  child: message.sender?.photoUrl.isEmpty ?? true
+                      ? const Icon(Icons.person, size: 14)
+                      : null,
+                ),
+              )
+            else
+              const SizedBox(width: 28),
             const SizedBox(width: 8),
           ],
           Flexible(
@@ -1197,7 +1381,7 @@ class _GroupMessageBubble extends StatelessWidget {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                if (!isMine)
+                if (!isMine && showSenderName)
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 4),
                     child: InkWell(
@@ -1411,6 +1595,87 @@ class _MessageDeliveryStatus extends StatelessWidget {
             offset: const Offset(-4, 0),
             child: Icon(Icons.done_rounded, size: 14, color: iconColor),
           ),
+      ],
+    );
+  }
+}
+
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator({required this.name});
+
+  final String name;
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${widget.name} is typing',
+          style: TextStyle(
+            color: colors.brand,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 6),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (index) {
+                final phase = (_controller.value - (index * 0.16)) % 1.0;
+                final wave = (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) / 2;
+                final opacity = 0.25 + (wave * 0.75);
+                final yOffset = 1.5 - (wave * 1.5);
+
+                return Padding(
+                  padding: EdgeInsets.only(right: index == 2 ? 0 : 3),
+                  child: Transform.translate(
+                    offset: Offset(0, yOffset),
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Container(
+                        width: 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.brand,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
       ],
     );
   }

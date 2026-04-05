@@ -278,7 +278,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               Divider(color: colors.borderStrong, height: 1),
                               const SizedBox(height: 10),
                               Text(
-                                'You are special to us every day 💙. Please update your profile info to personalize your experience on our app.',
+                                'You are special to us every day 💙. Please update your profile info and photo next, to personalize your experience on our app.',
                                 style: TextStyle(
                                   color: colors.textSecondary,
                                   fontSize: 13,

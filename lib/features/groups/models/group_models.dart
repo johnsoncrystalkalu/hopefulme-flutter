@@ -46,6 +46,9 @@ class AppGroup {
     required this.membersCount,
     required this.unreadCount,
     required this.updatedAt,
+    required this.typingUserId,
+    required this.typingAt,
+    required this.typingUserName,
     required this.communityLabel,
     required this.owner,
     required this.latestMessage,
@@ -63,6 +66,9 @@ class AppGroup {
   final int membersCount;
   final int unreadCount;
   final String updatedAt;
+  final int? typingUserId;
+  final String typingAt;
+  final String typingUserName;
   final String? communityLabel;
   final ConversationUser? owner;
   final GroupMessage? latestMessage;
@@ -85,6 +91,11 @@ class AppGroup {
       membersCount: parseInt(json['members_count']),
       unreadCount: parseInt(json['unread_count']),
       updatedAt: json['updated_at']?.toString() ?? '',
+      typingUserId: json['typing_user_id'] == null
+          ? null
+          : parseInt(json['typing_user_id']),
+      typingAt: json['typing_at']?.toString() ?? '',
+      typingUserName: json['typing_user_name']?.toString() ?? '',
       communityLabel: json['community_label']?.toString(),
       owner: (json['owner'] as Map<String, dynamic>?)?.let(
         ConversationUser.fromJson,
@@ -97,10 +108,17 @@ class AppGroup {
 }
 
 class GroupMessagePage {
-  const GroupMessagePage({required this.messages, required this.hasMore});
+  const GroupMessagePage({
+    required this.messages,
+    required this.hasMore,
+    required this.lastReadMessageId,
+    required this.group,
+  });
 
   final List<GroupMessage> messages;
   final bool hasMore;
+  final int lastReadMessageId;
+  final AppGroup? group;
 
   factory GroupMessagePage.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as List<dynamic>? ?? <dynamic>[];
@@ -110,6 +128,8 @@ class GroupMessagePage {
           .map(GroupMessage.fromJson)
           .toList(),
       hasMore: parseBool(json['has_more']),
+      lastReadMessageId: parseInt(json['last_read_message_id']),
+      group: (json['group'] as Map<String, dynamic>?)?.let(AppGroup.fromJson),
     );
   }
 }
