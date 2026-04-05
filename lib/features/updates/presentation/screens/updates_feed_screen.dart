@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:hopefulme_flutter/features/community/presentation/widgets/most_active_users_card.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
@@ -229,9 +230,18 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                     const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return _ActivitiesComposerCard(
-                      user: widget.currentUser,
-                      onTap: _openCreateUpdate,
+                    return Column(
+                      children: [
+                        _ActivitiesComposerCard(
+                          user: widget.currentUser,
+                          onTap: _openCreateUpdate,
+                        ),
+                        const SizedBox(height: 14),
+                        MostActiveUsersCard(
+                          feedRepository: widget.feedRepository,
+                          onOpenProfile: _openProfile,
+                        ),
+                      ],
                     );
                   }
 

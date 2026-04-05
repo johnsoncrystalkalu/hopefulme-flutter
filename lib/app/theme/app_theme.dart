@@ -24,6 +24,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   const AppThemeColors({
     required this.brand,
     required this.brandStrong,
+    required this.heroStart,
+    required this.heroEnd,
     required this.accent,
     required this.scaffold,
     required this.surface,
@@ -54,6 +56,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
   final Color brand;
   final Color brandStrong;
+  final Color heroStart;
+  final Color heroEnd;
   final Color accent;
   final Color scaffold;
   final Color surface;
@@ -82,10 +86,17 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color shadow;
 
   LinearGradient get brandGradient => LinearGradient(colors: [brand, brand]);
+  LinearGradient get heroGradient => LinearGradient(
+    colors: [heroStart, heroStart],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   static const light = AppThemeColors(
     brand: AppColors.brand,
     brandStrong: AppColors.brandDark,
+    heroStart: AppColors.brandDark,
+    heroEnd: AppColors.brand,
     accent: AppColors.accent,
     scaffold: Color(0xFFF4F7FB),
     surface: Colors.white,
@@ -115,8 +126,12 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   );
 
   static const dark = AppThemeColors(
-    brand: Color(0xFF7C93FF),
-    brandStrong: Color(0xFF5876FF),
+   // brand: Color(0xFF7C93FF),
+     brand: AppColors.brand,
+  //  brandStrong: Color(0xFF5876FF),
+   brandStrong: AppColors.brandDark,
+    heroStart: Color(0xFF1C2F99),
+    heroEnd: Color(0xFF3049D8),
     accent: Color(0xFFA78BFA),
     scaffold: Color(0xFF0B1220),
     surface: Color(0xFF111A2E),
@@ -149,6 +164,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   AppThemeColors copyWith({
     Color? brand,
     Color? brandStrong,
+    Color? heroStart,
+    Color? heroEnd,
     Color? accent,
     Color? scaffold,
     Color? surface,
@@ -179,6 +196,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     return AppThemeColors(
       brand: brand ?? this.brand,
       brandStrong: brandStrong ?? this.brandStrong,
+      heroStart: heroStart ?? this.heroStart,
+      heroEnd: heroEnd ?? this.heroEnd,
       accent: accent ?? this.accent,
       scaffold: scaffold ?? this.scaffold,
       surface: surface ?? this.surface,
@@ -217,6 +236,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     return AppThemeColors(
       brand: Color.lerp(brand, other.brand, t)!,
       brandStrong: Color.lerp(brandStrong, other.brandStrong, t)!,
+      heroStart: Color.lerp(heroStart, other.heroStart, t)!,
+      heroEnd: Color.lerp(heroEnd, other.heroEnd, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       scaffold: Color.lerp(scaffold, other.scaffold, t)!,
       surface: Color.lerp(surface, other.surface, t)!,

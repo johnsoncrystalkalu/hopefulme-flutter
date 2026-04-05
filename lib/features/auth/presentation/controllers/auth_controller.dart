@@ -79,6 +79,7 @@ class AuthController extends ChangeNotifier {
     required String fullname,
     required String username,
     required String email,
+    required String role1,
     required String gender,
     required String password,
   }) async {
@@ -87,6 +88,7 @@ class AuthController extends ChangeNotifier {
         fullname: fullname,
         username: username,
         email: email,
+        role1: role1,
         gender: gender,
         password: password,
       );

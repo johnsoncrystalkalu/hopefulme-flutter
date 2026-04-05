@@ -210,6 +210,8 @@ class FeedUser {
     required this.lastSeen,
     required this.city,
     required this.state,
+    required this.monthlyActivity,
+    required this.loginActivity,
   });
 
   final int id;
@@ -221,6 +223,8 @@ class FeedUser {
   final String lastSeen;
   final String city;
   final String state;
+  final double monthlyActivity;
+  final double loginActivity;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
   bool get isVerified => verified.toLowerCase() == 'yes';
@@ -243,6 +247,28 @@ class FeedUser {
       lastSeen: json['last_seen']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
+      monthlyActivity: parseDouble(json['monthly_activity']),
+      loginActivity: parseDouble(json['login_activity']),
+    );
+  }
+}
+
+class CommunityLeaderboard {
+  const CommunityLeaderboard({
+    required this.monthlyTop,
+    required this.allTimeTop,
+  });
+
+  final List<FeedUser> monthlyTop;
+  final List<FeedUser> allTimeTop;
+
+  factory CommunityLeaderboard.fromJson(Map<String, dynamic> json) {
+    return CommunityLeaderboard(
+      monthlyTop: FeedDashboard._mapList(json['monthly_top'], FeedUser.fromJson),
+      allTimeTop: FeedDashboard._mapList(
+        json['all_time_top'],
+        FeedUser.fromJson,
+      ),
     );
   }
 }

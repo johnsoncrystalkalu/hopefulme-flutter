@@ -44,6 +44,7 @@ class AppGroup {
     required this.isMember,
     required this.isOwner,
     required this.membersCount,
+    required this.unreadCount,
     required this.updatedAt,
     required this.communityLabel,
     required this.owner,
@@ -60,6 +61,7 @@ class AppGroup {
   final bool isMember;
   final bool isOwner;
   final int membersCount;
+  final int unreadCount;
   final String updatedAt;
   final String? communityLabel;
   final ConversationUser? owner;
@@ -67,6 +69,7 @@ class AppGroup {
 
   bool get isPrivate => type == 'private';
   bool get isCommunity => id == 1;
+  bool get hasUnread => unreadCount > 0;
 
   factory AppGroup.fromJson(Map<String, dynamic> json) {
     return AppGroup(
@@ -80,6 +83,7 @@ class AppGroup {
       isMember: parseBool(json['is_member']),
       isOwner: parseBool(json['is_owner']),
       membersCount: parseInt(json['members_count']),
+      unreadCount: parseInt(json['unread_count']),
       updatedAt: json['updated_at']?.toString() ?? '',
       communityLabel: json['community_label']?.toString(),
       owner: (json['owner'] as Map<String, dynamic>?)?.let(

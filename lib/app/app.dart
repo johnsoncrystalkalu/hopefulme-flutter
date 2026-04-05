@@ -401,7 +401,7 @@ class _AppLoadingScreen extends StatelessWidget {
 
               // Refined subtext
               Text(
-                'Loading your space...',
+                'Inspire the world around you...',
                 style: TextStyle(
                   color: colors.textMuted,
                   fontSize: 14,

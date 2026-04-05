@@ -172,12 +172,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      gradient: colors.brandGradient,
-                      borderRadius: BorderRadius.circular(26),
-                    ),
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        gradient: colors.heroGradient,
+                        borderRadius: BorderRadius.circular(26),
+                      ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -334,12 +334,12 @@ class _MyGroupCard extends StatelessWidget {
             ),
           ),
           padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Spacer(),
-              Text(
-                group.name,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                Text(
+                  group.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -397,19 +397,19 @@ class _CommunityCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          group.name,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                        Expanded(
+                          child: Text(
+                            group.name,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
@@ -482,21 +482,21 @@ class _DiscoverGroupCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: colors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
+                            ),
                           ),
-                        ),
-                        if (group.isPrivate)
-                          Icon(
-                            Icons.lock_outline,
+                          if (group.isPrivate)
+                            Icon(
+                              Icons.lock_outline,
                             size: 16,
                             color: colors.textMuted,
                           ),
@@ -541,6 +541,26 @@ class _DiscoverGroupCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        const Spacer(),
+                        if (group.hasUnread)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],

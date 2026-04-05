@@ -111,6 +111,7 @@ class LibraryItem {
 class LibraryLinks {
   const LibraryLinks({
     required this.pdf,
+    required this.pdfViewUrl,
     required this.epub,
     required this.apk,
     required this.apkUrl,
@@ -123,6 +124,7 @@ class LibraryLinks {
   });
 
   final String pdf;
+  final String pdfViewUrl;
   final String epub;
   final String apk;
   final String apkUrl;
@@ -134,6 +136,7 @@ class LibraryLinks {
   final String appstoreUrl;
 
   bool get hasPdf => pdf.trim().isNotEmpty;
+  bool get hasReadablePdf => pdfViewUrl.trim().isNotEmpty || hasPdf;
   bool get hasEpub => epub.trim().isNotEmpty;
   bool get hasApk => apk.trim().isNotEmpty || apkUrl.trim().isNotEmpty;
   bool get hasExternalDownload => externalDownloadUrl.trim().isNotEmpty;
@@ -143,6 +146,7 @@ class LibraryLinks {
   factory LibraryLinks.fromJson(Map<String, dynamic> json) {
     return LibraryLinks(
       pdf: json['pdf']?.toString() ?? '',
+      pdfViewUrl: json['pdf_view_url']?.toString() ?? '',
       epub: json['epub']?.toString() ?? '',
       apk: json['apk']?.toString() ?? '',
       apkUrl: json['apk_url']?.toString() ?? '',

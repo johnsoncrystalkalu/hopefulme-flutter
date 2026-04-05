@@ -55,6 +55,7 @@ class AuthRepository {
     required String fullname,
     required String username,
     required String email,
+    required String role1,
     required String gender,
     required String password,
   }) async {
@@ -64,6 +65,7 @@ class AuthRepository {
         'fullname': fullname,
         'username': username,
         'email': email,
+        'role1': role1,
         'gender': gender,
         'password': password,
         'password_confirmation': password,
@@ -83,6 +85,14 @@ class AuthRepository {
     return response['available'] == true;
   }
 
+  Future<List<String>> fetchRegistrationRoles() async {
+    final response = await _apiClient.get('auth/register-options');
+    return (response['roles'] as List<dynamic>? ?? const <dynamic>[])
+        .map((item) => item.toString())
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+  }
+
   Future<User> currentUser() async {
     final response = await _apiClient.get('auth/me');
     final userJson = response['user'] as Map<String, dynamic>? ?? response;
@@ -93,6 +103,15 @@ class AuthRepository {
 
   Future<void> pingPresence() async {
     await _apiClient.post('presence/ping');
+  }
+
+  Future<String> createWebSessionUrl(String target) async {
+    final response = await _apiClient.post(
+      'auth/web-session-link',
+      body: <String, dynamic>{'target': target},
+    );
+
+    return response['url']?.toString() ?? '';
   }
 
   Future<void> logout() async {

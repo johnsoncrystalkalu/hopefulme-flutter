@@ -116,6 +116,46 @@ class FeedRepository {
     }
   }
 
+  Future<List<FeedUser>> fetchMostActiveUsers({int limit = 4}) async {
+    final normalizedLimit = limit.clamp(1, 12);
+    final key = 'most-active:$normalizedLimit';
+    try {
+      final response = await _authRepository.get(
+        'community/most-active',
+        queryParameters: {'limit': normalizedLimit},
+      );
+      await _cache.save(key, response);
+      return (response['data'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(FeedUser.fromJson)
+          .toList();
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return (cached['data'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(FeedUser.fromJson)
+            .toList();
+      }
+      rethrow;
+    }
+  }
+
+  Future<CommunityLeaderboard> fetchCommunityLeaderboard() async {
+    const key = 'community-leaderboard';
+    try {
+      final response = await _authRepository.get('community/leaderboard');
+      await _cache.save(key, response);
+      return CommunityLeaderboard.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return CommunityLeaderboard.fromJson(cached);
+      }
+      rethrow;
+    }
+  }
+
   Future<FeedEntryPage> fetchBlogsPage({int page = 1}) async {
     final key = 'blogs:$page';
     try {

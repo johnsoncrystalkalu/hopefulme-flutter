@@ -6,6 +6,8 @@ import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/models/library_models.dart';
+import 'package:hopefulme_flutter/features/library/presentation/screens/library_reader_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LibraryDetailScreen extends StatefulWidget {
   const LibraryDetailScreen({
@@ -45,9 +47,42 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
     );
   }
 
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return;
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open this download right now.')),
+      );
+    }
+  }
+
   String _downloadUrl(LibraryItem item, String format) {
     final base = AppConfig.fromEnvironment().webBaseUrl;
     return '$base/library/${item.id}/download/$format';
+  }
+
+  String _readUrl(LibraryItem item) {
+    if (item.links.pdfViewUrl.trim().isNotEmpty) {
+      return item.links.pdfViewUrl;
+    }
+    final base = AppConfig.fromEnvironment().webBaseUrl;
+    return '$base/library/${item.id}/view/pdf';
+  }
+
+  Future<void> _openReader(LibraryItem item) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => LibraryReaderScreen(
+          title: item.title,
+          url: _readUrl(item),
+        ),
+      ),
+    );
   }
 
   @override
@@ -187,10 +222,6 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
                           runSpacing: 10,
                           children: [
                             _MetricChip(
-                              icon: Icons.download_outlined,
-                              label: '${item.downloads} downloads',
-                            ),
-                            _MetricChip(
                               icon: Icons.remove_red_eye_outlined,
                               label: '${item.views} views',
                             ),
@@ -211,25 +242,27 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        if (item.links.hasReadablePdf)
+                          _ActionLink(
+                            color: colors.brand,
+                            icon: Icons.chrome_reader_mode_outlined,
+                            label: 'Read in app',
+                            onTap: () => _openReader(item),
+                          ),
                         if (item.links.hasPdf)
                           _ActionLink(
                             color: const Color(0xFFEF4444),
                             icon: Icons.picture_as_pdf_outlined,
                             label: 'Download PDF',
-                            onTap: () => _openWebPage(
-                              'PDF Download',
-                              _downloadUrl(item, 'pdf'),
-                            ),
+                            onTap: () => _openExternalUrl(_downloadUrl(item, 'pdf')),
                           ),
                         if (item.links.hasEpub)
                           _ActionLink(
                             color: const Color(0xFF3B82F6),
                             icon: Icons.menu_book_outlined,
                             label: 'Download EPUB',
-                            onTap: () => _openWebPage(
-                              'EPUB Download',
-                              _downloadUrl(item, 'epub'),
-                            ),
+                            onTap: () =>
+                                _openExternalUrl(_downloadUrl(item, 'epub')),
                           ),
                         if (item.links.hasExternalDownload)
                           _ActionLink(
@@ -261,8 +294,7 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
                             color: const Color(0xFF22C55E),
                             icon: Icons.android_rounded,
                             label: 'Download Android App',
-                            onTap: () => _openWebPage(
-                              'Android App',
+                            onTap: () => _openExternalUrl(
                               item.links.apkUrl.isNotEmpty
                                   ? item.links.apkUrl
                                   : _downloadUrl(item, 'apk'),

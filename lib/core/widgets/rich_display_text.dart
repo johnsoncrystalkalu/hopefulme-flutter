@@ -38,6 +38,12 @@ class _RichDisplayTextState extends State<RichDisplayText> {
   final List<TapGestureRecognizer> _recognizers = <TapGestureRecognizer>[];
   List<InlineSpan>? _cachedSpans;
   String? _lastProcessedText;
+  TextStyle? _lastStyle;
+  TextStyle? _lastMentionStyle;
+  TextStyle? _lastHashtagStyle;
+  TextStyle? _lastLinkStyle;
+  Brightness? _lastBrightness;
+  Color? _lastPrimaryColor;
 
   @override
   void dispose() {
@@ -51,9 +57,25 @@ class _RichDisplayTextState extends State<RichDisplayText> {
       return const SizedBox.shrink();
     }
 
-    if (_lastProcessedText != widget.text) {
+    final theme = Theme.of(context);
+    final shouldRebuildSpans =
+        _lastProcessedText != widget.text ||
+        _lastStyle != widget.style ||
+        _lastMentionStyle != widget.mentionStyle ||
+        _lastHashtagStyle != widget.hashtagStyle ||
+        _lastLinkStyle != widget.linkStyle ||
+        _lastBrightness != theme.brightness ||
+        _lastPrimaryColor != theme.colorScheme.primary;
+
+    if (shouldRebuildSpans) {
       _disposeRecognizers();
       _lastProcessedText = widget.text;
+      _lastStyle = widget.style;
+      _lastMentionStyle = widget.mentionStyle;
+      _lastHashtagStyle = widget.hashtagStyle;
+      _lastLinkStyle = widget.linkStyle;
+      _lastBrightness = theme.brightness;
+      _lastPrimaryColor = theme.colorScheme.primary;
       _cachedSpans = _buildSpans(context);
     }
 

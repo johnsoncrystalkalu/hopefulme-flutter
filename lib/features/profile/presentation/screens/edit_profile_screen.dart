@@ -52,6 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _emailNotifications = true;
   Object? _error;
   String _gender = 'male';
   String _theme = 'light';
@@ -106,6 +107,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _phoneController.text = profile.phoneNumber;
       _gender = profile.gender.isNotEmpty ? profile.gender : 'male';
       _theme = profile.theme.isNotEmpty ? profile.theme : 'light';
+      _emailNotifications = profile.emailNotifications;
       _selectedRole = profile.role1;
       _selectedCountry = profile.location;
       _selectedState = profile.state;
@@ -194,6 +196,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         birthDay: _selectedBirthDay.trim(),
         birthMonth: _selectedBirthMonth.trim(),
         phoneNumber: _phoneController.text.trim(),
+        emailNotifications: _emailNotifications,
         theme: _theme,
         password: _passwordController.text.trim(),
       );
@@ -528,6 +531,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 final dayField = _LabeledField(
                                   label: 'Birth Day',
                                   child: DropdownButtonFormField<String>(
+                                    isExpanded: true,
                                     value: _selectedBirthDay.isNotEmpty
                                         ? _selectedBirthDay
                                         : null,
@@ -554,6 +558,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 final monthField = _LabeledField(
                                   label: 'Birth Month',
                                   child: DropdownButtonFormField<String>(
+                                    isExpanded: true,
                                     value: _selectedBirthMonth.isNotEmpty
                                         ? _selectedBirthMonth
                                         : null,
@@ -632,6 +637,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 16),
+                      const _CardTitle(
+                        title: 'Preferences',
+                        subtitle:
+                            'Choose how HopefulMe reaches you outside the app.',
+                      ),
+                      const SizedBox(height: 10),
+                      _EditCard(
+                        child: SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          value: _emailNotifications,
+                          activeThumbColor: colors.brand,
+                          activeTrackColor: colors.brand.withValues(alpha: 0.35),
+                          title: Text(
+                            'Email Notifications',
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Receive important HopefulMe emails like account updates, reminders, and greetings.',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 12.5,
+                              height: 1.45,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _emailNotifications = value;
+                            });
+                          },
+                        ),
+                      ),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,

@@ -35,13 +35,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Timer? _usernameDebounce;
 
   String _gender = 'male';
+  String _selectedRole = '';
   bool _showPassword = false;
+  bool _loadingRoles = true;
   _UsernameAvailability _usernameState = _UsernameAvailability.idle;
+  List<String> _roleOptions = const <String>[];
 
   @override
   void initState() {
     super.initState();
     _usernameController.addListener(_onUsernameChanged);
+    unawaited(_loadRoleOptions());
   }
 
   @override
@@ -134,6 +138,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
+  Future<void> _loadRoleOptions() async {
+    try {
+      final roles = await widget.authController.authRepository
+          .fetchRegistrationRoles();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _roleOptions = roles;
+        if (_selectedRole.isEmpty && _roleOptions.isNotEmpty) {
+          _selectedRole = _roleOptions.first;
+        }
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (_selectedRole.isEmpty) {
+          _selectedRole = 'Hopeful Member';
+        }
+        _roleOptions = const <String>['Hopeful Member'];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingRoles = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _usernameBlocksSubmit) {
       return;
@@ -144,6 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       fullname: _fullnameController.text.trim(),
       username: _normalizedUsername,
       email: _emailController.text.trim(),
+      role1: _selectedRole.trim(),
       gender: _gender,
       password: _passwordController.text,
     );
@@ -352,8 +389,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 return null;
                               },
                               decoration: _inputDecoration(
-                                hintText: 'you@example.com',
+                                hintText: 'Your email',
                               ),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'Role',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              value:
+                                  _selectedRole.isNotEmpty &&
+                                      _roleOptions.contains(_selectedRole)
+                                  ? _selectedRole
+                                  : null,
+                              items: _roleOptions
+                                  .map(
+                                    (role) => DropdownMenuItem<String>(
+                                      value: role,
+                                      child: Text(
+                                        role,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _loadingRoles
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedRole = value ?? '';
+                                      });
+                                    },
+                              validator: (value) {
+                                if ((value ?? '').trim().isEmpty) {
+                                  return 'Role is required.';
+                                }
+                                return null;
+                              },
+                              decoration: _inputDecoration(
+                                hintText: _loadingRoles
+                                    ? 'Loading roles...'
+                                    : 'Select any role...',
+                              ),
+                              isExpanded: true,
                             ),
                             const SizedBox(height: 18),
                             Text(

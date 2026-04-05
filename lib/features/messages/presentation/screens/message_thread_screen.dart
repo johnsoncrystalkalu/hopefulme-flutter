@@ -787,20 +787,32 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                         config: Config(
                           height: 320,
                           checkPlatformCompatibility: true,
-                          emojiViewConfig: const EmojiViewConfig(
+                          emojiViewConfig: EmojiViewConfig(
                             emojiSizeMax: 26,
+                            backgroundColor: colors.surfaceMuted,
                           ),
                           categoryViewConfig: CategoryViewConfig(
+                            backgroundColor: colors.surface,
+                            indicatorColor: colors.brand,
                             iconColor: colors.textMuted,
                             iconColorSelected: colors.brand,
                             backspaceColor: colors.brand,
+                            dividerColor: colors.border,
                           ),
                           bottomActionBarConfig: const BottomActionBarConfig(
                             enabled: false,
                           ),
                           searchViewConfig: SearchViewConfig(
-                            backgroundColor: colors.surface,
+                            backgroundColor: colors.surfaceMuted,
                             buttonIconColor: colors.textMuted,
+                            inputTextStyle: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                            ),
+                            hintTextStyle: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),

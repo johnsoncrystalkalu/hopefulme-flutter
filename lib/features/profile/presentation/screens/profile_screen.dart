@@ -136,11 +136,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               role2: dashboard.profile.role2,
               location: dashboard.profile.location,
               city: dashboard.profile.city,
-              state: dashboard.profile.state,
-              birthday: dashboard.profile.birthday,
-              phoneNumber: dashboard.profile.phoneNumber,
-              theme: dashboard.profile.theme,
-              device: dashboard.profile.device,
+                state: dashboard.profile.state,
+                birthday: dashboard.profile.birthday,
+                phoneNumber: dashboard.profile.phoneNumber,
+                emailNotifications: dashboard.profile.emailNotifications,
+                theme: dashboard.profile.theme,
+                device: dashboard.profile.device,
               verified: dashboard.profile.verified,
               photoUrl: dashboard.profile.photoUrl,
               coverUrl: dashboard.profile.coverUrl,
@@ -398,6 +399,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             menuKey: _avatarMenuKey,
                           ),
                           const SizedBox(height: 16),
+                          if (_isBirthdayToday(dashboard.profile.birthday))
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _BirthdayBanner(
+                                profile: dashboard.profile,
+                              ),
+                            ),
                           _ProfileTabs(
                             selectedTab: _selectedTab,
                             onSelected: (tab) {
@@ -442,6 +450,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+
+bool _isBirthdayToday(String birthday) {
+  final parts = birthday
+      .split('-')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.length < 2) {
+    return false;
+  }
+
+  final day = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  if (day == null || month == null) {
+    return false;
+  }
+
+  final now = DateTime.now();
+  return now.day == day && now.month == month;
 }
 
 enum _ProfileTab { timeline, about, photos, articles }
@@ -499,6 +527,96 @@ class _ProfileHero extends StatelessWidget {
                   icon: const Icon(Icons.arrow_back),
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BirthdayBanner extends StatelessWidget {
+  const _BirthdayBanner({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final firstName = profile.displayName.trim().split(RegExp(r'\s+')).first;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: const BoxDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFFDA4AF).withValues(alpha: 0.25),
+              ),
+            ),
+            child: const Icon(
+              Icons.cake_outlined,
+              color: Color(0xFFE11D48),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Happy Birthday',
+                        style: TextStyle(
+                          color: Color(0xFFE11D48),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFE4E6),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'TODAY',
+                        style: TextStyle(
+                          color: Color(0xFFE11D48),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'It\'s $firstName\'s birthday. Here\'s to a year filled with joy and good things ahead! 🎂',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

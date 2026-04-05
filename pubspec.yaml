@@ -47,6 +47,7 @@ dependencies:
   url_launcher: ^6.3.1
   shimmer: ^3.0.0
   onesignal_flutter: ^5.4.6
+  syncfusion_flutter_pdfviewer: ^31.1.22
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

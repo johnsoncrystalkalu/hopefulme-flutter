@@ -134,6 +134,7 @@ class ProfileSummary {
     required this.state,
     required this.birthday,
     required this.phoneNumber,
+    required this.emailNotifications,
     required this.theme,
     required this.device,
     required this.verified,
@@ -161,6 +162,7 @@ class ProfileSummary {
   final String state;
   final String birthday;
   final String phoneNumber;
+  final bool emailNotifications;
   final String theme;
   final String device;
   final String verified;
@@ -201,6 +203,7 @@ class ProfileSummary {
       state: json['state']?.toString() ?? '',
       birthday: json['bdae']?.toString() ?? '',
       phoneNumber: json['phone_number']?.toString() ?? '',
+      emailNotifications: parseBool(json['email_notifications']),
       theme: json['theme']?.toString() ?? '',
       device: json['device']?.toString() ?? '',
       verified: json['verified']?.toString() ?? '',

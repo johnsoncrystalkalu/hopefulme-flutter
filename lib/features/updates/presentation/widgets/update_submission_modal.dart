@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -47,7 +47,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   final TextEditingController _controller = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final ImagePicker _imagePicker = ImagePicker();
+
   bool _submitting = false;
+  bool _showEmojiPicker = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
 
@@ -58,9 +60,11 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   }
 
   Future<void> _pickPhoto() async {
+    FocusScope.of(context).unfocus();
     final photo = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       imageQuality: kIsWeb ? null : 88,
+      maxWidth: 1800,
     );
     if (photo == null || !mounted) {
       return;
@@ -69,6 +73,14 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     setState(() {
       _selectedPhoto = photo;
       _selectedPhotoBytes = bytes;
+      _showEmojiPicker = false;
+    });
+  }
+
+  void _toggleEmojiPicker() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _showEmojiPicker = !_showEmojiPicker;
     });
   }
 
@@ -79,9 +91,11 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
       _formKey.currentState?.validate();
       return;
     }
+
     setState(() {
       _submitting = true;
     });
+
     try {
       final update = await widget.updateRepository.createUpdate(
         status: _controller.text.trim(),
@@ -111,6 +125,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final hasContent =
+        _controller.text.trim().isNotEmpty || _selectedPhoto != null;
+
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -120,10 +137,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
       ),
       child: SingleChildScrollView(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(32),
             border: Border.all(color: colors.borderStrong),
             boxShadow: [
               BoxShadow(
@@ -140,231 +156,446 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colors.brand.withValues(alpha: 0.14),
-                        colors.accentSoft.withValues(alpha: 0.3),
-                        colors.surfaceMuted.withValues(alpha: 0.94),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: colors.brand.withValues(alpha: 0.12),
-                    ),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundImage:
-                            widget.currentUser?.photoUrl.isNotEmpty == true
-                            ? NetworkImage(
-                                ImageUrlResolver.avatar(
-                                  widget.currentUser!.photoUrl,
-                                  size: 66,
-                                ),
-                              )
-                            : null,
-                        child: widget.currentUser?.photoUrl.isEmpty ?? true
-                            ? const Icon(Icons.person)
-                            : null,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed:
+                                  _submitting ? null : () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.arrow_back_rounded),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Text(
+                                //   'Create Update',
+                                //     style: TextStyle(
+                                //       color: colors.textPrimary,
+                                //       fontSize: 20,
+                                //       fontWeight: FontWeight.w900,
+                                //     ),
+                                //   ),
+                              ],
+                            ),
+                          ),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.currentUser?.displayName ??
-                                  'Share an update',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFFED7AA)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 12,
+                              color: Color(0xFFD97706),
                             ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.surface.withValues(alpha: 0.82),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                'Post to feed',
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            SizedBox(width: 5),
+                            Text(
+                              'INSPIRING MODE',
+                              style: TextStyle(
+                                color: Color(0xFFD97706),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.7,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: _submitting
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Create update',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Share something honest, hopeful, or helpful with your community.',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _controller,
-                  minLines: 4,
-                  maxLines: 8,
-                  decoration: const InputDecoration(
-                    hintText: 'What is on your mind?',
-                  ),
-                  validator: (value) {
-                    if ((value == null || value.trim().isEmpty) &&
-                        _selectedPhoto == null) {
-                      return 'Please write something or add a photo.';
-                    }
-                    return null;
-                  },
-                ),
-                if (_selectedPhoto != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: AspectRatio(
-                            aspectRatio: 4 / 3,
-                            child: _selectedPhotoBytes != null
-                                ? Image.memory(
-                                    _selectedPhotoBytes!,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    color: colors.accentSoft,
-                                    child: Icon(
-                                      Icons.image_outlined,
-                                      color: colors.accentSoftText,
-                                    ),
-                                  ),
-                          ),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: colors.border.withValues(alpha: 0.65),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.shadow.withValues(alpha: 0.06),
+                          blurRadius: 30,
+                          offset: const Offset(0, 12),
+                          spreadRadius: -22,
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  colors.surfaceMuted.withValues(alpha: 0.85),
+                                  colors.surface.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 28,
+                                      backgroundImage:
+                                          widget.currentUser?.photoUrl.isNotEmpty == true
+                                          ? NetworkImage(
+                                              ImageUrlResolver.avatar(
+                                                widget.currentUser!.photoUrl,
+                                                size: 84,
+                                              ),
+                                            )
+                                          : null,
+                                      child:
+                                          widget.currentUser?.photoUrl.isEmpty ?? true
+                                          ? const Icon(Icons.person)
+                                          : null,
+                                    ),
+                                    Positioned(
+                                      right: -1,
+                                      bottom: -1,
+                                      child: Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF22C55E),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: colors.surface,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.currentUser?.displayName ??
+                                            'Share an update',
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colors.surface,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: colors.border),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.public_rounded,
+                                              size: 14,
+                                              color: colors.brand,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Anyone can see',
+                                              style: TextStyle(
+                                                color: colors.textSecondary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: TextFormField(
+                              controller: _controller,
+                              minLines: 6,
+                              maxLines: 10,
+                              onTap: () {
+                                if (_showEmojiPicker) {
+                                  setState(() {
+                                    _showEmojiPicker = false;
+                                  });
+                                }
+                              },
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 18,
+                                height: 1.55,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Share your thoughts...',
+                                hintStyle: TextStyle(
+                                  color: colors.textMuted.withValues(alpha: 0.55),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              validator: (value) {
+                                if ((value == null || value.trim().isEmpty) &&
+                                    _selectedPhoto == null) {
+                                  return 'Please write something or add a photo.';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          if (_selectedPhoto != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                              child: Stack(
                                 children: [
-                                  Text(
-                                    _selectedPhoto!.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: colors.textPrimary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: AspectRatio(
+                                      aspectRatio: 4 / 3,
+                                      child: _selectedPhotoBytes != null
+                                          ? Image.memory(
+                                              _selectedPhotoBytes!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(color: colors.accentSoft),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Photo ready to post',
-                                    style: TextStyle(
-                                      color: colors.textMuted,
-                                      fontSize: 12,
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: Material(
+                                      color: colors.surface.withValues(alpha: 0.92),
+                                      shape: const CircleBorder(),
+                                      child: IconButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () {
+                                                setState(() {
+                                                  _selectedPhoto = null;
+                                                  _selectedPhotoBytes = null;
+                                                });
+                                              },
+                                        icon: const Icon(Icons.close_rounded),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: _submitting
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _selectedPhoto = null;
-                                        _selectedPhotoBytes = null;
-                                      });
-                                    },
-                              icon: const Icon(Icons.close),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                            child: Row(
+                              children: [
+                                _ComposerActionButton(
+                                  icon: Icons.image_outlined,
+                                  backgroundColor: colors.accentSoft,
+                                  foregroundColor: colors.brand,
+                                  onPressed: _submitting ? null : _pickPhoto,
+                                ),
+                                const SizedBox(width: 10),
+                                _ComposerActionButton(
+                                  icon: _showEmojiPicker
+                                      ? Icons.keyboard_rounded
+                                      : Icons.emoji_emotions_outlined,
+                                  backgroundColor: colors.warningSoft,
+                                  foregroundColor: colors.warningText,
+                                  onPressed: _submitting ? null : _toggleEmojiPicker,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (_showEmojiPicker)
+                  SizedBox(
+                    height: 320,
+                    child: EmojiPicker(
+                      textEditingController: _controller,
+                      onBackspacePressed: () {},
+                      config: Config(
+                        height: 320,
+                        checkPlatformCompatibility: true,
+                        emojiViewConfig: EmojiViewConfig(
+                          emojiSizeMax: 26,
+                          backgroundColor: colors.surfaceMuted,
+                        ),
+                        categoryViewConfig: CategoryViewConfig(
+                          backgroundColor: colors.surface,
+                          indicatorColor: colors.brand,
+                          iconColor: colors.textMuted,
+                          iconColorSelected: colors.brand,
+                          backspaceColor: colors.brand,
+                          dividerColor: colors.border,
+                        ),
+                        bottomActionBarConfig: const BottomActionBarConfig(
+                          enabled: false,
+                        ),
+                        searchViewConfig: SearchViewConfig(
+                          backgroundColor: colors.surfaceMuted,
+                          buttonIconColor: colors.textMuted,
+                          inputTextStyle: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 14,
+                          ),
+                          hintTextStyle: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted.withValues(alpha: 0.65),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(32),
+                    ),
+                    border: Border(
+                      top: BorderSide(
+                        color: colors.border.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      TextButton(
+                        onPressed:
+                            _submitting ? null : () => Navigator.of(context).pop(),
+                        child: const Text('Discard'),
+                      ),
+                      const Spacer(),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [colors.brand, colors.brandStrong],
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.brand.withValues(alpha: 0.22),
+                              blurRadius: 24,
+                              offset: const Offset(0, 10),
+                              spreadRadius: -16,
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    IconButton.outlined(
-                      onPressed: _submitting ? null : _pickPhoto,
-                      icon: Icon(
-                        _selectedPhoto == null
-                            ? Icons.image_outlined
-                            : Icons.check_circle_outline,
-                        color: colors.brand,
+                        child: FilledButton.icon(
+                          onPressed: _submitting || !hasContent ? null : _submit,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            disabledBackgroundColor: colors.borderStrong,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          icon: _submitting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded, size: 18),
+                          label: Text(
+                            _submitting ? 'Posting...' : 'Post Update',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ),
-                      tooltip: _selectedPhoto == null
-                          ? 'Add Photo'
-                          : 'Photo added',
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: _submitting ? null : _submit,
-                      child: _submitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Post'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerActionButton extends StatelessWidget {
+  const _ComposerActionButton({
+    required this.icon,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Icon(icon, color: foregroundColor),
         ),
       ),
     );

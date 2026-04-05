@@ -31,3 +31,11 @@ So users dont see the moel or api that has issue but see genrric issue.
 
 
 Color(0xFF3D5AFE), Color(0xFF7C3AED)
+
+App bundle
+40 (7.4)
+16+
+31
+4
+All
+1

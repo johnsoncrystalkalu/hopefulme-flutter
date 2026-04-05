@@ -29,3 +29,16 @@ bool parseBool(dynamic value, {bool fallback = false}) {
   }
   return fallback;
 }
+
+double parseDouble(dynamic value, {double fallback = 0}) {
+  if (value is double) {
+    return value;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.tryParse(value.trim()) ?? fallback;
+  }
+  return fallback;
+}

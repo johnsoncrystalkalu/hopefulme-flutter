@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:hopefulme_flutter/features/community/presentation/widgets/most_active_users_card.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -206,6 +207,11 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                           ],
                         ),
                         const SizedBox(height: 22),
+                        MostActiveUsersCard(
+                          feedRepository: widget.feedRepository,
+                          onOpenProfile: _openProfile,
+                        ),
+                        const SizedBox(height: 22),
                         _MeetMainColumn(
                           featured: featured,
                           items: _items,
@@ -230,6 +236,11 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                             users: _newMembers,
                             onTap: _openProfile,
                           ),
+                        const SizedBox(height: 20),
+                        MostActiveUsersCard(
+                          feedRepository: widget.feedRepository,
+                          onOpenProfile: _openProfile,
+                        ),
                         const SizedBox(height: 20),
                         _MeetMainColumn(
                           featured: featured,

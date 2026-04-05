@@ -256,7 +256,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       data: UpdateCardData(
         title: widget.title,
         subtitle: 'UPDATE',
-        metaLeading: widget.device.isEmpty ? 'UPDATE' : widget.device,
+        metaLeading: widget.device.isEmpty ? 'Web' : widget.device,
         metaTrailing: formatRelativeTimestamp(widget.createdAt),
         body: _body,
         photoUrl: widget.photoUrl,

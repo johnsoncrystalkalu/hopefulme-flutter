@@ -16,6 +16,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  static const Color _libraryAccent = Color(0xFFEA580C);
   final ScrollController _scrollController = ScrollController();
   final List<LibraryItem> _items = <LibraryItem>[];
   List<LibraryItem> _featured = <LibraryItem>[];
@@ -165,7 +166,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   if (_featured.isNotEmpty && _selectedCategory == 'All') ...[
                     const SizedBox(height: 18),
                     Text(
-                      'Staff Picks',
+                      'Members Picks',
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 16,
@@ -217,10 +218,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                           backgroundColor: colors.surface,
-                          selectedColor: colors.brand,
+                          selectedColor: _libraryAccent,
                           side: BorderSide(
                             color: isActive
-                                ? colors.brand
+                                ? _libraryAccent
                                 : colors.borderStrong,
                           ),
                           shape: RoundedRectangleBorder(
@@ -255,6 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 class _LibraryHero extends StatelessWidget {
   const _LibraryHero({required this.total});
 
+  static const Color _libraryAccent = Color(0xFFEA580C);
   final int total;
 
   @override
@@ -262,11 +264,7 @@ class _LibraryHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Color(0xFFEA580C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _libraryAccent,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

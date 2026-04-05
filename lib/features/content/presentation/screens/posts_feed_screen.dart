@@ -302,29 +302,17 @@ class _PostsHeroHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: Theme.of(context).brightness == Brightness.dark
-              ? <Color>[
-                  colors.surfaceRaised,
-                  colors.surface,
-                  colors.surfaceMuted,
-                ]
-              : const <Color>[
-                  Color(0xFFF8FBFF),
-                  Color(0xFFEAF1FF),
-                  Color(0xFFFDF7F4),
-                ],
-        ),
-        border: Border.all(color: colors.borderStrong),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: isAll ? Colors.transparent : colors.surface,
+        border: isAll ? null : Border.all(color: colors.borderStrong),
+        boxShadow: isAll
+            ? const <BoxShadow>[]
+            : [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

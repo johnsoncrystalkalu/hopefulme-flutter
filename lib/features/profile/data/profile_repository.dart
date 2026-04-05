@@ -232,6 +232,7 @@ class ProfileRepository {
     required String birthDay,
     required String birthMonth,
     required String phoneNumber,
+    required bool emailNotifications,
     required String theme,
     String? password,
   }) async {
@@ -251,6 +252,7 @@ class ProfileRepository {
         'day': birthDay,
         'month': birthMonth,
         'phone_number': phoneNumber,
+        'email_notifications': emailNotifications,
         'theme': theme,
         if (password != null && password.isNotEmpty) 'password': password,
         if (password != null && password.isNotEmpty)

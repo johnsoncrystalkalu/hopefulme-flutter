@@ -222,7 +222,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 children: [
                   _InboxHeroCard(
                     unreadTotal: unreadTotal,
-                    totalChats: _allItems.length,
                     onlineItems: onlineItems,
                     onOpenConversation: _openConversation,
                   ),
@@ -509,29 +508,23 @@ class _ConversationTile extends StatelessWidget {
 class _InboxHeroCard extends StatelessWidget {
   const _InboxHeroCard({
     required this.unreadTotal,
-    required this.totalChats,
     required this.onlineItems,
     required this.onOpenConversation,
   });
 
   final int unreadTotal;
-  final int totalChats;
   final List<ConversationListItem> onlineItems;
   final Future<void> Function(ConversationListItem item) onOpenConversation;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF171E34), Color(0xFF3D5AFE)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: colors.heroGradient,
+          borderRadius: BorderRadius.circular(26),
         ),
-        borderRadius: BorderRadius.circular(26),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -557,14 +550,14 @@ class _InboxHeroCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  unreadTotal > 0
-                      ? '$unreadTotal unread · $totalChats chats'
-                      : '$totalChats chats',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 13,
+                  const SizedBox(height: 6),
+                  Text(
+                    unreadTotal > 0
+                        ? '$unreadTotal unread messages'
+                        : 'Stay close to your people',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

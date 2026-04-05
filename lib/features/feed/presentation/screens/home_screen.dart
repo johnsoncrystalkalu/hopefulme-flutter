@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/community/presentation/screens/meet_new_friends_screen.dart';
+import 'package:hopefulme_flutter/features/community/presentation/widgets/most_active_users_card.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
 import 'package:hopefulme_flutter/features/content/presentation/screens/blogs_feed_screen.dart';
@@ -117,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     _loadShellPreferences();
     _refreshTopbarData();
+    _refreshUnreadGroups();
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _refreshTopbarData(silent: true),
@@ -278,6 +280,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _refreshUnreadGroups({bool silent = false}) async {
+    try {
+      final groups = await widget.groupRepository.fetchGroups(page: 1);
+      if (!mounted) {
+        return;
+      }
+      final unreadGroups = groups.items.fold<int>(
+        0,
+        (sum, item) => sum + item.unreadCount,
+      );
+      final current = _topBarSnapshot.value;
+      final next = current.copyWith(unreadGroups: unreadGroups);
+      if (current != next) {
+        _topBarSnapshot.value = next;
+        setState(() {});
+      }
+    } catch (error) {
+      if (!silent && mounted) {
+        AppToast.error(context, error);
+      }
+    }
+  }
+
   Future<void> _loadShellPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_inAppNotificationsPrefKey) ?? true;
@@ -410,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    await _refreshTopbarData(silent: true);
+    await _refreshUnreadGroups(silent: true);
   }
 
   Future<void> _handleLinkTap(String url) async {
@@ -619,10 +644,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openWebPage(String title, String path) async {
     final base = AppConfig.fromEnvironment().webBaseUrl;
     final normalizedPath = path.startsWith('/') ? path : '/$path';
+    var targetUrl = '$base$normalizedPath';
+
+    try {
+      final bridgedUrl = await widget.authController.authRepository
+          .createWebSessionUrl(targetUrl);
+      if (bridgedUrl.trim().isNotEmpty) {
+        targetUrl = bridgedUrl.trim();
+      }
+    } catch (_) {
+      // Fall back to the direct web URL if the bridge request fails.
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
-            WebPageScreen(title: title, url: '$base$normalizedPath'),
+            WebPageScreen(title: title, url: targetUrl),
       ),
     );
   }
@@ -921,6 +958,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 homeUpdates: _homeUpdates,
                                                 isLoadingMoreUpdates:
                                                     _isLoadingMoreHomeUpdates,
+                                                feedRepository:
+                                                    widget.feedRepository,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
                                                 onOpenProfile:
@@ -975,6 +1014,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           homeUpdates: _homeUpdates,
                                           isLoadingMoreUpdates:
                                               _isLoadingMoreHomeUpdates,
+                                          feedRepository:
+                                              widget.feedRepository,
                                           onCreateUpdate: _openCreateUpdate,
                                           onOpenProfile: _openUserProfile,
                                           onOpenUpdate: _openUpdateDetail,
@@ -1098,11 +1139,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               label: '',
             ),
-            const NavigationDestination(
-              icon: HeroIcon(HeroIcons.users),
-              selectedIcon: HeroIcon(
-                HeroIcons.users,
-                style: HeroIconStyle.solid,
+            NavigationDestination(
+              icon: _BadgeTopBarIcon(
+                icon: HeroIcons.users,
+                count: _topBarSnapshot.value.unreadGroups,
+                dotOnly: true,
+              ),
+              selectedIcon: _BadgeTopBarIcon(
+                icon: HeroIcons.users,
+                count: _topBarSnapshot.value.unreadGroups,
+                dotOnly: true,
+                solid: true,
               ),
               label: 'Groups',
             ),
@@ -1127,24 +1174,28 @@ class _TopBarSnapshot {
     this.conversations = const <ConversationListItem>[],
     this.unreadNotifications = 0,
     this.unreadMessages = 0,
+    this.unreadGroups = 0,
   });
 
   final List<AppNotification> notifications;
   final List<ConversationListItem> conversations;
   final int unreadNotifications;
   final int unreadMessages;
+  final int unreadGroups;
 
   _TopBarSnapshot copyWith({
     List<AppNotification>? notifications,
     List<ConversationListItem>? conversations,
     int? unreadNotifications,
     int? unreadMessages,
+    int? unreadGroups,
   }) {
     return _TopBarSnapshot(
       notifications: notifications ?? this.notifications,
       conversations: conversations ?? this.conversations,
       unreadNotifications: unreadNotifications ?? this.unreadNotifications,
       unreadMessages: unreadMessages ?? this.unreadMessages,
+      unreadGroups: unreadGroups ?? this.unreadGroups,
     );
   }
 
@@ -1153,6 +1204,7 @@ class _TopBarSnapshot {
     return other is _TopBarSnapshot &&
         unreadNotifications == other.unreadNotifications &&
         unreadMessages == other.unreadMessages &&
+        unreadGroups == other.unreadGroups &&
         _sameNotifications(notifications, other.notifications) &&
         _sameConversations(conversations, other.conversations);
   }
@@ -1161,6 +1213,7 @@ class _TopBarSnapshot {
   int get hashCode => Object.hash(
     unreadNotifications,
     unreadMessages,
+    unreadGroups,
     notifications.length,
     conversations.length,
   );
@@ -1474,10 +1527,17 @@ class _MessagesDropdownButton extends StatelessWidget {
 }
 
 class _BadgeTopBarIcon extends StatelessWidget {
-  const _BadgeTopBarIcon({required this.icon, required this.count});
+  const _BadgeTopBarIcon({
+    required this.icon,
+    required this.count,
+    this.dotOnly = false,
+    this.solid = false,
+  });
 
   final HeroIcons icon;
   final int count;
+  final bool dotOnly;
+  final bool solid;
 
   @override
   Widget build(BuildContext context) {
@@ -1488,26 +1548,39 @@ class _BadgeTopBarIcon extends StatelessWidget {
         SizedBox(
           width: 28,
           height: 28,
-          child: HeroIcon(icon, color: colors.icon),
+          child: HeroIcon(
+            icon,
+            color: colors.icon,
+            style: solid ? HeroIconStyle.solid : HeroIconStyle.outline,
+          ),
         ),
         if (count > 0)
           Positioned(
             top: -2,
             right: -2,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              padding: dotOnly
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              width: dotOnly ? 10 : null,
+              height: dotOnly ? 10 : null,
               decoration: BoxDecoration(
                 color: const Color(0xFFEF4444),
                 borderRadius: BorderRadius.circular(999),
+                border: dotOnly
+                    ? Border.all(color: colors.surface, width: 1.4)
+                    : null,
               ),
-              child: Text(
-                count > 9 ? '9+' : '$count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              child: dotOnly
+                  ? null
+                  : Text(
+                      count > 9 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
             ),
           ),
       ],
@@ -1943,7 +2016,7 @@ class _HomeSidebar extends StatelessWidget {
                 onTap: onPostsTap,
               ),
               _SidebarItemData(
-                HeroIcons.bolt,
+                HeroIcons.sparkles,
                 'Activities',
                 false,
                 onTap: onActivitiesTap,
@@ -2179,6 +2252,7 @@ class _HomeContent extends StatelessWidget {
     required this.dashboard,
     required this.homeUpdates,
     required this.isLoadingMoreUpdates,
+    required this.feedRepository,
     required this.onCreateUpdate,
     required this.onOpenProfile,
     required this.onOpenUpdate,
@@ -2198,6 +2272,7 @@ class _HomeContent extends StatelessWidget {
   final FeedDashboard? dashboard;
   final List<FeedEntry> homeUpdates;
   final bool isLoadingMoreUpdates;
+  final FeedRepository feedRepository;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
@@ -2343,19 +2418,18 @@ class _HomeContent extends StatelessWidget {
                 ),
               ),
             );
-            widgets.add(const SizedBox(height: 52));
-          }
-          if (updates.isNotEmpty) {
             widgets.add(
-              const Padding(
-                padding: EdgeInsets.only(bottom: 16),
-                child: _SectionHeader(
-                  title: 'Activities',
-                  eyebrow: 'COMMUNITY',
-                  icon: Icons.bolt_rounded,
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8, top: 12),
+                child: MostActiveUsersCard(
+                  feedRepository: feedRepository,
+                  onOpenProfile: onOpenProfile,
                 ),
               ),
             );
+            widgets.add(const SizedBox(height: 16));
+          }
+          if (updates.isNotEmpty) {
             widgets.addAll(
               updates.map(
                 (entry) => Padding(
@@ -2936,7 +3010,7 @@ class _QuoteGrid extends StatelessWidget {
                       imageUrl: quote.photoUrl,
                       fit: BoxFit.cover,
                       backgroundColor: context.appColors.surfaceMuted,
-                      placeholderLabel: quote.title,
+                     // placeholderLabel: quote.title,
                     )
                   else
                     Container(color: const Color(0xFF3D5AFE)),

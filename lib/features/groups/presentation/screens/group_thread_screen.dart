@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -180,7 +178,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    if (text.isEmpty && !hasPhoto) {
+    if ((text.isEmpty && !hasPhoto) || _isSending) {
       return;
     }
 
@@ -220,6 +218,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
     setState(() {
       _error = null;
+      _isSending = true;
       _messages = _dedupeMessages([..._messages, optimisticMessage]);
       _selectedPhoto = null;
       _selectedPhotoBytes = null;
@@ -282,7 +281,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _isSending = false;
+        });
       }
     }
   }
@@ -609,6 +610,41 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     return message.isEmpty ? 'Unknown error' : message;
   }
 
+  bool _shouldShowDateDivider(int index) {
+    if (index <= 0 || index >= _messages.length) {
+      return true;
+    }
+
+    final current = DateTime.tryParse(_messages[index].createdAt);
+    final previous = DateTime.tryParse(_messages[index - 1].createdAt);
+    if (current == null || previous == null) {
+      return false;
+    }
+
+    return !DateUtils.isSameDay(current, previous);
+  }
+
+  String _formatDateDivider(String createdAt) {
+    final parsed = DateTime.tryParse(createdAt);
+    if (parsed == null) {
+      return '';
+    }
+
+    final local = parsed.toLocal();
+    final now = DateTime.now();
+    if (DateUtils.isSameDay(local, now)) {
+      return 'Today';
+    }
+
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (DateUtils.isSameDay(local, yesterday)) {
+      return 'Yesterday';
+    }
+
+    final localizations = MaterialLocalizations.of(context);
+    return localizations.formatMediumDate(local);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -728,23 +764,35 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
                             final message =
                                 _messages[_isLoadingMore ? index - 1 : index];
+                            final messageIndex = _isLoadingMore
+                                ? index - 1
+                                : index;
                             final isMine =
                                 widget.currentUser?.id == message.userId;
-                            return _GroupMessageBubble(
-                              message: message,
-                              isMine: isMine,
-                              canDelete: isMine || group.isOwner,
-                              onProfileTap: message.sender == null
-                                  ? null
-                                  : () =>
-                                        _openProfile(message.sender!.username),
-                              onReply: () {
-                                setState(() {
-                                  _replyingTo = message;
-                                });
-                              },
-                              onDelete: () => _deleteMessage(message),
-                              onLinkTap: _handleLinkTap,
+                            return Column(
+                              children: [
+                                if (_shouldShowDateDivider(messageIndex))
+                                  _ChatDateDivider(
+                                    label: _formatDateDivider(message.createdAt),
+                                  ),
+                                _GroupMessageBubble(
+                                  message: message,
+                                  isMine: isMine,
+                                  canDelete: isMine || group.isOwner,
+                                  onProfileTap: message.sender == null
+                                      ? null
+                                      : () => _openProfile(
+                                            message.sender!.username,
+                                          ),
+                                  onReply: () {
+                                    setState(() {
+                                      _replyingTo = message;
+                                    });
+                                  },
+                                  onDelete: () => _deleteMessage(message),
+                                  onLinkTap: _handleLinkTap,
+                                ),
+                              ],
                             );
                           },
                         ),
@@ -816,20 +864,24 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                             ),
                           Row(
                             children: [
-                              IconButton(
+                              _ComposerIconButton(
                                 onPressed: _toggleEmojiPicker,
                                 icon: Icon(
                                   _showEmojiPicker
                                       ? Icons.keyboard_rounded
                                       : Icons.emoji_emotions_outlined,
+                                  size: 20,
                                 ),
                               ),
-                              IconButton(
+                              const SizedBox(width: 4),
+                              _ComposerIconButton(
                                 onPressed: _openImagePicker,
                                 icon: const Icon(
                                   Icons.add_photo_alternate_outlined,
+                                  size: 20,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
                                   controller: _controller,
@@ -844,9 +896,14 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                     }
                                   },
                                   decoration: InputDecoration(
-                                    hintText: 'Message ${group.name}...',
+                                    hintText: 'Message ...',
                                     filled: true,
                                     fillColor: colors.surfaceMuted,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: BorderSide.none,
@@ -854,10 +911,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               AppSendActionButton(
                                 onPressed: _sendMessage,
-                                isBusy: false,
+                                isBusy: _isSending,
                               ),
                             ],
                           ),
@@ -870,21 +927,33 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                 config: Config(
                                   height: 320,
                                   checkPlatformCompatibility: true,
-                                  emojiViewConfig: const EmojiViewConfig(
+                                  emojiViewConfig: EmojiViewConfig(
                                     emojiSizeMax: 26,
+                                    backgroundColor: colors.surfaceMuted,
                                   ),
                                   categoryViewConfig: CategoryViewConfig(
+                                    backgroundColor: colors.surface,
+                                    indicatorColor: colors.brand,
                                     iconColor: colors.textMuted,
                                     iconColorSelected: colors.brand,
                                     backspaceColor: colors.brand,
+                                    dividerColor: colors.border,
                                   ),
                                   bottomActionBarConfig:
                                       const BottomActionBarConfig(
                                         enabled: false,
                                       ),
                                   searchViewConfig: SearchViewConfig(
-                                    backgroundColor: colors.surface,
+                                    backgroundColor: colors.surfaceMuted,
                                     buttonIconColor: colors.textMuted,
+                                    inputTextStyle: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontSize: 14,
+                                    ),
+                                    hintTextStyle: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1028,6 +1097,43 @@ class _ReplyPreview extends StatelessWidget {
           ),
           IconButton(onPressed: onClear, icon: const Icon(Icons.close)),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatDateDivider extends StatelessWidget {
+  const _ChatDateDivider({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    if (label.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colors.surfaceRaised,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colors.border),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1306,6 +1412,34 @@ class _MessageDeliveryStatus extends StatelessWidget {
             child: Icon(Icons.done_rounded, size: 14, color: iconColor),
           ),
       ],
+    );
+  }
+}
+
+class _ComposerIconButton extends StatelessWidget {
+  const _ComposerIconButton({required this.onPressed, required this.icon});
+
+  final VoidCallback onPressed;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surfaceMuted,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: IconTheme(
+            data: IconThemeData(color: colors.textSecondary),
+            child: icon,
+          ),
+        ),
+      ),
     );
   }
 }

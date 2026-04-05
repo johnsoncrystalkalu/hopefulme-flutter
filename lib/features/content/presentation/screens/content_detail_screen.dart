@@ -681,20 +681,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                               top: Radius.zero,
                             ),
                           ),
-                        if (widget.kind == 'post' &&
-                            detail.photoUrl.isNotEmpty &&
-                            detail.videoUrl.trim().isEmpty)
-                          _buildPostImageActions(
-                            colors,
-                            primaryUrl: detail.originalPhotoUrl.isNotEmpty
-                                ? detail.originalPhotoUrl
-                                : detail.photoUrl,
-                            secondaryUrl: detail.originalSecondaryPhotoUrl
-                                    .trim()
-                                    .isNotEmpty
-                                ? detail.originalSecondaryPhotoUrl
-                                : detail.secondaryPhotoUrl,
-                          ),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
