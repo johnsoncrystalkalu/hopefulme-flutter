@@ -16,10 +16,22 @@ class OneSignalService {
 
     await OneSignal.Notifications.requestPermission(true);
 
-    OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-      event.preventDefault();
-      event.notification.display();
-    });
+  OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+  final data = event.notification.additionalData;
+  final type = data?['type']?.toString();
+  final senderUsername = data?['sender_username']?.toString();
+
+  // Suppress chat notification if user is already in that conversation
+  if (type == 'message' &&
+      senderUsername != null &&
+      senderUsername == ActiveChat.currentUsername) {
+    event.preventDefault(); // don't show
+    return;
+  }
+
+  event.preventDefault();
+  event.notification.display();
+});
 
     OneSignal.Notifications.addClickListener((event) {
       final data = event.notification.additionalData;
@@ -139,4 +151,9 @@ void _handleNotificationData(Map<String, dynamic> data) {
 
     return trimmed.startsWith('user_') ? trimmed : 'user_$trimmed';
   }
+  
+}
+
+class ActiveChat {
+  static String? currentUsername;
 }

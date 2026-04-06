@@ -20,6 +20,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MessageThreadScreen extends StatefulWidget {
@@ -94,6 +95,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   @override
   void initState() {
     super.initState();
+      ActiveChat.currentUsername = widget.username; // ← set on enter -onesignal
     _controller.addListener(_handleComposerChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
@@ -1325,6 +1327,7 @@ class _ThreadTypingIndicatorState extends State<_ThreadTypingIndicator>
 
   @override
   void dispose() {
+    ActiveChat.currentUsername = null; // ← clear on leave -onesignal
     _controller.dispose();
     super.dispose();
   }
