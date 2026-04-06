@@ -71,7 +71,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   @override
   void initState() {
     super.initState();
-    _liked = widget.initialLiked;
+    _liked = widget.initialDetail?.isLiked ?? widget.initialLiked;
     _future = widget.initialDetail != null
         ? Future.value(widget.initialDetail!)
         : widget.repository.fetchUpdate(widget.updateId);

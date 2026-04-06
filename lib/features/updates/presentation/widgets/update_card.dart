@@ -210,7 +210,7 @@ class ReusableUpdateCard extends StatelessWidget {
                           child: AppNetworkImage(
                             imageUrl: imageUrl,
                             width: double.infinity,
-                            fit: BoxFit.cover,
+                            fit: BoxFit.cover, //check here
                             backgroundColor: colors.surfaceMuted,
                             placeholderLabel: data.fallbackLabel,
                           ),

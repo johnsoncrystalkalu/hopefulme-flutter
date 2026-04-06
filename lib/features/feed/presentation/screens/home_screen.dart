@@ -465,6 +465,21 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: entry.id,
+          initialDetail: UpdateDetail(
+            id: entry.id,
+            type: entry.updateType,
+            status: entry.body,
+            photoUrl: entry.photoUrl,
+            originalPhotoUrl: entry.originalPhotoUrl,
+            device: entry.device,
+            views: entry.views,
+            likesCount: entry.likesCount,
+            commentsCount: entry.commentsCount,
+            createdAt: entry.createdAt,
+            user: entry.user!,
+            comments: const [],
+            isLiked: entry.isLiked,
+          ),
           currentUser: widget.authController.currentUser,
           repository: widget.updateRepository,
           contentRepository: widget.contentRepository,
@@ -3287,6 +3302,7 @@ class _UpdateFeedCard extends StatelessWidget {
         onOpenProfile: onOpenProfile,
         onOpenHashtag: onOpenHashtag,
         onOpenLink: onOpenLink,
+        isLiked: entry.isLiked,
       ),
     );
   }

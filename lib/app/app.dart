@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
@@ -28,6 +29,9 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HopefulMeApp extends StatefulWidget {
   const HopefulMeApp({super.key});
@@ -98,56 +102,177 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     );
     _authController.addListener(_syncPresenceTracking);
     _authController.addListener(_drainPendingDeepLink);
- // inside your initState or wherever these are called
-  _authController.addListener(_onAuthStateChanged);
-  unawaited(_initDeepLinks());
-  unawaited(_initOneSignal());
-}
+    _authController.addListener(_onAuthStateChanged);
+    unawaited(_initDeepLinks());
+    unawaited(_initOneSignal());
 
-Future<void> _initOneSignal() async {
-  try {
-    // 1. Initialize the service
-    await OneSignalService.instance.initialize(
-      appId: AppConfig.oneSignalAppId,
-      navigatorKey: _navigatorKey,
-    );
-
-    OneSignalService.instance.addSubscriptionObserver((state) {
-      if (state.current.id != null && state.current.optedIn == true) {
-        _syncOneSignalPlayerId();
-      }
+    // Check for app update after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkAppVersion());
     });
+  }
 
-    if (_authController.isAuthenticated) {
-      await _syncOneSignalPlayerId();
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      debugPrint('OneSignal initialization failed: $e');
+  // ── Version Check ────────────────────────────────────────────────────────
+
+  Future<void> _checkAppVersion() async {
+    try {
+      final response = await http
+          .get(Uri.parse('${_config.baseUrl}/app/version'))
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode != 200) return;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final minimumVersion = data['minimum_version']?.toString() ?? '0.0.0';
+      final forceUpdate = data['force_update'] == true;
+      final storeUrl = data['store_url']?.toString() ?? '';
+      final message = data['message']?.toString() ??
+          'A new version of Hopeful Me is available. Please update to continue.';
+
+      if (!forceUpdate) return;
+
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+
+      if (_isOutdated(currentVersion, minimumVersion)) {
+        final context = _navigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          _showForceUpdateDialog(context, storeUrl, message);
+        }
+      }
+    } catch (e) {
+      // Silently fail — never block the app over a version check
+      if (kDebugMode) {
+        debugPrint('Version check failed: $e');
+      }
     }
   }
-}
 
-Future<void> _syncOneSignalPlayerId() async {
-  if (!_authController.isAuthenticated) return;
+  bool _isOutdated(String current, String minimum) {
+    try {
+      final c = current.split('.').map(int.parse).toList();
+      final m = minimum.split('.').map(int.parse).toList();
 
-  try {
-    final user = _authController.currentUser;
-    if (user != null) {
-      await OneSignalService.instance.setExternalUserId(user.id.toString());
-    }
+      // Pad to same length
+      while (c.length < 3) c.add(0);
+      while (m.length < 3) m.add(0);
 
-    final playerId = await OneSignalService.instance.getPlayerId();
-    
-    if (playerId != null) {
-      await _authController.authRepository.registerOneSignalPlayerId(playerId);
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      debugPrint('Failed to sync OneSignal: $e');
+      for (int i = 0; i < 3; i++) {
+        if (c[i] < m[i]) return true;
+        if (c[i] > m[i]) return false;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
-}
+
+  void _showForceUpdateDialog(
+    BuildContext context,
+    String storeUrl,
+    String message,
+  ) {
+    final colors = context.appColors;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user cannot dismiss
+      builder: (context) => PopScope(
+        canPop: false, // blocks back button
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.system_update_rounded, color: colors.brand),
+              const SizedBox(width: 10),
+              const Text('Update Required'),
+            ],
+          ),
+          content: Text(
+            message,
+            style: TextStyle(color: colors.textMuted, height: 1.5),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.brand,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () async {
+                  if (storeUrl.isNotEmpty) {
+                    final uri = Uri.parse(storeUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  }
+                },
+                child: const Text(
+                  'Update Now',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── OneSignal ────────────────────────────────────────────────────────────
+
+  Future<void> _initOneSignal() async {
+    try {
+      await OneSignalService.instance.initialize(
+        appId: AppConfig.oneSignalAppId,
+        navigatorKey: _navigatorKey,
+      );
+
+      OneSignalService.instance.addSubscriptionObserver((state) {
+        if (state.current.id != null && state.current.optedIn == true) {
+          _syncOneSignalPlayerId();
+        }
+      });
+
+      if (_authController.isAuthenticated) {
+        await _syncOneSignalPlayerId();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('OneSignal initialization failed: $e');
+      }
+    }
+  }
+
+  Future<void> _syncOneSignalPlayerId() async {
+    if (!_authController.isAuthenticated) return;
+
+    try {
+      final user = _authController.currentUser;
+      if (user != null) {
+        await OneSignalService.instance.setExternalUserId(user.id.toString());
+      }
+
+      final playerId = await OneSignalService.instance.getPlayerId();
+      if (playerId != null) {
+        await _authController.authRepository.registerOneSignalPlayerId(playerId);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to sync OneSignal: $e');
+      }
+    }
+  }
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -166,7 +291,6 @@ Future<void> _syncOneSignalPlayerId() async {
     if (_authController.isAuthenticated) {
       _syncOneSignalPlayerId();
     } else {
-      // Clean up OneSignal when user logs out
       OneSignalService.instance.removeExternalUserId();
     }
   }
@@ -175,6 +299,11 @@ Future<void> _syncOneSignalPlayerId() async {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
     _syncPresenceTracking();
+
+    // Re-check version when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_checkAppVersion());
+    }
   }
 
   void _syncPresenceTracking() {
@@ -197,14 +326,13 @@ Future<void> _syncOneSignalPlayerId() async {
   }
 
   Future<void> _pingPresence() async {
-    if (!_authController.isAuthenticated) {
-      return;
-    }
-
+    if (!_authController.isAuthenticated) return;
     try {
       await _authController.authRepository.pingPresence();
     } catch (_) {}
   }
+
+  // ── Deep Links ───────────────────────────────────────────────────────────
 
   Future<void> _initDeepLinks() async {
     final appLinks = AppLinks();
@@ -237,9 +365,7 @@ Future<void> _syncOneSignalPlayerId() async {
     final context = _navigatorKey.currentContext;
     if (context == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _drainPendingDeepLink();
-        }
+        if (mounted) _drainPendingDeepLink();
       });
       return;
     }
@@ -251,9 +377,7 @@ Future<void> _syncOneSignalPlayerId() async {
     unawaited(
       _openDeepLink(context, uri).whenComplete(() {
         _isHandlingDeepLink = false;
-        if (mounted) {
-          _drainPendingDeepLink();
-        }
+        if (mounted) _drainPendingDeepLink();
       }),
     );
   }
@@ -275,6 +399,8 @@ Future<void> _syncOneSignalPlayerId() async {
     await navigator.open(context, uri);
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -294,11 +420,10 @@ Future<void> _syncOneSignalPlayerId() async {
             ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(
               authRepository: _authController.authRepository,
             ),
-            RegisterScreen.routeName: (context) =>
-                RegisterScreen(
-                  authController: _authController,
-                  profileRepository: _profileRepository,
-                ),
+            RegisterScreen.routeName: (context) => RegisterScreen(
+              authController: _authController,
+              profileRepository: _profileRepository,
+            ),
             HomeScreen.routeName: (context) => HomeScreen(
               authController: _authController,
               themeController: _themeController,
@@ -350,19 +475,17 @@ class _AppLoadingScreen extends StatelessWidget {
     final colors = context.appColors;
 
     return Scaffold(
-      backgroundColor: colors.surface, // Clean background
+      backgroundColor: colors.surface,
       body: Center(
         child: Container(
-          width: 240, // Slightly wider for better text breathing room
+          width: 240,
           padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
           decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.8), // Slight transparency
-            borderRadius: BorderRadius.circular(
-              32,
-            ), // More rounded "Apple" corners
+            color: colors.surface.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(32),
             border: Border.all(
               color: colors.border.withValues(alpha: 0.5),
-              width: 0.5, // Ultra-thin border for a refined look
+              width: 0.5,
             ),
             boxShadow: [
               BoxShadow(
@@ -375,20 +498,16 @@ class _AppLoadingScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // App Name with Apple-style tight tracking
               Text(
                 AppConfig.appName,
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -1.2, // The "Secret Sauce" for high-end UI
+                  letterSpacing: -1.2,
                 ),
               ),
-
               const SizedBox(height: 32),
-
-              // HeroIcon as a custom loader
               const SizedBox(
                 height: 28,
                 width: 28,
@@ -396,14 +515,11 @@ class _AppLoadingScreen extends StatelessWidget {
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Color(0xFF2563EB),
-                  ), // Your brand blue
+                  ),
                   backgroundColor: Colors.transparent,
                 ),
               ),
-
               const SizedBox(height: 28),
-
-              // Refined subtext
               Text(
                 'Inspire the world around you...',
                 style: TextStyle(

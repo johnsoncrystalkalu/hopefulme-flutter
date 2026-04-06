@@ -313,6 +313,7 @@ class AppDeepLinkNavigator {
           ),
         );
         return true;
+        
       case 'store':
         return _openWebPage(context, normalized, title: 'Marketplace');
       case 'tv':

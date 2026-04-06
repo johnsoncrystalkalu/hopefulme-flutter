@@ -16,6 +16,7 @@ class UpdateDetail {
     required this.createdAt,
     required this.user,
     required this.comments,
+    this.isLiked = false,
   });
 
   final int id;
@@ -30,6 +31,7 @@ class UpdateDetail {
   final String createdAt;
   final FeedUser user;
   final List<UpdateComment> comments;
+  final bool isLiked;
 
   factory UpdateDetail.fromJson(Map<String, dynamic> json) {
     final user = FeedUser.fromJson(
@@ -54,6 +56,7 @@ class UpdateDetail {
           .whereType<Map<String, dynamic>>()
           .map(UpdateComment.fromJson)
           .toList(),
+      isLiked: json['is_liked'] as bool? ?? false,
     );
   }
 }

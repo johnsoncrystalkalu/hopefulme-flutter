@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:flutter/services.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -311,10 +312,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openUpdate(ProfileContentItem item) async {
+    final snapshot = await _profileFuture;
+    final profile = snapshot.profile;
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: item.id,
+          initialDetail: UpdateDetail(
+            id: item.id,
+            type: item.updateType,
+            status: item.body,
+            photoUrl: item.photoUrl,
+            originalPhotoUrl: item.photoUrl,
+            device: item.device,
+            views: item.views,
+            likesCount: item.likesCount,
+            commentsCount: item.commentsCount,
+            createdAt: item.createdAt,
+            user: profile.toFeedUser(),
+            comments: const [],
+            isLiked: item.isLiked,
+          ),
           currentUser: widget.currentUser,
           repository: widget.updateRepository,
           profileRepository: widget.profileRepository,
@@ -1911,6 +1929,7 @@ class _UpdateCard extends StatelessWidget {
       currentUser: currentUser,
       ownerUsername: profile.username,
       onOpenProfile: null,
+      isLiked: item.isLiked,
     );
   }
 }

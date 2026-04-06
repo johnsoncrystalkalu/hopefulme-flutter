@@ -1,5 +1,6 @@
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
+import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 
 class ProfileDashboard {
   const ProfileDashboard({
@@ -176,6 +177,23 @@ class ProfileSummary {
   final ProfileActivityLevel activityLevel;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
+  bool get isVerified => verified.toLowerCase() == 'yes';
+
+  FeedUser toFeedUser() {
+    return FeedUser(
+      id: id,
+      username: username,
+      fullname: fullname,
+      photoUrl: photoUrl,
+      verified: verified,
+      isOnline: isOnline,
+      lastSeen: lastSeen,
+      city: city,
+      state: state,
+      monthlyActivity: 0,
+      loginActivity: 0,
+    );
+  }
 
   String get locationLabel {
     final parts = <String>[
@@ -184,8 +202,6 @@ class ProfileSummary {
     ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
   }
-
-  bool get isVerified => verified.toLowerCase() == 'yes';
 
   factory ProfileSummary.fromJson(Map<String, dynamic> json) {
     return ProfileSummary(
@@ -308,6 +324,7 @@ class ProfileContentItem {
     required this.commentsCount,
     required this.views,
     required this.createdAt,
+    this.isLiked = false,
   });
 
   final int id;
@@ -321,6 +338,7 @@ class ProfileContentItem {
   final int commentsCount;
   final int views;
   final String createdAt;
+  final bool isLiked;
 
   factory ProfileContentItem.fromJson(Map<String, dynamic> json) {
     return ProfileContentItem(
@@ -337,6 +355,7 @@ class ProfileContentItem {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
+      isLiked: json['is_liked'] as bool? ?? false,
     );
   }
 }

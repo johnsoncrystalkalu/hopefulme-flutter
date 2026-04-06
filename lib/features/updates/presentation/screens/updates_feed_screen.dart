@@ -15,6 +15,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -146,6 +147,21 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: entry.id,
+          initialDetail: UpdateDetail(
+            id: entry.id,
+            type: entry.updateType,
+            status: entry.body,
+            photoUrl: entry.photoUrl,
+            originalPhotoUrl: entry.originalPhotoUrl,
+            device: entry.device,
+            views: entry.views,
+            likesCount: entry.likesCount,
+            commentsCount: entry.commentsCount,
+            createdAt: entry.createdAt,
+            user: entry.user!,
+            comments: const [],
+            isLiked: entry.isLiked,
+          ),
           currentUser: widget.currentUser,
           repository: widget.updateRepository,
           contentRepository: widget.contentRepository,
@@ -273,6 +289,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                       currentUser: widget.currentUser,
                       ownerUsername: entry.user?.username,
                       isVerified: entry.user?.isVerified ?? false,
+                      isLiked: entry.isLiked,
                       onOpenProfile: _openProfile,
                       onOpenUpdate: () => _openUpdate(entry),
                       onOpenHashtag: _openSearchQuery,

@@ -28,6 +28,7 @@ class InteractiveUpdateCard extends StatefulWidget {
     this.onOpenHashtag,
     this.onOpenLink,
     this.isVerified = false,
+    this.isLiked = false,
     super.key,
   });
 
@@ -51,6 +52,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   final Future<void> Function(String username)? onOpenProfile;
   final Future<void> Function(String hashtag)? onOpenHashtag;
   final Future<void> Function(String url)? onOpenLink;
+  final bool isLiked;
 
   @override
   State<InteractiveUpdateCard> createState() => _InteractiveUpdateCardState();
@@ -76,6 +78,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     _likesCount = widget.likesCount;
     _commentsCount = widget.commentsCount;
     _body = widget.body;
+    _liked = widget.isLiked; // ✅ init from backend
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -103,7 +106,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _body = widget.body;
       _likesCount = widget.likesCount;
       _commentsCount = widget.commentsCount;
-      _liked = false;
+      _liked = widget.isLiked; // ✅ restore from backend on refresh
       _isDeleted = false;
     }
   }
@@ -170,17 +173,13 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         updateId: widget.updateId,
         status: updatedText,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _body = updated.status;
       });
       AppToast.success(context, 'Update edited successfully.');
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       AppToast.error(context, error);
     } finally {
       if (mounted) {
@@ -210,9 +209,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       ),
     );
 
-    if (confirm != true) {
-      return;
-    }
+    if (confirm != true) return;
 
     setState(() {
       _busy = true;
@@ -220,17 +217,13 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
 
     try {
       await widget.updateRepository.deleteUpdate(widget.updateId);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _isDeleted = true;
       });
       AppToast.success(context, 'Update deleted.');
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       AppToast.error(context, error);
     } finally {
       if (mounted) {
@@ -305,7 +298,9 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             child: ScaleTransition(
               scale: _likeController,
               child: _ActionPill(
-                icon: _liked ? Icons.favorite : Icons.favorite_border,
+                icon: _liked
+                    ? Icons.favorite          // ❤️ filled = liked
+                    : Icons.favorite_border,  // 🤍 outline = not liked
                 label: '$_likesCount',
                 color: const Color(0xFFFF4D6D),
                 background: const Color(0xFFFFF1F4),
@@ -324,24 +319,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             ),
           ),
           const Spacer(),
-          Row(
-            children: [
-              const Icon(
-                Icons.remove_red_eye_outlined,
-                size: 16,
-                color: Color(0xFF94A3B8),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${widget.views}',
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -365,6 +342,7 @@ class _ActionPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

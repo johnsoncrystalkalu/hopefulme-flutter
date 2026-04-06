@@ -136,6 +136,7 @@ class FeedEntry {
     required this.commentsCount,
     required this.views,
     required this.createdAt,
+    this.isLiked = false,
   });
 
   final int id;
@@ -151,6 +152,7 @@ class FeedEntry {
   final int commentsCount;
   final int views;
   final String createdAt;
+  final bool isLiked;
 
   factory FeedEntry.fromJson(Map<String, dynamic> json) {
     final userJson = json['user'] as Map<String, dynamic>?;
@@ -177,6 +179,7 @@ class FeedEntry {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
+      isLiked: json['is_liked'] as bool? ?? false,
     );
   }
 
