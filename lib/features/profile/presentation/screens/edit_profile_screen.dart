@@ -64,6 +64,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   List<String> _stateOptions = const <String>[];
   bool _loadingStates = false;
 
+  static List<String> _uniqueOptions(List<String> values) {
+    final seen = <String>{};
+    final items = <String>[];
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) {
+        continue;
+      }
+      items.add(trimmed);
+    }
+    return items;
+  }
+
+  static String _normalizeNumericDropdownValue(
+    String rawValue,
+    int min,
+    int max,
+  ) {
+    final trimmed = rawValue.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < min || parsed > max) {
+      return '';
+    }
+    return parsed.toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,12 +141,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _selectedCountry = profile.location;
       _selectedState = profile.state;
       final birthdayParts = profile.birthday.split('-');
-      _selectedBirthDay = birthdayParts.isNotEmpty ? birthdayParts.first.trim() : '';
-      _selectedBirthMonth = birthdayParts.length > 1
-          ? birthdayParts[1].trim()
+      _selectedBirthDay = birthdayParts.isNotEmpty
+          ? _normalizeNumericDropdownValue(birthdayParts.first, 1, 31)
           : '';
-      _roleOptions = options.roles;
-      _countryOptions = options.countries;
+      _selectedBirthMonth = birthdayParts.length > 1
+          ? _normalizeNumericDropdownValue(birthdayParts[1], 1, 12)
+          : '';
+      _roleOptions = _uniqueOptions(options.roles);
+      _countryOptions = _uniqueOptions(options.countries);
+
+      if (_selectedRole.isNotEmpty && !_roleOptions.contains(_selectedRole)) {
+        _selectedRole = '';
+      }
+      if (_selectedCountry.isNotEmpty &&
+          !_countryOptions.contains(_selectedCountry)) {
+        _selectedCountry = '';
+      }
 
       if (_selectedCountry.isNotEmpty) {
         await _loadStates(_selectedCountry, preserveSelection: true);
@@ -151,7 +190,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
       setState(() {
-        _stateOptions = states;
+        _stateOptions = _uniqueOptions(states);
         if (_selectedState.isNotEmpty &&
             !_stateOptions.contains(_selectedState)) {
           _selectedState = '';

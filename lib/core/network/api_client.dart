@@ -104,16 +104,18 @@ class ApiClient {
         .timeout(AppConfig.requestTimeout),
   );
 
-  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
-      _sendJsonRequest(
-        () async => _httpClient
-            .put(
-              await _buildUri(path),
-              headers: await _headers(),
-              body: jsonEncode(body ?? <String, dynamic>{}),
-            )
-            .timeout(AppConfig.requestTimeout),
-      );
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+  }) => _sendJsonRequest(
+    () async => _httpClient
+        .put(
+          await _buildUri(path),
+          headers: await _headers(),
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        )
+        .timeout(AppConfig.requestTimeout),
+  );
 
   Future<Map<String, dynamic>> delete(String path) => _sendJsonRequest(
     () async => _httpClient
@@ -145,18 +147,16 @@ class ApiClient {
 
   Future<Map<String, String>> _headers() async {
     final token = await tokenStorage.readToken();
-
     return <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'X-Client-Platform': 'app',
+      'X-Client-Platform': 'App',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
   Future<Map<String, String>> _multipartHeaders() async {
     final token = await tokenStorage.readToken();
-
     return <String, String>{
       'Accept': 'application/json',
       'X-Client-Platform': 'app',
@@ -172,16 +172,29 @@ class ApiClient {
       return _decodeResponse(response);
     } on TimeoutException {
       throw ApiException(
-        _transportErrorMessage('The server took too long to respond.'),
+        kDebugMode
+            ? 'The server took too long to respond.'
+            : 'Request timed out. Please try again.',
       );
     } on http.ClientException catch (error) {
-      throw ApiException(_transportErrorMessage(error.message));
+      throw ApiException(
+        kDebugMode
+            ? _transportErrorMessage(error.message)
+            : 'Unable to connect. Please check your internet connection.',
+      );
     } on FormatException {
       throw ApiException(
-        'The server response could not be read. Please check the API response format.',
+        kDebugMode
+            ? 'The server response could not be read. Please check the API response format.'
+            : 'Something went wrong. Please try again.',
       );
     } catch (error) {
-      throw ApiException(_transportErrorMessage(error.toString()));
+      if (error is ApiException) rethrow;
+      throw ApiException(
+        kDebugMode
+            ? _transportErrorMessage(error.toString())
+            : 'Something went wrong. Please try again.',
+      );
     }
   }
 
@@ -210,6 +223,29 @@ class ApiClient {
   Map<String, dynamic> _decodeResponse(http.Response response) {
     final rawBody = _readResponseBody(response);
     final hasBody = rawBody.trim().isNotEmpty;
+
+    // Guard against HTML responses (e.g. 404 web pages returning HTML)
+    final contentType = response.headers['content-type'] ?? '';
+    final isJson = contentType.contains('application/json');
+
+    if (!isJson && hasBody) {
+      if (response.statusCode == 404) {
+        throw ApiException(
+          'This content could not be found.',
+          statusCode: 404,
+        );
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return <String, dynamic>{};
+      }
+      throw ApiException(
+        kDebugMode
+            ? 'Unexpected response (${response.statusCode}): content-type was $contentType'
+            : 'Something went wrong. Please try again.',
+        statusCode: response.statusCode,
+      );
+    }
+
     final dynamic decoded = hasBody ? jsonDecode(rawBody) : <String, dynamic>{};
     final data = decoded is Map<String, dynamic>
         ? decoded
@@ -230,12 +266,35 @@ class ApiClient {
       }
     }
 
-    final message =
-        validationMessage ??
-        data['message']?.toString() ??
-        data['error']?.toString() ??
-        'Request failed';
+    final message = validationMessage ??
+        (kDebugMode
+            ? data['message']?.toString() ??
+              data['error']?.toString() ??
+              'Request failed (${response.statusCode})'
+            : _userFriendlyHttpError(response.statusCode));
+
     throw ApiException(message, statusCode: response.statusCode);
+  }
+
+  String _userFriendlyHttpError(int statusCode) {
+    switch (statusCode) {
+      case 401:
+        return 'You are not authorized. Please log in again.';
+      case 403:
+        return 'You do not have permission to do that.';
+      case 404:
+        return 'This content could not be found.';
+      case 422:
+        return 'Please check your input and try again.';
+      case 429:
+        return 'Too many requests. Please slow down and try again.';
+      case 500:
+      case 502:
+      case 503:
+        return 'The server is currently unavailable. Please try again later.';
+      default:
+        return 'Something went wrong. Please try again.';
+    }
   }
 
   String _readResponseBody(http.Response response) {

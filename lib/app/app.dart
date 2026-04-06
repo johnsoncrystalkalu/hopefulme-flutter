@@ -14,6 +14,7 @@ import 'package:hopefulme_flutter/core/storage/token_storage.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/login_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
@@ -290,6 +291,9 @@ Future<void> _syncOneSignalPlayerId() async {
                 AuthWelcomeScreen(authController: _authController),
             LoginScreen.routeName: (context) =>
                 LoginScreen(authController: _authController),
+            ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(
+              authRepository: _authController.authRepository,
+            ),
             RegisterScreen.routeName: (context) =>
                 RegisterScreen(
                   authController: _authController,

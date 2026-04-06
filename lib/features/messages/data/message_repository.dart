@@ -62,6 +62,19 @@ class MessageRepository {
     );
   }
 
+  Future<ConversationListItem> setTypingStatus(
+    String username, {
+    required bool isTyping,
+  }) async {
+    final response = await _authRepository.post(
+      'messages/$username/typing',
+      body: {'is_typing': isTyping},
+    );
+    return ConversationListItem.fromJson(
+      response['conversation'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<void> deleteMessage(int messageId) async {
     await _authRepository.delete('messages/item/$messageId');
   }

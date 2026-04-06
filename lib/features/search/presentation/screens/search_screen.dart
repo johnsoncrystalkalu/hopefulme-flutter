@@ -414,7 +414,7 @@ class _UsersGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = (constraints.maxWidth - 14) / 2;
-        final childAspectRatio = cardWidth / 152;
+        final childAspectRatio = cardWidth / 130;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -424,7 +424,7 @@ class _UsersGrid extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
-            childAspectRatio: childAspectRatio.clamp(0.82, 1.18),
+            childAspectRatio: childAspectRatio.clamp(0.90, 1.20),
           ),
           itemBuilder: (context, index) {
             final user = users[index];
@@ -432,18 +432,23 @@ class _UsersGrid extends StatelessWidget {
               onTap: () => onUserTap(user.username),
               borderRadius: BorderRadius.circular(24),
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: colors.border),
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Stack(
                       children: [
                         CircleAvatar(
-                          radius: 28,
+                          radius: 26,
                           backgroundImage: user.photoUrl.isNotEmpty
                               ? NetworkImage(
                                   ImageUrlResolver.avatar(
@@ -467,25 +472,30 @@ class _UsersGrid extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     VerifiedNameText(
                       name: user.displayName,
                       verified: user.isVerified,
                       textAlign: TextAlign.center,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: colors.textPrimary,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 2),
+                   Text(
                       '@${user.username}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: colors.textMuted, fontSize: 12),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -497,6 +507,7 @@ class _UsersGrid extends StatelessWidget {
     );
   }
 }
+
 
 class _MixedResults extends StatelessWidget {
   const _MixedResults({

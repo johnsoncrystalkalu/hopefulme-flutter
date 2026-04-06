@@ -7,6 +7,9 @@ class ConversationListItem {
   const ConversationListItem({
     required this.id,
     required this.status,
+    required this.typingUserId,
+    required this.typingAt,
+    required this.typingUserName,
     required this.updatedAt,
     required this.unreadCount,
     required this.otherUser,
@@ -15,6 +18,9 @@ class ConversationListItem {
 
   final int id;
   final String status;
+  final int typingUserId;
+  final String typingAt;
+  final String typingUserName;
   final String updatedAt;
   final int unreadCount;
   final ConversationUser otherUser;
@@ -24,6 +30,9 @@ class ConversationListItem {
     return ConversationListItem(
       id: parseInt(json['id']),
       status: json['status']?.toString() ?? '',
+      typingUserId: parseInt(json['typing_user_id']),
+      typingAt: json['typing_at']?.toString() ?? '',
+      typingUserName: json['typing_user_name']?.toString() ?? '',
       updatedAt: json['updated_at']?.toString() ?? '',
       unreadCount: parseInt(json['unread_count']),
       otherUser: ConversationUser.fromJson(

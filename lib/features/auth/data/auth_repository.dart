@@ -76,6 +76,18 @@ class AuthRepository {
     return _persistAuthResponse(response);
   }
 
+  Future<String> requestPasswordReset({required String email}) async {
+    final response = await _apiClient.post(
+      'auth/forgot-password',
+      body: <String, dynamic>{
+        'email': email.trim(),
+      },
+    );
+
+    return response['message']?.toString() ??
+        'We have emailed your password reset link.';
+  }
+
   Future<bool> checkUsernameAvailability(String username) async {
     final normalized = username.trim().replaceFirst('@', '');
     final response = await _apiClient.get(

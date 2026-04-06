@@ -39,3 +39,6 @@ App bundle
 4
 All
 1
+
+
+futter build apk --debug

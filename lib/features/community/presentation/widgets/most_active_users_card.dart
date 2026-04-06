@@ -75,9 +75,7 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
         }
 
         final users = snapshot.data ?? const <FeedUser>[];
-        if (users.isEmpty) {
-          return const SizedBox.shrink();
-        }
+        if (users.isEmpty) return const SizedBox.shrink();
 
         return Container(
           decoration: BoxDecoration(
@@ -86,98 +84,108 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
             border: Border.all(color: colors.borderStrong),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 0, 12),
+              // ── Header ──────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 5, 8, 5),
+                child: Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        'Most Active users this month',
+                        'MOST ACTIVE THIS MONTH',
                         style: TextStyle(
                           color: colors.textPrimary,
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.6,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: _openFullList,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Full List',
-                      style: TextStyle(
-                        color: colors.brand,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Divider(height: 1, color: colors.border),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: users.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: users.length < 4 ? users.length : 4,
-                    childAspectRatio: 0.9,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return InkWell(
-                      onTap: () => widget.onOpenProfile(user.username),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
+                    TextButton(
+                      onPressed: _openFullList,
+                      style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 10,
                           vertical: 6,
                         ),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceRaised,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor:
+                            colors.brand.withValues(alpha: 0.08),
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: colors.border),
                         ),
+                      ),
+                      child: Text(
+                        'Full List',
+                        style: TextStyle(
+                          color: colors.brand,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(height: 1, color: colors.border),
+
+              // ── User Grid ────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(users.length, (index) {
+                    final user = users[index];
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => widget.onOpenProfile(user.username),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            // ── Avatar + online dot ──────────────
                             Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundImage: user.photoUrl.isNotEmpty
-                                      ? NetworkImage(
-                                          ImageUrlResolver.thumbnail(
-                                            user.photoUrl,
-                                            size: 300,
-                                          ),
-                                        )
-                                      : null,
-                                  child: user.photoUrl.isEmpty
-                                      ? const Icon(Icons.person_outline)
-                                      : null,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colors.brand
+                                          .withValues(alpha: 0.25),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor:
+                                        colors.brand.withValues(alpha: 0.08),
+                                    backgroundImage: user.photoUrl.isNotEmpty
+                                        ? NetworkImage(
+                                            ImageUrlResolver.thumbnail(
+                                              user.photoUrl,
+                                              size: 80,
+                                            ),
+                                          )
+                                        : null,
+                                    child: user.photoUrl.isEmpty
+                                        ? Icon(
+                                            Icons.person_outline,
+                                            size: 20,
+                                            color: colors.brand,
+                                          )
+                                        : null,
+                                  ),
                                 ),
                                 if (user.isOnline)
                                   Positioned(
-                                    right: 2,
-                                    bottom: 2,
+                                    right: 1,
+                                    bottom: 1,
                                     child: Container(
-                                      width: 12,
-                                      height: 12,
+                                      width: 11,
+                                      height: 11,
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF22C55E),
                                         shape: BoxShape.circle,
@@ -190,9 +198,12 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                                   ),
                               ],
                             ),
+
                             const SizedBox(height: 6),
+
+                            // ── Name ─────────────────────────────
                             Text(
-                              user.displayName,
+                              user.displayName.split(' ').first,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -200,30 +211,34 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                                 color: colors.textPrimary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                height: 1.05,
+                                height: 1.1,
                               ),
                             ),
+
                             const SizedBox(height: 2),
+
+                            // ── Location / username ───────────────
                             Text(
                               user.city.trim().isNotEmpty
                                   ? user.city.trim()
                                   : (user.state.trim().isNotEmpty
-                                        ? user.state.trim()
-                                        : '@${user.username}'),
+                                      ? user.state.trim()
+                                      : '@${user.username}'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: colors.textMuted,
                                 fontSize: 8,
-                                fontWeight: FontWeight.w800,
-                                height: 1,
+                                fontWeight: FontWeight.w600,
+                                height: 1.1,
                               ),
                             ),
                           ],
                         ),
                       ),
                     );
-                  },
+                  }),
                 ),
               ),
             ],

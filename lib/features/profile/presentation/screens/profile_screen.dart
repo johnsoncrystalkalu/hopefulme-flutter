@@ -757,15 +757,16 @@ class _ProfileHeaderCard extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
+                  border: Border.all(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   profile.role1,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF1D4ED8),
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -867,6 +868,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                                   ? 'Following'
                                   : 'Follow',
                               highlighted: !isFollowing,
+                              highlightColor: context.appColors.brand,
                               compact: true,
                               onTap: onToggleFollow,
                             ),
@@ -1588,13 +1590,13 @@ class _AboutTab extends StatelessWidget {
       MapEntry('Location', profile.locationLabel),
       MapEntry('Hobbies', profile.hobby),
       if (isCurrentUser) MapEntry('Phone', profile.phoneNumber),
-      MapEntry(
-        'Last seen',
-        profile.device.trim().isNotEmpty
-            ? '${profile.lastSeen} | on ${profile.device}'
-            : profile.lastSeen,
-      ),
-      MapEntry('Quote', profile.quote),
+      // MapEntry(
+      //   'Last seen',
+      //   profile.device.trim().isNotEmpty
+      //       ? '${profile.lastSeen} | on ${profile.device}'
+      //       : profile.lastSeen,
+      // ),
+      // MapEntry('Quote', profile.quote),
     ].where((entry) => entry.value.trim().isNotEmpty).toList();
 
     return _PanelCard(
@@ -2258,6 +2260,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     this.highlighted = false,
+    this.highlightColor,
     this.compact = false,
     this.onTap,
   });
@@ -2265,11 +2268,13 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool highlighted;
+  final Color? highlightColor;
   final bool compact;
   final Future<void> Function()? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = highlightColor ?? const Color(0xFF1F2937);
     return InkWell(
       onTap: onTap == null ? null : () => onTap!.call(),
       borderRadius: BorderRadius.circular(14),
@@ -2280,9 +2285,7 @@ class _ActionButton extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          color: highlighted
-              ? const Color(0xFF1F2937)
-              : context.appColors.surfaceMuted,
+          color: highlighted ? activeColor : context.appColors.surfaceMuted,
           border: highlighted
               ? null
               : Border.all(color: context.appColors.border),

@@ -54,9 +54,22 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   Uint8List? _selectedPhotoBytes;
 
   @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleComposerChanged);
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _handleComposerChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _pickPhoto() async {
@@ -127,6 +140,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     final colors = context.appColors;
     final hasContent =
         _controller.text.trim().isNotEmpty || _selectedPhoto != null;
+    final canSubmit = !_submitting && hasContent;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -515,25 +529,36 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       const Spacer(),
                       Container(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [colors.brand, colors.brandStrong],
-                          ),
+                          color: canSubmit
+                              ? null
+                              : colors.surface.withValues(alpha: 0.96),
+                          gradient: canSubmit
+                              ? LinearGradient(
+                                  colors: [colors.brand, colors.brandStrong],
+                                )
+                              : null,
                           borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.brand.withValues(alpha: 0.22),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
-                              spreadRadius: -16,
-                            ),
-                          ],
+                          border: canSubmit
+                              ? null
+                              : Border.all(color: colors.borderStrong),
+                          boxShadow: canSubmit
+                              ? [
+                                  BoxShadow(
+                                    color: colors.brand.withValues(alpha: 0.22),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 10),
+                                    spreadRadius: -16,
+                                  ),
+                                ]
+                              : [],
                         ),
                         child: FilledButton.icon(
-                          onPressed: _submitting || !hasContent ? null : _submit,
+                          onPressed: canSubmit ? _submit : null,
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
-                            disabledBackgroundColor: colors.borderStrong,
+                            disabledBackgroundColor: Colors.transparent,
+                            disabledForegroundColor: colors.textMuted,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 18,

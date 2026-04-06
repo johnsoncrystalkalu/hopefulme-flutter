@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GroupThreadScreen extends StatefulWidget {
@@ -66,13 +67,17 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   bool _typingSent = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
+  bool _isRestoringDraft = false;
   Object? _error;
+
+  String get _draftKey => 'group_draft_${widget.groupId}';
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_handleComposerChanged);
     _scrollController.addListener(_handleScroll);
+    unawaited(_restoreDraft());
     _loadInitial();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 2),
@@ -90,6 +95,33 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDraft = prefs.getString(_draftKey)?.trimRight() ?? '';
+    if (!mounted || savedDraft.isEmpty) {
+      return;
+    }
+    _isRestoringDraft = true;
+    _controller.text = savedDraft;
+    _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+    _isRestoringDraft = false;
+  }
+
+  Future<void> _persistDraft(String text) async {
+    final prefs = await SharedPreferences.getInstance();
+    final draft = text.trimRight();
+    if (draft.isEmpty) {
+      await prefs.remove(_draftKey);
+      return;
+    }
+    await prefs.setString(_draftKey, draft);
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
   }
 
   Future<void> _loadInitial() async {
@@ -253,6 +285,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     _typingDebounce?.cancel();
     _controller.clear();
     unawaited(_sendTypingStatus(false));
+    unawaited(_clearDraft());
     _scrollToBottom();
 
     try {
@@ -481,6 +514,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
   void _handleComposerChanged() {
     final text = _controller.text.trim();
+    unawaited(_persistDraft(_controller.text));
+    if (_isRestoringDraft) {
+      return;
+    }
     if (text.isEmpty) {
       _typingDebounce?.cancel();
       if (_typingSent) {
@@ -1339,6 +1376,18 @@ class _GroupMessageBubble extends StatelessWidget {
   final VoidCallback onDelete;
   final Future<void> Function(String url) onLinkTap;
 
+  TextStyle _linkStyleForBubble(AppThemeColors colors, bool isMine) {
+    final color = isMine ? const Color(0xFFE0F2FE) : colors.brand;
+    return TextStyle(
+      color: color,
+      fontSize: 14,
+      height: 1.45,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: color,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -1536,6 +1585,7 @@ class _GroupMessageBubble extends StatelessWidget {
                               fontSize: 14,
                               height: 1.45,
                             ),
+                            linkStyle: _linkStyleForBubble(colors, isMine),
                             onMentionTap: (username) async {
                               onProfileTap?.call();
                             },

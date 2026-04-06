@@ -136,6 +136,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             secondaryPhotoUrl: detail.secondaryPhotoUrl,
             originalSecondaryPhotoUrl: detail.originalSecondaryPhotoUrl,
             tag: detail.tag,
+            category: detail.category,
             label: detail.label,
             views: detail.views,
             likesCount: detail.likesCount,
@@ -366,6 +367,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return parts.join(' • ');
   }
 
+  String _formatCompactCount(int value) {
+    if (value >= 1000000) {
+      final compact = value / 1000000;
+      return compact >= 10
+          ? '${compact.toStringAsFixed(0)}M'
+          : '${compact.toStringAsFixed(1)}M'.replaceAll('.0M', 'M');
+    }
+    if (value >= 1000) {
+      final compact = value / 1000;
+      return compact >= 10
+          ? '${compact.toStringAsFixed(0)}K'
+          : '${compact.toStringAsFixed(1)}K'.replaceAll('.0K', 'K');
+    }
+    return value.toString();
+  }
+
   Future<void> _downloadImage(String imageUrl) async {
     final resolvedUrl = imageUrl.trim();
     if (resolvedUrl.isEmpty) {
@@ -534,9 +551,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                       _postMetaLine(detail),
                       style: TextStyle(
                         color: colors.textMuted,
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ],
@@ -774,6 +791,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                                 fontWeight: FontWeight.w800,
                                               ),
                                             ),
+                                            if (widget.kind == 'post' &&
+                                                detail.category.trim().isNotEmpty) ...[
+                                              const SizedBox(width: 8),
+                                              _ContentPill(
+                                                label: detail.category.trim(),
+                                              ),
+                                            ],
                                             Text(
                                               formatRelativeTimestamp(
                                                 detail.createdAt,
@@ -812,27 +836,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 ),
                               ],
                               if (widget.kind == 'post' &&
-                                  (detail.label.trim().isNotEmpty ||
-                                      detail.photoUrl.isNotEmpty ||
-                                      detail.secondaryPhotoUrl.isNotEmpty)) ...[
+                                  detail.label.trim().isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
                                     if (detail.label.trim().isNotEmpty)
                                       _ContentPill(
                                         label: detail.label.trim(),
-                                      ),
-                                    const Spacer(),
-                                    if (detail.photoUrl.isNotEmpty)
-                                      _MediaActionChip(
-                                        icon: Icons.download_rounded,
-                                        label: 'Save image',
-                                        onTap: () => _downloadImage(
-                                          detail.originalPhotoUrl.isNotEmpty
-                                              ? detail.originalPhotoUrl
-                                              : detail.photoUrl,
-                                        ),
-                                        colors: colors,
                                       ),
                                   ],
                                 ),
@@ -890,7 +900,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   ),
                                   _MetaChip(
                                     icon: Icons.remove_red_eye_outlined,
-                                    label: '${detail.views} views',
+                                    label:
+                                        '${_formatCompactCount(detail.views)} views',
                                   ),
                                 ],
                               ),

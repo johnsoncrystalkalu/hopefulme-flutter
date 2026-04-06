@@ -14,6 +14,7 @@ class ContentDetail {
     required this.secondaryPhotoUrl,
     required this.originalSecondaryPhotoUrl,
     required this.tag,
+    required this.category,
     required this.label,
     required this.views,
     required this.likesCount,
@@ -33,6 +34,7 @@ class ContentDetail {
   final String secondaryPhotoUrl;
   final String originalSecondaryPhotoUrl;
   final String tag;
+  final String category;
   final String label;
   final int views;
   final int likesCount;
@@ -70,6 +72,7 @@ class ContentDetail {
         json['photo2_url']?.toString() ?? '',
       ),
       tag: json['tag']?.toString() ?? json['preset']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
       views: parseInt(json['views']),
       likesCount: parseInt(json['likes_count']),

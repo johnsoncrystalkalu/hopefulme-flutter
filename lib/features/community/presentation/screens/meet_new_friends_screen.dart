@@ -343,95 +343,13 @@ class _MeetHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Meet New Friends',
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1.4,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Expand your circle and find people who inspire you.',
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (newMembers.isNotEmpty)
-          Row(
-            children: [
-              ...newMembers.take(3).toList().asMap().entries.map((entry) {
-                final index = entry.key;
-                final user = entry.value;
-                return Transform.translate(
-                  offset: Offset(index == 0 ? 0 : -(index * 10).toDouble(), 0),
-                  child: InkWell(
-                    onTap: () => onTap(user.username),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: colors.surface, width: 4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.shadow.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                        image: user.photoUrl.isNotEmpty
-                            ? DecorationImage(
-                                image: NetworkImage(
-                                  ImageUrlResolver.thumbnail(
-                                    user.photoUrl,
-                                    size: 300,
-                                  ),
-                                ),
-                                fit: BoxFit.cover,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.grey,
-                                  BlendMode.saturation,
-                                ),
-                              )
-                            : null,
-                        color: colors.surfaceRaised,
-                      ),
-                      child: user.photoUrl.isEmpty
-                          ? const Icon(Icons.person, size: 20)
-                          : null,
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(width: 8),
-              Text(
-                '+ JOIN THE SPARK',
-                style: TextStyle(
-                  color: colors.brandStrong,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-      ],
+    return Text(
+      'Expand your circle and find people who inspire you.',
+      style: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 }
@@ -826,7 +744,7 @@ class _OnlinePanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Currently Online',
+                  'Recently Active',
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 16,
@@ -847,7 +765,7 @@ class _OnlinePanel extends StatelessWidget {
           ),
           Divider(height: 1, color: colors.border),
           ...users
-              .take(5)
+              .take(10)
               .map(
                 (user) => InkWell(
                   onTap: () => onTap(user.username),
@@ -871,22 +789,22 @@ class _OnlinePanel extends StatelessWidget {
                                   ? const Icon(Icons.person)
                                   : null,
                             ),
-                            Positioned(
-                              right: 1,
-                              bottom: 1,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: colors.success,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            // Positioned(
+                            //   right: 1,
+                            //   bottom: 1,
+                            //   child: Container(
+                            //     width: 12,
+                            //     height: 12,
+                            //     decoration: BoxDecoration(
+                            //       color: colors.success,
+                            //       shape: BoxShape.circle,
+                            //       border: Border.all(
+                            //         color: Colors.white,
+                            //         width: 2,
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ),
                           ],
                         ),
                         const SizedBox(width: 14),
@@ -970,7 +888,7 @@ class _NewestHeartsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'JOINED THIS WEEK',
+                'JOINED RECENTLY',
                 style: TextStyle(
                   color: Color.fromRGBO(255, 255, 255, 0.62),
                   fontSize: 11,

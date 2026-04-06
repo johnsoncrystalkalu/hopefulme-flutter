@@ -220,12 +220,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _InboxHeroCard(
-                    unreadTotal: unreadTotal,
-                    onlineItems: onlineItems,
-                    onOpenConversation: _openConversation,
-                  ),
-                  const SizedBox(height: 18),
                   if (onlineItems.isNotEmpty) ...[
                     Text(
                       'Online Now',
@@ -500,117 +494,6 @@ class _ConversationTile extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _InboxHeroCard extends StatelessWidget {
-  const _InboxHeroCard({
-    required this.unreadTotal,
-    required this.onlineItems,
-    required this.onOpenConversation,
-  });
-
-  final int unreadTotal;
-  final List<ConversationListItem> onlineItems;
-  final Future<void> Function(ConversationListItem item) onOpenConversation;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-      return Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: colors.heroGradient,
-          borderRadius: BorderRadius.circular(26),
-        ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Inbox',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.6,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Messages',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                  const SizedBox(height: 6),
-                  Text(
-                    unreadTotal > 0
-                        ? '$unreadTotal unread messages'
-                        : 'Stay close to your people',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (onlineItems.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                SizedBox(
-                  width: 96,
-                  height: 36,
-                  child: Stack(
-                    children: [
-                      for (var i = 0; i < onlineItems.take(3).length; i++)
-                        Positioned(
-                          right: i * 22,
-                          child: GestureDetector(
-                            onTap: () => onOpenConversation(onlineItems[i]),
-                            child: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: colors.surface,
-                              backgroundImage:
-                                  onlineItems[i].otherUser.photoUrl.isNotEmpty
-                                  ? NetworkImage(
-                                      ImageUrlResolver.avatar(
-                                        onlineItems[i].otherUser.photoUrl,
-                                        size: 64,
-                                      ),
-                                    )
-                                  : null,
-                              child: onlineItems[i].otherUser.photoUrl.isEmpty
-                                  ? const HeroIcon(HeroIcons.user, size: 16)
-                                  : null,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${onlineItems.length} online now',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.66),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-        ],
       ),
     );
   }

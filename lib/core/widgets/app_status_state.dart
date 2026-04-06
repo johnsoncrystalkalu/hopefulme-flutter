@@ -175,28 +175,7 @@ class AppStatusState extends StatelessWidget {
                         color: accentColor.withValues(alpha: 0.14),
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: accentColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Saved content may still appear while fresh data waits for your connection.',
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 13,
-                              height: 1.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: const SizedBox.shrink(),
                   ),
                 ],
                 if (onAction != null && actionLabel != null) ...[

@@ -27,6 +27,7 @@ import 'package:hopefulme_flutter/features/content/presentation/screens/inspirat
 import 'package:hopefulme_flutter/features/content/presentation/screens/posts_feed_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_screen.dart';
@@ -36,7 +37,6 @@ import 'package:hopefulme_flutter/features/messages/presentation/screens/message
 import 'package:hopefulme_flutter/features/messages/presentation/screens/messages_screen.dart';
 import 'package:hopefulme_flutter/features/notifications/data/notification_repository.dart';
 import 'package:hopefulme_flutter/features/notifications/models/app_notification.dart';
-import 'package:hopefulme_flutter/features/notifications/presentation/notification_navigation.dart';
 import 'package:hopefulme_flutter/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
@@ -94,7 +94,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final ValueNotifier<_TopBarSnapshot> _topBarSnapshot =
       ValueNotifier(const _TopBarSnapshot());
   late Future<FeedDashboard> _dashboardFuture;
-  late final NotificationNavigator _notificationNavigator;
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
@@ -108,14 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _homeScrollController.addListener(_handleHomeScroll);
     _dashboardFuture = _createDashboardFuture();
-    _notificationNavigator = NotificationNavigator(
-      profileRepository: widget.profileRepository,
-      contentRepository: widget.contentRepository,
-      messageRepository: widget.messageRepository,
-      searchRepository: widget.searchRepository,
-      updateRepository: widget.updateRepository,
-      currentUser: widget.authController.currentUser,
-    );
     _loadShellPreferences();
     _refreshTopbarData();
     _refreshUnreadGroups();
@@ -229,20 +220,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
-    final currentSnapshot = _topBarSnapshot.value;
-
-    dynamic notifications;
+    int? unreadNotifications;
     Object? notificationsError;
     try {
-      notifications = await widget.notificationRepository.fetchPage(page: 1);
+      final notifications = await widget.notificationRepository.fetchPage(page: 1);
+      unreadNotifications = _inAppNotificationsEnabled
+          ? notifications.unreadCount
+          : 0;
     } catch (error) {
       notificationsError = error;
     }
 
-    List<ConversationListItem>? conversations;
+    int? unreadMessages;
     Object? conversationsError;
     try {
-      conversations = await widget.messageRepository.fetchConversations();
+      final conversations = await widget.messageRepository.fetchConversations();
+      unreadMessages = conversations.fold<int>(
+        0,
+        (sum, item) => sum + item.unreadCount,
+      );
     } catch (error) {
       conversationsError = error;
     }
@@ -259,20 +255,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final nextSnapshot = _TopBarSnapshot(
-      notifications: notifications != null
-          ? (_inAppNotificationsEnabled
-                ? notifications.items.take(5).toList()
-                : const <AppNotification>[])
-          : currentSnapshot.notifications,
-      unreadNotifications: notifications != null
-          ? (_inAppNotificationsEnabled ? notifications.unreadCount as int : 0)
-          : currentSnapshot.unreadNotifications,
-      conversations: conversations != null
-          ? conversations.take(5).toList()
-          : currentSnapshot.conversations,
-      unreadMessages: conversations != null
-          ? conversations.fold<int>(0, (sum, item) => sum + item.unreadCount)
-          : currentSnapshot.unreadMessages,
+      unreadNotifications:
+          unreadNotifications ?? _topBarSnapshot.value.unreadNotifications,
+      unreadMessages: unreadMessages ?? _topBarSnapshot.value.unreadMessages,
+      unreadGroups: _topBarSnapshot.value.unreadGroups,
     );
 
     if (_topBarSnapshot.value != nextSnapshot) {
@@ -325,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     if (!enabled) {
       _topBarSnapshot.value = _topBarSnapshot.value.copyWith(
-        notifications: const <AppNotification>[],
         unreadNotifications: 0,
       );
     }
@@ -436,6 +421,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     await _refreshUnreadGroups(silent: true);
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
   }
 
   Future<void> _handleLinkTap(String url) async {
@@ -750,77 +743,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return message;
   }
 
-  Future<void> _markNotificationRead(AppNotification item) async {
-    if (!item.isRead) {
-      await widget.notificationRepository.markRead(item.id);
-      if (!mounted) {
-        return;
-      }
-      final current = _topBarSnapshot.value;
-      final updatedNotifications = current.notifications.map((entry) {
-        if (entry.id != item.id) {
-          return entry;
-        }
-        return AppNotification(
-          id: entry.id,
-          type: entry.type,
-          message: entry.message,
-          preview: entry.preview,
-          url: entry.url,
-          contentType: entry.contentType,
-          contentId: entry.contentId,
-          inspirationId: entry.inspirationId,
-          icon: entry.icon,
-          avatarUrl: entry.avatarUrl,
-          isRead: true,
-          createdAt: entry.createdAt,
-        );
-      }).toList();
-      _topBarSnapshot.value = current.copyWith(
-        notifications: updatedNotifications,
-        unreadNotifications: current.unreadNotifications > 0
-            ? current.unreadNotifications - 1
-            : 0,
-      );
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    final opened = await _notificationNavigator.open(context, item);
-    if (!opened && mounted) {
-      AppToast.info(context, 'This notification can be viewed on our website.');
-    }
-  }
-
-  Future<void> _markAllNotificationsRead() async {
-    await widget.notificationRepository.markAllRead();
-    if (!mounted) {
-      return;
-    }
-    final current = _topBarSnapshot.value;
-    _topBarSnapshot.value = current.copyWith(
-      notifications: current.notifications.map((entry) {
-        return AppNotification(
-          id: entry.id,
-          type: entry.type,
-          message: entry.message,
-          preview: entry.preview,
-          url: entry.url,
-          contentType: entry.contentType,
-          contentId: entry.contentId,
-          inspirationId: entry.inspirationId,
-          icon: entry.icon,
-          avatarUrl: entry.avatarUrl,
-          isRead: true,
-          createdAt: entry.createdAt,
-        );
-      }).toList(),
-      unreadNotifications: 0,
-    );
-  }
-
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -895,17 +817,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, topBar, _) => _HomeTopBar(
                       user: user,
                       themeController: widget.themeController,
-                      latestNotifications: topBar.notifications,
-                      latestConversations: topBar.conversations,
                       unreadNotifications: topBar.unreadNotifications,
                       unreadMessages: topBar.unreadMessages,
-                      onConversationTap: _openConversation,
                       onMessageCenterTap: _openMessages,
-                      onNotificationTap: _markNotificationRead,
                       onNotificationCenterTap: _openNotifications,
-                      onNotificationsMarkAllRead: _markAllNotificationsRead,
                       onHomeTap: _goHome,
                       onProfileTap: _openProfile,
+                      onSettingsTap: _openSettings,
                       onMenuTap: isDesktop
                           ? null
                           : () {
@@ -962,6 +880,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     widget.feedRepository,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
+                                                onMeetNewFriendsTap:
+                                                    _openMeetNewFriends,
                                                 onOpenProfile:
                                                     _openUserProfile,
                                                 onOpenUpdate:
@@ -1017,6 +937,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           feedRepository:
                                               widget.feedRepository,
                                           onCreateUpdate: _openCreateUpdate,
+                                          onMeetNewFriendsTap:
+                                              _openMeetNewFriends,
                                           onOpenProfile: _openUserProfile,
                                           onOpenUpdate: _openUpdateDetail,
                                           onOpenPost: _openPostDetail,
@@ -1170,29 +1092,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _TopBarSnapshot {
   const _TopBarSnapshot({
-    this.notifications = const <AppNotification>[],
-    this.conversations = const <ConversationListItem>[],
     this.unreadNotifications = 0,
     this.unreadMessages = 0,
     this.unreadGroups = 0,
   });
 
-  final List<AppNotification> notifications;
-  final List<ConversationListItem> conversations;
   final int unreadNotifications;
   final int unreadMessages;
   final int unreadGroups;
 
   _TopBarSnapshot copyWith({
-    List<AppNotification>? notifications,
-    List<ConversationListItem>? conversations,
     int? unreadNotifications,
     int? unreadMessages,
     int? unreadGroups,
   }) {
     return _TopBarSnapshot(
-      notifications: notifications ?? this.notifications,
-      conversations: conversations ?? this.conversations,
       unreadNotifications: unreadNotifications ?? this.unreadNotifications,
       unreadMessages: unreadMessages ?? this.unreadMessages,
       unreadGroups: unreadGroups ?? this.unreadGroups,
@@ -1204,9 +1118,7 @@ class _TopBarSnapshot {
     return other is _TopBarSnapshot &&
         unreadNotifications == other.unreadNotifications &&
         unreadMessages == other.unreadMessages &&
-        unreadGroups == other.unreadGroups &&
-        _sameNotifications(notifications, other.notifications) &&
-        _sameConversations(conversations, other.conversations);
+        unreadGroups == other.unreadGroups;
   }
 
   @override
@@ -1214,93 +1126,39 @@ class _TopBarSnapshot {
     unreadNotifications,
     unreadMessages,
     unreadGroups,
-    notifications.length,
-    conversations.length,
   );
-
-  static bool _sameNotifications(
-    List<AppNotification> a,
-    List<AppNotification> b,
-  ) {
-    if (identical(a, b)) {
-      return true;
-    }
-    if (a.length != b.length) {
-      return false;
-    }
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id || a[i].isRead != b[i].isRead) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  static bool _sameConversations(
-    List<ConversationListItem> a,
-    List<ConversationListItem> b,
-  ) {
-    if (identical(a, b)) {
-      return true;
-    }
-    if (a.length != b.length) {
-      return false;
-    }
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id ||
-          a[i].unreadCount != b[i].unreadCount ||
-          a[i].updatedAt != b[i].updatedAt ||
-          a[i].otherUser.photoUrl != b[i].otherUser.photoUrl ||
-          a[i].latestMessage?.id != b[i].latestMessage?.id ||
-          a[i].latestMessage?.status != b[i].latestMessage?.status ||
-          a[i].latestMessage?.message != b[i].latestMessage?.message ||
-          a[i].latestMessage?.photoUrl != b[i].latestMessage?.photoUrl) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
 
 class _HomeTopBar extends StatelessWidget {
   const _HomeTopBar({
     required this.user,
     required this.themeController,
-    required this.latestNotifications,
-    required this.latestConversations,
     required this.unreadNotifications,
     required this.unreadMessages,
-    required this.onConversationTap,
     required this.onMessageCenterTap,
-    required this.onNotificationTap,
     required this.onNotificationCenterTap,
-    required this.onNotificationsMarkAllRead,
     required this.onHomeTap,
     required this.onProfileTap,
+    required this.onSettingsTap,
     required this.onMenuTap,
     required this.onLogout,
   });
 
   final User? user;
   final ThemeController themeController;
-  final List<AppNotification> latestNotifications;
-  final List<ConversationListItem> latestConversations;
   final int unreadNotifications;
   final int unreadMessages;
-  final Future<void> Function(ConversationListItem item) onConversationTap;
   final Future<void> Function() onMessageCenterTap;
-  final Future<void> Function(AppNotification item) onNotificationTap;
   final Future<void> Function() onNotificationCenterTap;
-  final Future<void> Function() onNotificationsMarkAllRead;
   final Future<void> Function() onHomeTap;
   final Future<void> Function() onProfileTap;
+  final Future<void> Function() onSettingsTap;
   final VoidCallback? onMenuTap;
   final Future<void> Function()? onLogout;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final brightness = Theme.of(context).brightness;
     return SafeArea(
       bottom: false,
       child: Container(
@@ -1334,19 +1192,16 @@ class _HomeTopBar extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            _MessagesDropdownButton(
-              conversations: latestConversations,
+            _TopBarIconButton(
+              icon: HeroIcons.chatBubbleLeft,
               unreadCount: unreadMessages,
-              onConversationTap: onConversationTap,
-              onViewAllTap: onMessageCenterTap,
+              onTap: onMessageCenterTap,
             ),
             const SizedBox(width: 16),
-            _NotificationsDropdownButton(
-              notifications: latestNotifications,
+            _TopBarIconButton(
+              icon: HeroIcons.bell,
               unreadCount: unreadNotifications,
-              onNotificationTap: onNotificationTap,
-              onViewAllTap: onNotificationCenterTap,
-              onMarkAllReadTap: onNotificationsMarkAllRead,
+              onTap: onNotificationCenterTap,
             ),
             const SizedBox(width: 16),
             PopupMenuButton<String>(
@@ -1356,6 +1211,9 @@ class _HomeTopBar extends StatelessWidget {
                 }
                 if (value == 'theme') {
                   await themeController.cycleThemeMode();
+                }
+                if (value == 'settings') {
+                  await onSettingsTap();
                 }
                 if (value == 'home') {
                   await onHomeTap();
@@ -1377,10 +1235,9 @@ class _HomeTopBar extends StatelessWidget {
                         : 'Switch to Dark Mode',
                   ),
                 ),
-                PopupMenuItem(
-                  enabled: false,
-                  value: 'theme_state',
-                  child: Text(themeController.themeLabel(brightness)),
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Text('Settings'),
                 ),
                 // const PopupMenuItem(value: 'home', child: Text('Go Home')),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
@@ -1398,129 +1255,28 @@ class _HomeTopBar extends StatelessWidget {
   }
 }
 
-class _NotificationsDropdownButton extends StatelessWidget {
-  const _NotificationsDropdownButton({
-    required this.notifications,
+class _TopBarIconButton extends StatelessWidget {
+  const _TopBarIconButton({
+    required this.icon,
     required this.unreadCount,
-    required this.onNotificationTap,
-    required this.onViewAllTap,
-    required this.onMarkAllReadTap,
+    required this.onTap,
   });
 
-  final List<AppNotification> notifications;
+  final HeroIcons icon;
   final int unreadCount;
-  final Future<void> Function(AppNotification item) onNotificationTap;
-  final Future<void> Function() onViewAllTap;
-  final Future<void> Function() onMarkAllReadTap;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
-      offset: const Offset(0, 14),
-      color: Colors.transparent,
-      elevation: 0,
-      padding: EdgeInsets.zero,
-      itemBuilder: (context) => [
-        PopupMenuItem<int>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: SizedBox(
-            width: 340,
-            child: _DropdownShell(
-              title: 'Notifications',
-              count: unreadCount,
-              actionLabel: unreadCount > 0 ? 'Mark all read' : null,
-              onActionTap: unreadCount > 0
-                  ? () async {
-                      Navigator.pop(context);
-                      await onMarkAllReadTap();
-                    }
-                  : null,
-              footerLabel: 'View all',
-              onFooterTap: () async {
-                Navigator.pop(context);
-                await onViewAllTap();
-              },
-              child: notifications.isEmpty
-                  ? const _DropdownEmptyState(label: 'All caught up')
-                  : Column(
-                      children: notifications
-                          .map(
-                            (item) => _NotificationDropdownRow(
-                              item: item,
-                              onTap: () async {
-                                Navigator.pop(context);
-                                await onNotificationTap(item);
-                              },
-                            ),
-                          )
-                          .toList(),
-                    ),
-            ),
-          ),
+    return InkWell(
+      onTap: () => onTap(),
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: _BadgeTopBarIcon(
+          icon: icon,
+          count: unreadCount,
         ),
-      ],
-      child: _BadgeTopBarIcon(icon: HeroIcons.bell, count: unreadCount),
-    );
-  }
-}
-
-class _MessagesDropdownButton extends StatelessWidget {
-  const _MessagesDropdownButton({
-    required this.conversations,
-    required this.unreadCount,
-    required this.onConversationTap,
-    required this.onViewAllTap,
-  });
-
-  final List<ConversationListItem> conversations;
-  final int unreadCount;
-  final Future<void> Function(ConversationListItem item) onConversationTap;
-  final Future<void> Function() onViewAllTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
-      offset: const Offset(0, 14),
-      color: Colors.transparent,
-      elevation: 0,
-      padding: EdgeInsets.zero,
-      itemBuilder: (context) => [
-        PopupMenuItem<int>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: SizedBox(
-            width: 340,
-            child: _DropdownShell(
-              title: 'Messages',
-              count: unreadCount,
-              footerLabel: 'View all',
-              onFooterTap: () async {
-                Navigator.pop(context);
-                await onViewAllTap();
-              },
-              child: conversations.isEmpty
-                  ? const _DropdownEmptyState(label: 'No messages yet')
-                  : Column(
-                      children: conversations
-                          .map(
-                            (item) => _MessageDropdownRow(
-                              item: item,
-                              onTap: () async {
-                                Navigator.pop(context);
-                                await onConversationTap(item);
-                              },
-                            ),
-                          )
-                          .toList(),
-                    ),
-            ),
-          ),
-        ),
-      ],
-      child: _BadgeTopBarIcon(
-        icon: HeroIcons.chatBubbleLeft,
-        count: unreadCount,
       ),
     );
   }
@@ -2254,6 +2010,7 @@ class _HomeContent extends StatelessWidget {
     required this.isLoadingMoreUpdates,
     required this.feedRepository,
     required this.onCreateUpdate,
+    required this.onMeetNewFriendsTap,
     required this.onOpenProfile,
     required this.onOpenUpdate,
     required this.onOpenPost,
@@ -2274,6 +2031,7 @@ class _HomeContent extends StatelessWidget {
   final bool isLoadingMoreUpdates;
   final FeedRepository feedRepository;
   final Future<void> Function() onCreateUpdate;
+  final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenPost;
@@ -2312,7 +2070,7 @@ class _HomeContent extends StatelessWidget {
         _StoriesRow(
           users: data.onlineUsers,
           onUserTap: onOpenProfile,
-          onCreateUpdate: onCreateUpdate,
+          onCreateUpdate: onMeetNewFriendsTap,
         ),
         const SizedBox(height: 12),
         _ComposerCard(user: user, onCreateUpdate: onCreateUpdate),
@@ -2328,7 +2086,7 @@ class _HomeContent extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: _SectionHeader(
-            title: 'Random Quotes for you',
+            title: 'Quotes to Inspire You',
             leading: Container(
               width: 34,
               height: 34,
@@ -2339,10 +2097,11 @@ class _HomeContent extends StatelessWidget {
               child: Icon(
                 Icons.format_quote_rounded,
                 color: context.appColors.brand,
-                size: 18,
+                size: 15,
               ),
             ),
             action: 'See more',
+            actionAsText: true,
             onActionTap: () => onOpenPostsFeed(initialCategory: 'Quote'),
           ),
         ),
@@ -2773,12 +2532,15 @@ class _StoriesRow extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 30,
-                   //   backgroundColor: Color(0xFFEEF2FF),
-                      child: Icon(Icons.add, color: Color(0xFF3D5AFE)),
+                      child: Icon(
+                        Icons.person_add_alt_1_rounded,
+                        color: Color(0xFF3D5AFE),
+                        size: 18,
+                      ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Post',
+                      'Connect',
                       style: TextStyle(
                         color: Color(0xFF3D5AFE),
                         fontSize: 11,
@@ -2872,7 +2634,7 @@ class _ComposerCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        "What's on your mind, $firstName?",
+                        "Share your thoughts, $firstName",
                         style: TextStyle(
                           color: context.appColors.textMuted,
                           fontSize: 14, // Slightly increased for readability
@@ -3613,7 +3375,7 @@ class _BlogFeedCard extends StatelessWidget {
                     entry.title,
                     style: TextStyle(
                       color: colors.textPrimary,
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -3835,6 +3597,7 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
     this.action,
+    this.actionAsText = false,
     this.accent,
     this.eyebrow,
     this.leading,
@@ -3844,6 +3607,7 @@ class _SectionHeader extends StatelessWidget {
 
   final String title;
   final String? action;
+  final bool actionAsText;
   final String? accent;
   final String? eyebrow;
   final Widget? leading;
@@ -3896,7 +3660,7 @@ class _SectionHeader extends StatelessWidget {
                 title,
                 style: TextStyle(
                   color: colors.textPrimary,
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                   height: 1.05,
                 ),
@@ -3906,25 +3670,40 @@ class _SectionHeader extends StatelessWidget {
               InkWell(
                 onTap: onActionTap,
                 borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: colors.borderStrong),
-                  ),
-                  child: Text(
-                    action!,
-                    style: TextStyle(
-                      color: colors.brand,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                child: actionAsText
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          action!,
+                          style: TextStyle(
+                            color: colors.brand,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.borderStrong),
+                        ),
+                        child: Text(
+                          action!,
+                          style: TextStyle(
+                            color: colors.brand,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
               ),
           ],
         ),

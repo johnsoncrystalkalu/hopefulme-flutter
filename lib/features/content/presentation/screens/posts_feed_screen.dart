@@ -228,7 +228,7 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
       appBar: buildAppScreenAppBar(
         context,
         title: 'Post & News',
-        subtitle: 'Community',
+        subtitle: 'COMMUNITY',
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -381,7 +381,7 @@ class _PostsHeroHeader extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: Text(
-                        'Stay informed with the latest events, news, posts and announcements from our community leaders.',
+                        'Stay informed with the latest posts, events, news etc from the community.',
                         style: TextStyle(
                           color: colors.textMuted,
                           fontSize: 13.5,
