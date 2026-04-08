@@ -147,21 +147,6 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: entry.id,
-          initialDetail: UpdateDetail(
-            id: entry.id,
-            type: entry.updateType,
-            status: entry.body,
-            photoUrl: entry.photoUrl,
-            originalPhotoUrl: entry.originalPhotoUrl,
-            device: entry.device,
-            views: entry.views,
-            likesCount: entry.likesCount,
-            commentsCount: entry.commentsCount,
-            createdAt: entry.createdAt,
-            user: entry.user!,
-            comments: const [],
-            isLiked: entry.isLiked,
-          ),
           currentUser: widget.currentUser,
           repository: widget.updateRepository,
           contentRepository: widget.contentRepository,
@@ -270,7 +255,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                   }
 
                   final entry = _items[itemIndex];
-                  return RepaintBoundary(
+return RepaintBoundary(
                     child: InteractiveUpdateCard(
                       key: ValueKey('updates-feed-${entry.id}-${entry.createdAt}'),
                       updateId: entry.id,

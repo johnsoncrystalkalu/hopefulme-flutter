@@ -8,6 +8,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/navigation/app_deep_link_navigator.dart';
+import 'package:hopefulme_flutter/core/navigation/app_route_observer.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
@@ -43,6 +44,7 @@ class HopefulMeApp extends StatefulWidget {
 class _HopefulMeAppState extends State<HopefulMeApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   late final AuthController _authController;
   late final ThemeController _themeController;
   late final FeedRepository _feedRepository;
@@ -55,18 +57,26 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   late final SearchRepository _searchRepository;
   late final LibraryRepository _libraryRepository;
   late final AppConfig _config;
+
   Timer? _presenceTimer;
   StreamSubscription<Uri>? _deepLinkSubscription;
   AppLifecycleState? _lifecycleState;
   Uri? _pendingDeepLink;
   bool _isHandlingDeepLink = false;
+  bool _isPresenceTrackingActive = false;
+  bool _isPresencePingInFlight = false;
+
+  // FIX 1: Cooldown timestamp so version check doesn't fire on every resume.
+  DateTime? _lastVersionCheck;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     _themeController = ThemeController()..restore();
     _config = AppConfig.fromEnvironment();
+
     final tokenStorage = TokenStorage();
     final pageCache = PageCache();
     final apiClient = ApiClient(
@@ -76,6 +86,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     _authController = AuthController(authRepository: AuthRepository(apiClient))
       ..restoreSession();
+
     _feedRepository = FeedRepository(
       _authController.authRepository,
       cache: pageCache,
@@ -100,9 +111,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       _authController.authRepository,
       cache: pageCache,
     );
+
     _authController.addListener(_syncPresenceTracking);
     _authController.addListener(_drainPendingDeepLink);
     _authController.addListener(_onAuthStateChanged);
+
     unawaited(_initDeepLinks());
     unawaited(_initOneSignal());
 
@@ -115,6 +128,16 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   // ── Version Check ────────────────────────────────────────────────────────
 
   Future<void> _checkAppVersion() async {
+    // FIX 1: Only run the version check at most once per hour.
+    // Previously this fired on every AppLifecycleState.resumed, meaning a
+    // network request would go out every time the user alt-tabbed back.
+    final now = DateTime.now();
+    if (_lastVersionCheck != null &&
+        now.difference(_lastVersionCheck!) < const Duration(hours: 1)) {
+      return;
+    }
+    _lastVersionCheck = now;
+
     try {
       final response = await http
           .get(Uri.parse('${_config.baseUrl}/app/version'))
@@ -154,8 +177,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       final m = minimum.split('.').map(int.parse).toList();
 
       // Pad to same length
-      while (c.length < 3) c.add(0);
-      while (m.length < 3) m.add(0);
+      while (c.length < 3) {
+        c.add(0);
+      }
+      while (m.length < 3) {
+        m.add(0);
+      }
 
       for (int i = 0; i < 3; i++) {
         if (c[i] < m[i]) return true;
@@ -254,13 +281,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
   Future<void> _syncOneSignalPlayerId() async {
     if (!_authController.isAuthenticated) return;
-
     try {
       final user = _authController.currentUser;
       if (user != null) {
         await OneSignalService.instance.setExternalUserId(user.id.toString());
       }
-
       final playerId = await OneSignalService.instance.getPlayerId();
       if (playerId != null) {
         await _authController.authRepository.registerOneSignalPlayerId(playerId);
@@ -300,7 +325,9 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     _lifecycleState = state;
     _syncPresenceTracking();
 
-    // Re-check version when app comes back to foreground
+    // FIX 1: Version check is now throttled inside _checkAppVersion itself
+    // (1-hour cooldown), so it is safe to call here on every resume without
+    // risk of hammering the network.
     if (state == AppLifecycleState.resumed) {
       unawaited(_checkAppVersion());
     }
@@ -310,6 +337,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     final isForeground =
         _lifecycleState == null || _lifecycleState == AppLifecycleState.resumed;
     final shouldTrack = _authController.isAuthenticated && isForeground;
+
+    if (_isPresenceTrackingActive == shouldTrack) {
+      return;
+    }
+    _isPresenceTrackingActive = shouldTrack;
 
     if (!shouldTrack) {
       _presenceTimer?.cancel();
@@ -326,10 +358,14 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   }
 
   Future<void> _pingPresence() async {
-    if (!_authController.isAuthenticated) return;
+    if (!_authController.isAuthenticated || _isPresencePingInFlight) return;
+    _isPresencePingInFlight = true;
     try {
       await _authController.authRepository.pingPresence();
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isPresencePingInFlight = false;
+    }
   }
 
   // ── Deep Links ───────────────────────────────────────────────────────────
@@ -395,19 +431,51 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       currentUser: _authController.currentUser,
       webBaseUrl: _config.webBaseUrl,
     );
-
     await navigator.open(context, uri);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // FIX 2: Single builder method for HomeScreen so dependencies are only
+  // listed once. Previously HomeScreen was constructed in two places (routes
+  // map + home property), meaning two instances were created on every
+  // MaterialApp rebuild and any new dependency had to be added in two spots.
+  HomeScreen _buildHomeScreen() {
+    return HomeScreen(
+      authController: _authController,
+      themeController: _themeController,
+      feedRepository: _feedRepository,
+      contentRepository: _contentRepository,
+      notificationRepository: _notificationRepository,
+      messageRepository: _messageRepository,
+      groupRepository: _groupRepository,
+      profileRepository: _profileRepository,
+      searchRepository: _searchRepository,
+      updateRepository: _updateRepository,
+      libraryRepository: _libraryRepository,
+    );
   }
 
   // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    // FIX 3: Split the AnimatedBuilder so that theme changes only rebuild the
+    // MaterialApp shell (which must react to themeMode), while auth-state
+    // changes only rebuild the minimal _AppRouter widget that switches between
+    // the loading screen, home, and welcome screens.
+    //
+    // Previously a single AnimatedBuilder wrapped the entire MaterialApp,
+    // meaning every authController.notifyListeners() call (including the
+    // presence ping every 90 s) caused the whole app — routes, themes,
+    // everything — to rebuild from scratch.
     return AnimatedBuilder(
-      animation: Listenable.merge([_authController, _themeController]),
+      // Only theme changes need to rebuild MaterialApp.
+      animation: _themeController,
       builder: (context, _) {
         return MaterialApp(
           navigatorKey: _navigatorKey,
+          navigatorObservers: [appRouteObserver],
           title: AppConfig.appName,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
@@ -418,50 +486,61 @@ class _HopefulMeAppState extends State<HopefulMeApp>
             LoginScreen.routeName: (context) =>
                 LoginScreen(authController: _authController),
             ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(
-              authRepository: _authController.authRepository,
-            ),
+                  authRepository: _authController.authRepository,
+                ),
             RegisterScreen.routeName: (context) => RegisterScreen(
-              authController: _authController,
-              profileRepository: _profileRepository,
-            ),
-            HomeScreen.routeName: (context) => HomeScreen(
-              authController: _authController,
-              themeController: _themeController,
-              feedRepository: _feedRepository,
-              contentRepository: _contentRepository,
-              notificationRepository: _notificationRepository,
-              messageRepository: _messageRepository,
-              groupRepository: _groupRepository,
-              profileRepository: _profileRepository,
-              searchRepository: _searchRepository,
-              updateRepository: _updateRepository,
-              libraryRepository: _libraryRepository,
-            ),
-            ProfileScreen.routeName: (context) => ProfileScreen(
-              currentUser: _authController.currentUser,
-              profileRepository: _profileRepository,
-              messageRepository: _messageRepository,
-              updateRepository: _updateRepository,
-            ),
-          },
-          home: _authController.isBootstrapping
-              ? const _AppLoadingScreen()
-              : _authController.isAuthenticated
-              ? HomeScreen(
                   authController: _authController,
-                  themeController: _themeController,
-                  feedRepository: _feedRepository,
-                  contentRepository: _contentRepository,
-                  notificationRepository: _notificationRepository,
-                  messageRepository: _messageRepository,
-                  groupRepository: _groupRepository,
                   profileRepository: _profileRepository,
-                  searchRepository: _searchRepository,
+                ),
+            // FIX 2: Use the single builder method — no duplication.
+            HomeScreen.routeName: (context) => _buildHomeScreen(),
+            ProfileScreen.routeName: (context) => ProfileScreen(
+                  currentUser: _authController.currentUser,
+                  profileRepository: _profileRepository,
+                  messageRepository: _messageRepository,
                   updateRepository: _updateRepository,
-                  libraryRepository: _libraryRepository,
-                )
-              : AuthWelcomeScreen(authController: _authController),
+                ),
+          },
+          // FIX 3: Auth-state changes now only rebuild this lightweight
+          // _AppRouter widget, not the entire MaterialApp.
+          home: _AppRouter(
+            authController: _authController,
+            buildHomeScreen: _buildHomeScreen,
+            buildWelcomeScreen: () =>
+                AuthWelcomeScreen(authController: _authController),
+          ),
         );
+      },
+    );
+  }
+}
+
+// FIX 3: Dedicated router widget that listens to authController and switches
+// between the loading/home/welcome screens. Its rebuilds are completely
+// isolated from the MaterialApp and from theme changes.
+class _AppRouter extends StatelessWidget {
+  const _AppRouter({
+    required this.authController,
+    required this.buildHomeScreen,
+    required this.buildWelcomeScreen,
+  });
+
+  final AuthController authController;
+  final HomeScreen Function() buildHomeScreen;
+  final Widget Function() buildWelcomeScreen;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: authController,
+      builder: (context, _) {
+        if (authController.isBootstrapping) {
+          return const _AppLoadingScreen();
+        }
+        if (authController.isAuthenticated) {
+          return buildHomeScreen();
+        }
+        return buildWelcomeScreen();
       },
     );
   }
@@ -473,62 +552,44 @@ class _AppLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-
     return Scaffold(
       backgroundColor: colors.surface,
-      body: Center(
-        child: Container(
-          width: 240,
-          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-          decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: colors.border.withValues(alpha: 0.5),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colors.shadow.withValues(alpha: 0.08),
-                blurRadius: 40,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                AppConfig.appName,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1.2,
-                ),
+              const Spacer(),
+              Image.asset(
+                'assets/images/app-icon.png',
+                width: 108,
+                height: 108,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 32),
-              const SizedBox(
-                height: 28,
-                width: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Color(0xFF2563EB),
+              const Spacer(),
+              Column(
+                children: [
+                  Text(
+                    AppConfig.appName,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.8,
+                    ),
                   ),
-                  backgroundColor: Colors.transparent,
-                ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Inspire the world Around you',
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 28),
-              Text(
-                'Inspire the world around you...',
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
-                ),
-              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),

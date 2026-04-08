@@ -127,21 +127,6 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: item.id,
-          initialDetail: UpdateDetail(
-            id: item.id,
-            type: item.updateType,
-            status: item.body,
-            photoUrl: item.photoUrl,
-            originalPhotoUrl: item.photoUrl,
-            device: item.device,
-            views: item.views,
-            likesCount: item.likesCount,
-            commentsCount: item.commentsCount,
-            createdAt: item.createdAt,
-            user: widget.profile.toFeedUser(),
-            comments: const [],
-            isLiked: item.isLiked,
-          ),
           currentUser: widget.currentUser,
           repository: widget.updateRepository,
           profileRepository: widget.repository,

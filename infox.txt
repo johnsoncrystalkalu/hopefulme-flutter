@@ -4,6 +4,7 @@
 
 flutter run -d 27be0f2b
 
+flutter run --profile -d 27be0f2b
  or
 Press:
 

@@ -584,13 +584,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                   GestureDetector(
                                     onTap: widget.authController.isSubmitting
-                                        ? null
-                                        : () {
-                                            widget.authController.clearError();
-                                            Navigator.of(context)
-                                                .pushReplacementNamed(
-                                                  LoginScreen.routeName,
-                                                );
+                                          ? null
+                                          : () {
+                                              widget.authController.clearError();
+                                            Navigator.of(context).pushNamed(
+                                              LoginScreen.routeName,
+                                            );
                                           },
                                     child: Text(
                                       'Sign in',

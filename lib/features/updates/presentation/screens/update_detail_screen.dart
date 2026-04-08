@@ -71,10 +71,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   @override
   void initState() {
     super.initState();
-    _liked = widget.initialDetail?.isLiked ?? widget.initialLiked;
-    _future = widget.initialDetail != null
-        ? Future.value(widget.initialDetail!)
-        : widget.repository.fetchUpdate(widget.updateId);
+    _liked = widget.initialLiked;
+    _future = widget.repository.fetchUpdate(widget.updateId);
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),
@@ -498,7 +496,6 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 }
 
                 final colors = context.appColors;
-                final isDark = Theme.of(context).brightness == Brightness.dark;
                 final isGeneratedActivity =
                     detail.type.trim().toLowerCase() != 'update';
 
@@ -639,29 +636,22 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 child: FilledButton.tonalIcon(
                                   onPressed: () => _toggleLike(detail),
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: isDark
-                                        ? Colors.transparent
-                                        : _liked
-                                        ? colors.dangerSoft
-                                        : colors.surfaceMuted,
-                                    side: isDark
-                                        ? BorderSide(color: colors.borderStrong)
-                                        : null,
+                                    backgroundColor: const Color(0xFFFFF1F4),
                                     elevation: 0,
                                   ),
                                   icon: Icon(
                                     _liked
                                         ? Icons.favorite
                                         : Icons.favorite_border,
-                                    color: colors.dangerText,
+                                      color: const Color(0xFFFF4D6D),
                                   ),
                                   label: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 220),
                                     child: Text(
                                       '${detail.likesCount}',
                                       key: ValueKey(detail.likesCount),
-                                      style: TextStyle(
-                                        color: colors.dangerText,
+                                      style: const TextStyle(
+                                        color: Color(0xFFFF4D6D),
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -672,25 +662,20 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               FilledButton.tonalIcon(
                                 onPressed: () {},
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: isDark
-                                      ? Colors.transparent
-                                      : colors.accentSoft,
-                                  side: isDark
-                                      ? BorderSide(color: colors.borderStrong)
-                                      : null,
+                                  backgroundColor: const Color(0xFFEEF1FF),
                                   elevation: 0,
                                 ),
-                                icon: Icon(
+                                icon: const Icon(
                                   Icons.chat_bubble_outline,
-                                  color: colors.accentSoftText,
+                                  color: Color(0xFF3D5AFE),
                                 ),
                                 label: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 220),
                                   child: Text(
                                     '${detail.commentsCount}',
                                     key: ValueKey(detail.commentsCount),
-                                    style: TextStyle(
-                                      color: colors.accentSoftText,
+                                    style: const TextStyle(
+                                      color: Color(0xFF3D5AFE),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),

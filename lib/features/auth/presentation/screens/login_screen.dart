@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/widgets/auth_page_footer.dart';
@@ -120,10 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       InkWell(
-                        onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                          AuthWelcomeScreen.routeName,
-                          (route) => route.isFirst,
-                        ),
+                        onTap: () => Navigator.of(context).pop(),
                         borderRadius: BorderRadius.circular(999),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),

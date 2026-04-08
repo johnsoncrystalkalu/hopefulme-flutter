@@ -18,6 +18,14 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
   final PageController _pageController = PageController();
   final ValueNotifier<int> _pageIndex = ValueNotifier<int>(0);
 
+  void _openLogin() {
+    Navigator.of(context).pushNamed(LoginScreen.routeName);
+  }
+
+  void _openRegister() {
+    Navigator.of(context).pushNamed(RegisterScreen.routeName);
+  }
+
   // Refined slide data using your brand's core palette
   static const List<_OnboardingSlideData> _slides = [
     _OnboardingSlideData(
@@ -92,8 +100,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                     children: [
                       const Spacer(),
                       TextButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, LoginScreen.routeName),
+                        onPressed: _openLogin,
                         child: Text(
                           'Skip',
                           style: TextStyle(
@@ -112,7 +119,6 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                     child: PageView.builder(
                       controller: _pageController,
                       itemCount: _slides.length,
-                      allowImplicitScrolling: true,
                       onPageChanged: (i) => _pageIndex.value = i,
                       itemBuilder: (context, i) =>
                           _RefinedSlide(data: _slides[i]),
@@ -154,9 +160,9 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                             SizedBox(
                               width: double.infinity,
                               height: 60,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: colors.brandGradient,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                  color: colors.brand,
                                   borderRadius: BorderRadius.circular(18),
                                   boxShadow: [
                                     BoxShadow(
@@ -170,10 +176,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                 ),
                                 child: ElevatedButton(
                                   onPressed: isLastPage
-                                      ? () => Navigator.pushNamed(
-                                          context,
-                                          RegisterScreen.routeName,
-                                        )
+                                      ? _openRegister
                                       : () => _pageController.nextPage(
                                           duration: const Duration(
                                             milliseconds: 380,
@@ -181,7 +184,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                           curve: Curves.easeOutCubic,
                                         ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
+                                    backgroundColor: colors.brand,
                                     shadowColor: Colors.transparent,
                                     foregroundColor: Colors.white,
                                     elevation: 0,
@@ -223,10 +226,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                   ],
                                 ),
                                 child: TextButton(
-                                  onPressed: () => Navigator.pushNamed(
-                                    context,
-                                    LoginScreen.routeName,
-                                  ),
+                                  onPressed: _openLogin,
                                   style: TextButton.styleFrom(
                                     foregroundColor: colors.textPrimary,
                                     padding: const EdgeInsets.symmetric(

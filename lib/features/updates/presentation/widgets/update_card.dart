@@ -205,14 +205,21 @@ class ReusableUpdateCard extends StatelessWidget {
                     InkWell(
                       onTap: onImageTap ?? onCardTap,
                       child: ClipRRect(
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: AppNetworkImage(
-                            imageUrl: imageUrl,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: 240,
+                            maxHeight:
+                                MediaQuery.of(context).size.height * 0.52,
+                          ),
+                          child: SizedBox(
                             width: double.infinity,
-                            fit: BoxFit.cover, //check here
-                            backgroundColor: colors.surfaceMuted,
-                            placeholderLabel: data.fallbackLabel,
+                            child: AppNetworkImage(
+                              imageUrl: imageUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              backgroundColor: colors.surfaceMuted,
+                              placeholderLabel: data.fallbackLabel,
+                            ),
                           ),
                         ),
                       ),

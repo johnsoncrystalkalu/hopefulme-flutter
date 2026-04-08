@@ -8,6 +8,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/navigation/app_route_observer.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
@@ -87,13 +88,16 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver, RouteAware {
   static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
+  static const _topbarRefreshInterval = Duration(seconds: 60);
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _homeScrollController = ScrollController();
   final ValueNotifier<_TopBarSnapshot> _topBarSnapshot =
       ValueNotifier(const _TopBarSnapshot());
   late Future<FeedDashboard> _dashboardFuture;
+  late final String _webBaseUrl;
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
@@ -101,27 +105,119 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingMoreHomeUpdates = false;
   bool _hasMoreHomeUpdates = true;
   int _homeUpdatesPage = 1;
+  bool _homePaginationInFlight = false;
+  bool _isTopbarRefreshInFlight = false;
+  String _activeSidebarItemLabel = 'Home';
+  AppLifecycleState? _appLifecycleState;
+  ModalRoute<dynamic>? _subscribedRoute;
+  bool _isHomeRouteVisible = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _homeScrollController.addListener(_handleHomeScroll);
     _dashboardFuture = _createDashboardFuture();
+    _webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
     _loadShellPreferences();
     _refreshTopbarData();
     _refreshUnreadGroups();
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _refreshTopbarData(silent: true),
-    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || route == _subscribedRoute) {
+      return;
+    }
+    if (_subscribedRoute is PageRoute<dynamic>) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _subscribedRoute = route;
+    if (route is PageRoute<dynamic>) {
+      appRouteObserver.subscribe(this, route);
+      _isHomeRouteVisible = route.isCurrent;
+      _syncTopbarPolling();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_subscribedRoute is PageRoute<dynamic>) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _stopTopbarPolling();
     _pollingTimer?.cancel();
     _homeScrollController.dispose();
     _topBarSnapshot.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    _syncTopbarPolling();
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshTopbarData(silent: true));
+    }
+  }
+
+  @override
+  void didPush() {
+    _isHomeRouteVisible = true;
+    _syncTopbarPolling();
+  }
+
+  @override
+  void didPopNext() {
+    _isHomeRouteVisible = true;
+    _syncTopbarPolling();
+    unawaited(_refreshTopbarData(silent: true));
+  }
+
+  @override
+  void didPushNext() {
+    _isHomeRouteVisible = false;
+    _syncTopbarPolling();
+  }
+
+  @override
+  void didPop() {
+    _isHomeRouteVisible = false;
+    _syncTopbarPolling();
+  }
+
+  bool get _isAppInForeground =>
+      _appLifecycleState == null || _appLifecycleState == AppLifecycleState.resumed;
+
+  bool get _shouldPollTopbar => _isHomeRouteVisible && _isAppInForeground;
+
+  void _syncTopbarPolling() {
+    if (_shouldPollTopbar) {
+      _startTopbarPolling();
+      return;
+    }
+    _stopTopbarPolling();
+  }
+
+  void _startTopbarPolling() {
+    if (!_shouldPollTopbar) {
+      return;
+    }
+    if (_pollingTimer != null) {
+      return;
+    }
+    _pollingTimer = Timer.periodic(
+      _topbarRefreshInterval,
+      (_) => unawaited(_refreshTopbarData(silent: true)),
+    );
+  }
+
+  void _stopTopbarPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
   }
 
   Future<FeedDashboard> _createDashboardFuture() {
@@ -162,12 +258,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleHomeScroll() {
-    if (!_homeScrollController.hasClients) {
+    if (!_homeScrollController.hasClients || _homePaginationInFlight) {
       return;
     }
     final position = _homeScrollController.position;
     if (position.pixels >= position.maxScrollExtent - 280) {
-      _loadMoreHomeUpdates();
+      _homePaginationInFlight = true;
+      unawaited(
+        _loadMoreHomeUpdates().whenComplete(() {
+          _homePaginationInFlight = false;
+        }),
+      );
     }
   }
 
@@ -180,6 +281,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoadingMoreHomeUpdates = true;
     });
 
+    var nextHomeUpdatesPage = _homeUpdatesPage;
+    var nextHasMoreHomeUpdates = _hasMoreHomeUpdates;
+    var nextHomeUpdates = _homeUpdates;
+
     try {
       final nextPage = _homeUpdatesPage + 1;
       final page = await widget.feedRepository.fetchUpdatesPage(page: nextPage);
@@ -187,21 +292,17 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      setState(() {
-        _homeUpdatesPage = page.currentPage;
-        _hasMoreHomeUpdates = page.hasMore;
-        _homeUpdates = _mergeFeedEntries(_homeUpdates, page.items);
-      });
+      nextHomeUpdatesPage = page.currentPage;
+      nextHasMoreHomeUpdates = page.hasMore;
+      nextHomeUpdates = _mergeFeedEntries(_homeUpdates, page.items);
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _hasMoreHomeUpdates = false;
-      });
+      nextHasMoreHomeUpdates = false;
     } finally {
       if (mounted) {
         setState(() {
+          _homeUpdatesPage = nextHomeUpdatesPage;
+          _hasMoreHomeUpdates = nextHasMoreHomeUpdates;
+          _homeUpdates = nextHomeUpdates;
           _isLoadingMoreHomeUpdates = false;
         });
       }
@@ -220,49 +321,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
+    if (_isTopbarRefreshInFlight) {
+      return;
+    }
+    _isTopbarRefreshInFlight = true;
+
     int? unreadNotifications;
     Object? notificationsError;
-    try {
-      final notifications = await widget.notificationRepository.fetchPage(page: 1);
-      unreadNotifications = _inAppNotificationsEnabled
-          ? notifications.unreadCount
-          : 0;
-    } catch (error) {
-      notificationsError = error;
-    }
-
     int? unreadMessages;
     Object? conversationsError;
     try {
-      final conversations = await widget.messageRepository.fetchConversations();
-      unreadMessages = conversations.fold<int>(
-        0,
-        (sum, item) => sum + item.unreadCount,
-      );
-    } catch (error) {
-      conversationsError = error;
-    }
+      final notificationsFuture = widget.notificationRepository.fetchPage(page: 1);
+      final conversationsFuture = widget.messageRepository.fetchConversations();
 
-    if (!mounted) {
-      return;
-    }
-
-    if (notificationsError != null && conversationsError != null) {
-      if (!silent) {
-        throw conversationsError;
+      try {
+        final notifications = await notificationsFuture;
+        unreadNotifications = _inAppNotificationsEnabled
+            ? notifications.unreadCount
+            : 0;
+      } catch (error) {
+        notificationsError = error;
       }
-      return;
-    }
 
-    final nextSnapshot = _TopBarSnapshot(
-      unreadNotifications:
-          unreadNotifications ?? _topBarSnapshot.value.unreadNotifications,
-      unreadMessages: unreadMessages ?? _topBarSnapshot.value.unreadMessages,
-      unreadGroups: _topBarSnapshot.value.unreadGroups,
-    );
+      try {
+        final conversations = await conversationsFuture;
+        unreadMessages = conversations.fold<int>(
+          0,
+          (sum, item) => sum + item.unreadCount,
+        );
+      } catch (error) {
+        conversationsError = error;
+      }
 
-    if (_topBarSnapshot.value != nextSnapshot) {
-      _topBarSnapshot.value = nextSnapshot;
+      if (!mounted) {
+        return;
+      }
+
+      if (notificationsError != null && conversationsError != null) {
+        if (!silent) {
+          throw conversationsError;
+        }
+        return;
+      }
+
+      final nextSnapshot = _TopBarSnapshot(
+        unreadNotifications:
+            unreadNotifications ?? _topBarSnapshot.value.unreadNotifications,
+        unreadMessages: unreadMessages ?? _topBarSnapshot.value.unreadMessages,
+        unreadGroups: _topBarSnapshot.value.unreadGroups,
+      );
+
+      if (_topBarSnapshot.value != nextSnapshot) {
+        _topBarSnapshot.value = nextSnapshot;
+      }
+    } finally {
+      _isTopbarRefreshInFlight = false;
     }
   }
 
@@ -280,7 +393,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final next = current.copyWith(unreadGroups: unreadGroups);
       if (current != next) {
         _topBarSnapshot.value = next;
-        setState(() {});
       }
     } catch (error) {
       if (!silent && mounted) {
@@ -346,6 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     setState(() {
+      _activeSidebarItemLabel = 'Home';
       _selectedBottomNav = 0;
       _homeUpdates = const <FeedEntry>[];
       _homeUpdatesPage = 1;
@@ -388,6 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openGroups() async {
+    _setActiveSidebarItem('Group Chats');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => GroupsScreen(
@@ -403,6 +517,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     setState(() {
+      _activeSidebarItemLabel = 'Home';
       _selectedBottomNav = 0;
     });
   }
@@ -460,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _openUpdateDetail(FeedEntry entry) async {
+Future<void> _openUpdateDetail(FeedEntry entry) async {
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -493,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _refreshDashboard();
     }
   }
-
+  
   Future<void> _openPostDetail(FeedEntry entry) async {
     await openPostDetail(
       context,
@@ -564,6 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openActivities() async {
+    _setActiveSidebarItem('Activities');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => UpdatesFeedScreen(
@@ -580,6 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openPostsFeed({String initialCategory = 'All'}) async {
+    _setActiveSidebarItem('Post & News');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => PostsFeedScreen(
@@ -611,6 +728,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openBlogsFeed() async {
+    _setActiveSidebarItem('Blog & Articles');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => BlogsFeedScreen(
@@ -627,6 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openInspirations() async {
+    _setActiveSidebarItem('Inspirations');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => InspirationInboxScreen(
@@ -641,6 +760,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openLibrary() async {
+    _setActiveSidebarItem('Library');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
@@ -650,9 +770,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openWebPage(String title, String path) async {
-    final base = AppConfig.fromEnvironment().webBaseUrl;
+    _setActiveSidebarItem(title);
     final normalizedPath = path.startsWith('/') ? path : '/$path';
-    var targetUrl = '$base$normalizedPath';
+    var targetUrl = '$_webBaseUrl$normalizedPath';
 
     try {
       final bridgedUrl = await widget.authController.authRepository
@@ -684,6 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openTermsPage() => _openWebPage('Terms', '/terms');
 
   Future<void> _openMeetNewFriends() async {
+    _setActiveSidebarItem('Meet New Friends');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => MeetNewFriendsScreen(
@@ -734,7 +855,6 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute<void>(
           builder: (context) => UpdateDetailScreen(
             updateId: createdUpdate.id,
-            initialDetail: createdUpdate,
             currentUser: widget.authController.currentUser,
             repository: widget.updateRepository,
             contentRepository: widget.contentRepository,
@@ -784,6 +904,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.authController.logout();
   }
 
+  void _setActiveSidebarItem(String label) {
+    if (!mounted || _activeSidebarItemLabel == label) {
+      return;
+    }
+    setState(() {
+      _activeSidebarItemLabel = label;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = widget.authController.currentUser;
@@ -794,6 +923,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sidebar = RepaintBoundary(
       child: _HomeSidebar(
         user: user,
+        activeItemLabel: _activeSidebarItemLabel,
         onSearchTap: _openSearch,
         onHomeTap: _goHome,
         onPostsTap: _openPostsFeed,
@@ -862,7 +992,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          cacheExtent: 1400,
+                          cacheExtent: 400,
                           slivers: [
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(
@@ -1487,6 +1617,9 @@ class _NotificationDropdownRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarUrl = item.avatarUrl.isNotEmpty
+        ? ImageUrlResolver.avatar(item.avatarUrl, size: 56)
+        : '';
     return InkWell(
       onTap: () => onTap(),
       child: Container(
@@ -1499,14 +1632,19 @@ class _NotificationDropdownRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: item.avatarUrl.isNotEmpty
-                  ? NetworkImage(
-                      ImageUrlResolver.avatar(item.avatarUrl, size: 56),
-                    )
-                  : null,
-              child: item.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: ClipOval(
+                child: AppNetworkImage(
+                  imageUrl: avatarUrl,
+                  width: 36,
+                  height: 36,
+                  placeholderLabel: item.message,
+                  placeholderIcon: Icons.person,
+                  showShimmer: false,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1557,6 +1695,9 @@ class _MessageDropdownRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarUrl = item.otherUser.photoUrl.isNotEmpty
+        ? ImageUrlResolver.avatar(item.otherUser.photoUrl, size: 60)
+        : '';
     return InkWell(
       onTap: () => onTap(),
       child: Container(
@@ -1571,19 +1712,19 @@ class _MessageDropdownRow extends StatelessWidget {
           children: [
             Stack(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                      ? NetworkImage(
-                          ImageUrlResolver.avatar(
-                            item.otherUser.photoUrl,
-                            size: 60,
-                          ),
-                        )
-                      : null,
-                  child: item.otherUser.photoUrl.isEmpty
-                      ? const Icon(Icons.person)
-                      : null,
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: ClipOval(
+                    child: AppNetworkImage(
+                      imageUrl: avatarUrl,
+                      width: 40,
+                      height: 40,
+                      placeholderLabel: item.otherUser.displayName,
+                      placeholderIcon: Icons.person,
+                      showShimmer: false,
+                    ),
+                  ),
                 ),
                 if (item.otherUser.isOnline)
                   const Positioned(
@@ -1690,6 +1831,7 @@ class _DropdownEmptyState extends StatelessWidget {
 class _HomeSidebar extends StatelessWidget {
   const _HomeSidebar({
     required this.user,
+    required this.activeItemLabel,
     required this.onSearchTap,
     required this.onHomeTap,
     required this.onPostsTap,
@@ -1706,6 +1848,7 @@ class _HomeSidebar extends StatelessWidget {
   });
 
   final User? user;
+  final String activeItemLabel;
   final Future<void> Function() onSearchTap;
   final Future<void> Function() onHomeTap;
   final Future<void> Function() onPostsTap;
@@ -1730,7 +1873,7 @@ class _HomeSidebar extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
+            padding: const EdgeInsets.fromLTRB(20, 32, 20, 18),
             child: Row(
               children: [
                 SizedBox(
@@ -1779,29 +1922,34 @@ class _HomeSidebar extends StatelessWidget {
           _SidebarSection(
             title: 'Community',
             items: [
-              _SidebarItemData(HeroIcons.home, 'Home', true, onTap: onHomeTap),
+              _SidebarItemData(
+                HeroIcons.home,
+                'Home',
+                activeItemLabel == 'Home',
+                onTap: onHomeTap,
+              ),
               _SidebarItemData(
                 HeroIcons.newspaper,
                 'Post & News',
-                false,
+                activeItemLabel == 'Post & News',
                 onTap: onPostsTap,
               ),
               _SidebarItemData(
                 HeroIcons.sparkles,
                 'Activities',
-                false,
+                activeItemLabel == 'Activities',
                 onTap: onActivitiesTap,
               ),
               _SidebarItemData(
                 HeroIcons.chatBubbleLeftRight,
                 'Group Chats',
-                false,
+                activeItemLabel == 'Group Chats',
                 onTap: onGroupsTap,
               ),
               _SidebarItemData(
                 HeroIcons.userPlus,
                 'Meet New Friends',
-                false,
+                activeItemLabel == 'Meet New Friends',
                 onTap: onMeetNewFriendsTap,
               ),
             ],
@@ -1812,13 +1960,13 @@ class _HomeSidebar extends StatelessWidget {
               _SidebarItemData(
                 HeroIcons.pencilSquare,
                 'Blog & Articles',
-                false,
+                activeItemLabel == 'Blog & Articles',
                 onTap: onBlogsTap,
               ),
               _SidebarItemData(
                 HeroIcons.sparkles,
                 'Inspirations',
-                false,
+                activeItemLabel == 'Inspirations',
                 onTap: onInspirationsTap,
               ),
             ],
@@ -1829,7 +1977,7 @@ class _HomeSidebar extends StatelessWidget {
               _SidebarItemData(
                 HeroIcons.bookOpen,
                 'Library',
-                false,
+                activeItemLabel == 'Library',
                 onTap: onLibraryTap,
               ),
             ],
@@ -1840,89 +1988,22 @@ class _HomeSidebar extends StatelessWidget {
               _SidebarItemData(
                 HeroIcons.shoppingBag,
                 'Marketplace',
-                false,
+                activeItemLabel == 'Marketplace',
                 onTap: onStoreTap,
               ),
               _SidebarItemData(
                 HeroIcons.tv,
                 'HopefulMe TV',
-                false,
+                activeItemLabel == 'HopefulMe TV',
                 onTap: onTvTap,
               ),
               _SidebarItemData(
                 HeroIcons.heart,
                 'Outreach',
-                false,
+                activeItemLabel == 'Outreach',
                 onTap: onOutreachTap,
               ),
             ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: colors.sidebarSurface.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colors.border.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _Avatar(
-                        imageUrl: user?.photoUrl ?? '',
-                        label: user?.displayName ?? 'U',
-                        radius: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              user?.displayName ?? 'Member',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              user == null ? '' : '@${user!.username}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.sidebarMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      InkWell(
-                        onTap: () => onLogoutTap(),
-                        borderRadius: BorderRadius.circular(999),
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: HeroIcon(
-                            HeroIcons.arrowRightOnRectangle,
-                            color: colors.sidebarMuted,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -1978,14 +2059,16 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = item.active
-        ? const LinearGradient(colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)])
-        : null;
+    const activeColor = Color(0xFF3D5AFE);
+    const inactiveColor = Color(0xFF94A3B8);
+    const textColor = Color(0xFFDDE6F6);
+
+    final isActive = item.active;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        gradient: gradient,
+        color: isActive ? activeColor : null,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Material(
@@ -1993,22 +2076,26 @@ class _SidebarItem extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: item.onTap == null ? null : () => item.onTap!(),
-          child: ListTile(
-            dense: true,
-            visualDensity: const VisualDensity(vertical: -2),
-            leading: HeroIcon(
-              item.icon,
-              style: item.active ? HeroIconStyle.solid : HeroIconStyle.outline,
-              color: item.active ? Colors.white : const Color(0xFF94A3B8),
-              size: 18,
-            ),
-            title: Text(
-              item.label,
-              style: TextStyle(
-                color: item.active ? Colors.white : const Color(0xFFDDE6F6),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                HeroIcon(
+                  item.icon,
+                  style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
+                  color: isActive ? Colors.white : inactiveColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    color: isActive ? Colors.white : textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2059,6 +2146,97 @@ class _HomeContent extends StatelessWidget {
   final UpdateRepository updateRepository;
   final bool isLoading;
   final String? error;
+
+  List<Widget> _buildFeedSections(BuildContext context, FeedDashboard data) {
+    final widgets = <Widget>[];
+    final postsBlock = data.feed
+        .where((entry) => entry.type != 'update' && entry.type != 'blog')
+        .toList(growable: false);
+
+    if (postsBlock.isNotEmpty) {
+      if (data.postCategories.isNotEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _PostCategoryStrip(
+              categories: data.postCategories,
+              onSelectCategory: (category) =>
+                  onOpenPostsFeed(initialCategory: category),
+            ),
+          ),
+        );
+      }
+      widgets.addAll(
+        postsBlock.map(
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _FeedEntryCard(
+              entry: entry,
+              currentUser: user,
+              onOpenProfile: onOpenProfile,
+              onOpenUpdate: onOpenUpdate,
+              onOpenPost: onOpenPost,
+              onOpenBlog: onOpenBlog,
+              onOpenHashtag: onOpenHashtag,
+              onOpenLink: onOpenLink,
+              updateRepository: updateRepository,
+            ),
+          ),
+        ),
+      );
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          child: _FeedExploreChip(
+            icon: Icons.article_outlined,
+            label: 'View more posts',
+            onTap: () => onOpenPostsFeed(initialCategory: 'All'),
+          ),
+        ),
+      );
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 12),
+          child: MostActiveUsersCard(
+            feedRepository: feedRepository,
+            onOpenProfile: onOpenProfile,
+          ),
+        ),
+      );
+      widgets.add(const SizedBox(height: 16));
+    }
+
+    if (homeUpdates.isNotEmpty) {
+      widgets.addAll(
+        homeUpdates.map(
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _UpdateFeedCard(
+              entry: entry,
+              currentUser: user,
+              onOpenProfile: onOpenProfile,
+              onOpenUpdate: onOpenUpdate,
+              onOpenHashtag: onOpenHashtag,
+              onOpenLink: onOpenLink,
+              updateRepository: updateRepository,
+            ),
+          ),
+        ),
+      );
+      widgets.add(const SizedBox(height: 28));
+    }
+
+    if (isLoadingMoreUpdates) {
+      widgets.add(
+        const Padding(
+          padding: EdgeInsets.only(bottom: 28),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return widgets;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2128,110 +2306,7 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        // Group feeds by type and let updates continue with the Activities feed.
-        ...(() {
-          final updates = homeUpdates;
-          final postsBlock = data.feed
-              .where((e) => e.type != 'update' && e.type != 'blog')
-              .toList();
-
-          final widgets = <Widget>[];
-          if (postsBlock.isNotEmpty) {
-            // widgets.add(
-            //   Padding(
-            //     padding: EdgeInsets.only(bottom: 14),
-            //     child: _SectionHeader(
-            //       title: 'Post & News',
-            //       eyebrow: 'DISCOVER',
-            //       action: 'Browse all',
-            //       icon: Icons.article_outlined,
-            //       onActionTap: () => onOpenPostsFeed(initialCategory: 'All'),
-            //     ),
-            //   ),
-            // );
-            if (data.postCategories.isNotEmpty) {
-              widgets.add(
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _PostCategoryStrip(
-                    categories: data.postCategories,
-                    onSelectCategory: (category) =>
-                        onOpenPostsFeed(initialCategory: category),
-                  ),
-                ),
-              );
-            }
-            widgets.addAll(
-              postsBlock.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _FeedEntryCard(
-                    entry: entry,
-                    currentUser: user,
-                    onOpenProfile: onOpenProfile,
-                    onOpenUpdate: onOpenUpdate,
-                    onOpenPost: onOpenPost,
-                    onOpenBlog: onOpenBlog,
-                    onOpenHashtag: onOpenHashtag,
-                    onOpenLink: onOpenLink,
-                    updateRepository: updateRepository,
-                  ),
-                ),
-              ),
-            );
-            widgets.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 4,
-                ),
-                child: _FeedExploreChip(
-                  icon: Icons.article_outlined,
-                  label: 'View more posts',
-                  onTap: () => onOpenPostsFeed(initialCategory: 'All'),
-                ),
-              ),
-            );
-            widgets.add(
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8, top: 12),
-                child: MostActiveUsersCard(
-                  feedRepository: feedRepository,
-                  onOpenProfile: onOpenProfile,
-                ),
-              ),
-            );
-            widgets.add(const SizedBox(height: 16));
-          }
-          if (updates.isNotEmpty) {
-            widgets.addAll(
-              updates.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _UpdateFeedCard(
-                    entry: entry,
-                    currentUser: user,
-                    onOpenProfile: onOpenProfile,
-                    onOpenUpdate: onOpenUpdate,
-                    onOpenHashtag: onOpenHashtag,
-                    onOpenLink: onOpenLink,
-                    updateRepository: updateRepository,
-                  ),
-                ),
-              ),
-            );
-            widgets.add(const SizedBox(height: 28));
-          }
-          if (isLoadingMoreUpdates) {
-            widgets.add(
-              const Padding(
-                padding: EdgeInsets.only(bottom: 28),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            );
-          }
-          return widgets;
-        }()),
+        ..._buildFeedSections(context, data),
       ],
     );
   }
@@ -3020,28 +3095,29 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             border: Border.all(color: colors.surface, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: colors.shadow.withOpacity(0.04),
+                                color: colors.shadow.withValues(alpha: 0.04),
                                 blurRadius: 10,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                             color: colors.surfaceMuted,
                           ),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: colors.surfaceMuted,
-                            backgroundImage:
-                                previewUsers[index].photoUrl.isNotEmpty
-                                ? NetworkImage(
-                                    ImageUrlResolver.avatar(
+                          child: ClipOval(
+                            child: AppNetworkImage(
+                              imageUrl: previewUsers[index].photoUrl.isNotEmpty
+                                  ? ImageUrlResolver.avatar(
                                       previewUsers[index].photoUrl,
                                       size: 60,
-                                    ),
-                                  )
-                                : null,
-                            child: previewUsers[index].photoUrl.isEmpty
-                                ? const Icon(Icons.person, size: 18)
-                                : null,
+                                    )
+                                  : '',
+                              width: 44,
+                              height: 44,
+                              backgroundColor: colors.surfaceMuted,
+                              placeholderLabel:
+                                  previewUsers[index].displayName,
+                              placeholderIcon: Icons.person,
+                              showShimmer: false,
+                            ),
                           ),
                         ),
                       ),
@@ -3184,13 +3260,11 @@ class _PostFeedCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(26),
                 ),
-                child: Image.network(
-                  entry.photoUrl,
+                child: AppNetworkImage(
+                  imageUrl: entry.photoUrl,
+                  width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(
-                    height: 180,
-                    child: Center(child: Icon(Icons.broken_image_outlined)),
-                  ),
+                  placeholderLabel: entry.title,
                 ),
               ),
             ),
@@ -3340,11 +3414,10 @@ class _BlogFeedCard extends StatelessWidget {
                 ),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: Image.network(
-                    entry.photoUrl,
+                  child: AppNetworkImage(
+                    imageUrl: entry.photoUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Center(child: Icon(Icons.broken_image_outlined)),
+                    placeholderLabel: entry.title,
                   ),
                 ),
               ),

@@ -16,7 +16,7 @@
 
         <meta-data
         android:name="com.onesignal.DefaultNotificationIcon"
-        android:resource="@drawable/ic_stat_hopefulme" />
+        android:resource="@drawable/ic_stat_onesignal_default" />
 
         <activity
             android:name=".MainActivity"
