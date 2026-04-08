@@ -539,9 +539,18 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openSettings() async {
+    final username = widget.authController.currentUser?.username ?? '';
+    if (username.trim().isEmpty) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => const SettingsScreen(),
+        builder: (context) => SettingsScreen(
+          username: username,
+          profileRepository: widget.profileRepository,
+        ),
       ),
     );
   }
@@ -1869,141 +1878,151 @@ class _HomeSidebar extends StatelessWidget {
     return Container(
       width: 256,
       decoration: BoxDecoration(color: colors.sidebar),
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 18),
-            child: Row(
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                SizedBox(
-                  height: 40,
-                  child: Image.asset(
-                    'assets/images/logo-banner-light.png',
-                    fit: BoxFit.contain,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 44, 20, 18),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: Image.asset(
+                          'assets/images/logo-banner-light.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: InkWell(
+                    onTap: () => onSearchTap(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: colors.sidebarSurface,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 14),
+                          HeroIcon(
+                            HeroIcons.magnifyingGlass,
+                            size: 18,
+                            color: colors.sidebarMuted,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Search...',
+                            style: TextStyle(
+                              color: colors.sidebarMuted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _SidebarSection(
+                  title: 'Community',
+                  items: [
+                    _SidebarItemData(
+                      HeroIcons.home,
+                      'Home',
+                      activeItemLabel == 'Home',
+                      onTap: onHomeTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.newspaper,
+                      'Post & News',
+                      activeItemLabel == 'Post & News',
+                      onTap: onPostsTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.sparkles,
+                      'Activities',
+                      activeItemLabel == 'Activities',
+                      onTap: onActivitiesTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.chatBubbleLeftRight,
+                      'Group Chats',
+                      activeItemLabel == 'Group Chats',
+                      onTap: onGroupsTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.userPlus,
+                      'Meet New Friends',
+                      activeItemLabel == 'Meet New Friends',
+                      onTap: onMeetNewFriendsTap,
+                    ),
+                  ],
+                ),
+                _SidebarSection(
+                  title: 'Content',
+                  items: [
+                    _SidebarItemData(
+                      HeroIcons.pencilSquare,
+                      'Blog & Articles',
+                      activeItemLabel == 'Blog & Articles',
+                      onTap: onBlogsTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.sparkles,
+                      'Inspirations',
+                      activeItemLabel == 'Inspirations',
+                      onTap: onInspirationsTap,
+                    ),
+                  ],
+                ),
+                _SidebarSection(
+                  title: 'Resources',
+                  items: [
+                    _SidebarItemData(
+                      HeroIcons.bookOpen,
+                      'Library',
+                      activeItemLabel == 'Library',
+                      onTap: onLibraryTap,
+                    ),
+                  ],
+                ),
+                _SidebarSection(
+                  title: 'Web',
+                  items: [
+                    _SidebarItemData(
+                      HeroIcons.shoppingBag,
+                      'Marketplace',
+                      activeItemLabel == 'Marketplace',
+                      onTap: onStoreTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.tv,
+                      'HopefulMe TV',
+                      activeItemLabel == 'HopefulMe TV',
+                      onTap: onTvTap,
+                    ),
+                    _SidebarItemData(
+                      HeroIcons.heart,
+                      'Outreach',
+                      activeItemLabel == 'Outreach',
+                      onTap: onOutreachTap,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: InkWell(
-              onTap: () => onSearchTap(),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: colors.sidebarSurface,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(width: 14),
-                    HeroIcon(
-                      HeroIcons.magnifyingGlass,
-                      size: 18,
-                      color: colors.sidebarMuted,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Search...',
-                      style: TextStyle(
-                        color: colors.sidebarMuted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          _SidebarSection(
-            title: 'Community',
-            items: [
-              _SidebarItemData(
-                HeroIcons.home,
-                'Home',
-                activeItemLabel == 'Home',
-                onTap: onHomeTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.newspaper,
-                'Post & News',
-                activeItemLabel == 'Post & News',
-                onTap: onPostsTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.sparkles,
-                'Activities',
-                activeItemLabel == 'Activities',
-                onTap: onActivitiesTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.chatBubbleLeftRight,
-                'Group Chats',
-                activeItemLabel == 'Group Chats',
-                onTap: onGroupsTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.userPlus,
-                'Meet New Friends',
-                activeItemLabel == 'Meet New Friends',
-                onTap: onMeetNewFriendsTap,
-              ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Content',
-            items: [
-              _SidebarItemData(
-                HeroIcons.pencilSquare,
-                'Blog & Articles',
-                activeItemLabel == 'Blog & Articles',
-                onTap: onBlogsTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.sparkles,
-                'Inspirations',
-                activeItemLabel == 'Inspirations',
-                onTap: onInspirationsTap,
-              ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Resources',
-            items: [
-              _SidebarItemData(
-                HeroIcons.bookOpen,
-                'Library',
-                activeItemLabel == 'Library',
-                onTap: onLibraryTap,
-              ),
-            ],
-          ),
-          _SidebarSection(
-            title: 'Web',
-            items: [
-              _SidebarItemData(
-                HeroIcons.shoppingBag,
-                'Marketplace',
-                activeItemLabel == 'Marketplace',
-                onTap: onStoreTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.tv,
-                'HopefulMe TV',
-                activeItemLabel == 'HopefulMe TV',
-                onTap: onTvTap,
-              ),
-              _SidebarItemData(
-                HeroIcons.heart,
-                'Outreach',
-                activeItemLabel == 'Outreach',
-                onTap: onOutreachTap,
-              ),
-            ],
+          _SidebarFooter(
+            user: user,
+            onLogoutTap: onLogoutTap,
           ),
         ],
       ),
@@ -2098,6 +2117,107 @@ class _SidebarItem extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarFooter extends StatelessWidget {
+  const _SidebarFooter({
+    required this.user,
+    required this.onLogoutTap,
+  });
+
+  final User? user;
+  final Future<void> Function() onLogoutTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final displayName = user?.displayName.trim().isNotEmpty == true
+        ? user!.displayName
+        : 'HopefulMe User';
+    final username = user?.username.trim().isNotEmpty == true
+        ? '@${user!.username}'
+        : '@hopefulme';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+      decoration: BoxDecoration(
+        color: colors.sidebar,
+        border: Border(
+          top: BorderSide(
+            color: colors.sidebarSurface,
+          ),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.sidebarSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            _Avatar(
+              imageUrl: user?.photoUrl ?? '',
+              label: displayName,
+              radius: 18,
+              backgroundColor: colors.avatarPlaceholder,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.sidebarText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.sidebarMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onLogoutTap(),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colors.sidebar,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: HeroIcon(
+                    HeroIcons.arrowRightOnRectangle,
+                    size: 18,
+                    color: colors.sidebarText,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2278,26 +2398,23 @@ class _HomeContent extends StatelessWidget {
         ],
         Padding(
           padding: const EdgeInsets.only(top: 12),
-          child: _SectionHeader(
-            title: 'Quotes to Inspire You',
-            leading: Container(
-              width: 34,
-              height: 34,
+            child: _SectionHeader(
+              title: 'Quotes for you',
+              leading: Container(
+                width: 34,
+                height: 34,
               decoration: BoxDecoration(
                 color: context.appColors.brand.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.format_quote_rounded,
-                color: context.appColors.brand,
-                size: 15,
+                  color: context.appColors.brand,
+                  size: 15,
+                ),
               ),
             ),
-            action: 'See more',
-            actionAsText: true,
-            onActionTap: () => onOpenPostsFeed(initialCategory: 'Quote'),
           ),
-        ),
         Transform.translate(
           offset: const Offset(0, -25),
           child: _QuoteGrid(

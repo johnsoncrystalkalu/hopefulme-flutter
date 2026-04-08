@@ -10,6 +10,7 @@ import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/navigation/app_deep_link_navigator.dart';
 import 'package:hopefulme_flutter/core/navigation/app_route_observer.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/core/storage/token_storage.dart';
@@ -18,14 +19,18 @@ import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_co
 import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/login_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/notifications/data/notification_repository.dart';
+import 'package:hopefulme_flutter/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -261,6 +266,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       await OneSignalService.instance.initialize(
         appId: AppConfig.oneSignalAppId,
         navigatorKey: _navigatorKey,
+        onNotificationOpened: _handleOneSignalNotificationTap,
       );
 
       OneSignalService.instance.addSubscriptionObserver((state) {
@@ -368,6 +374,172 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     }
   }
 
+  Future<void> _handleOneSignalNotificationTap(
+    Map<String, dynamic> data,
+  ) async {
+    final context = _navigatorKey.currentContext;
+    if (context == null || !_authController.isAuthenticated) {
+      return;
+    }
+
+    final type = data['type']?.toString().trim().toLowerCase() ?? '';
+    final senderUsername =
+        data['sender_username']?.toString().trim().replaceFirst('@', '') ?? '';
+    final contentType =
+        data['content_type']?.toString().trim().toLowerCase() ?? '';
+    final contentId = int.tryParse(data['content_id']?.toString() ?? '') ?? 0;
+    final inspirationId =
+        int.tryParse(data['inspiration_id']?.toString() ?? '') ?? 0;
+    final orderId = int.tryParse(data['order_id']?.toString() ?? '') ?? 0;
+
+    switch (type) {
+      case 'follow':
+      case 'referral_joined':
+        if (senderUsername.isNotEmpty) {
+          await _openDeepLink(context, Uri(path: '/$senderUsername'));
+          return;
+        }
+        break;
+      case 'message':
+        if (senderUsername.isNotEmpty) {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => MessageThreadScreen(
+                repository: _messageRepository,
+                profileRepository: _profileRepository,
+                updateRepository: _updateRepository,
+                currentUser: _authController.currentUser,
+                username: senderUsername,
+                title: senderUsername,
+              ),
+            ),
+          );
+          return;
+        }
+        break;
+      case 'comment':
+      case 'like':
+      case 'mention':
+        final targetUri = _contentNotificationUri(
+          contentType: contentType,
+          contentId: contentId,
+        );
+        if (targetUri != null) {
+          await _openDeepLink(context, targetUri);
+          return;
+        }
+        break;
+      case 'inspiration':
+        await _openDeepLink(
+          context,
+          inspirationId > 0
+              ? Uri(path: '/inspire/$inspirationId')
+              : Uri(path: '/inspire/inbox'),
+        );
+        return;
+      case 'welcome':
+        final user = _authController.currentUser;
+        if (user != null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => EditProfileScreen(
+                username: user.username,
+                repository: _profileRepository,
+              ),
+            ),
+          );
+          return;
+        }
+        break;
+      case 'account_verified':
+        final username = _authController.currentUser?.username ?? '';
+        if (username.isNotEmpty) {
+          await _openDeepLink(context, Uri(path: '/$username'));
+          return;
+        }
+        break;
+      case 'store_order':
+      case 'store_order_placed':
+        if (orderId > 0) {
+          await _openSignedWebPage(
+            context,
+            title: 'Order Details',
+            path: '/store/order-page/$orderId',
+          );
+          return;
+        }
+        break;
+    }
+
+    await _openNotificationsScreen();
+  }
+
+  Uri? _contentNotificationUri({
+    required String contentType,
+    required int contentId,
+  }) {
+    if (contentId <= 0) {
+      return null;
+    }
+
+    return switch (contentType) {
+      'update' => Uri(path: '/social/$contentId'),
+      'post' => Uri(path: '/post/$contentId'),
+      'blog' => Uri(path: '/blog/$contentId'),
+      _ => null,
+    };
+  }
+
+  Future<void> _openNotificationsScreen() {
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      return Future<void>.value();
+    }
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => NotificationsScreen(
+          repository: _notificationRepository,
+          profileRepository: _profileRepository,
+          contentRepository: _contentRepository,
+          messageRepository: _messageRepository,
+          searchRepository: _searchRepository,
+          updateRepository: _updateRepository,
+          currentUser: _authController.currentUser,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSignedWebPage(
+    BuildContext context, {
+    required String title,
+    required String path,
+  }) async {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    var targetUrl = '${_config.webBaseUrl}$normalizedPath';
+
+    try {
+      final bridgedUrl = await _authController.authRepository.createWebSessionUrl(
+        targetUrl,
+      );
+      if (bridgedUrl.trim().isNotEmpty) {
+        targetUrl = bridgedUrl.trim();
+      }
+    } catch (_) {
+      // Fall back to the direct web URL if the bridge request fails.
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => WebPageScreen(title: title, url: targetUrl),
+      ),
+    );
+  }
+
   // ── Deep Links ───────────────────────────────────────────────────────────
 
   Future<void> _initDeepLinks() async {
@@ -392,9 +564,13 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   }
 
   void _drainPendingDeepLink() {
-    if (_pendingDeepLink == null ||
-        _isHandlingDeepLink ||
-        !_authController.isAuthenticated) {
+    if (_pendingDeepLink == null || _isHandlingDeepLink) {
+      return;
+    }
+
+    final uri = _pendingDeepLink!;
+    final allowsLoggedOut = _canOpenDeepLinkWhileLoggedOut(uri);
+    if (!_authController.isAuthenticated && !allowsLoggedOut) {
       return;
     }
 
@@ -406,12 +582,14 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       return;
     }
 
-    final uri = _pendingDeepLink!;
     _pendingDeepLink = null;
     _isHandlingDeepLink = true;
 
     unawaited(
-      _openDeepLink(context, uri).whenComplete(() {
+      (_authController.isAuthenticated
+              ? _openDeepLink(context, uri)
+              : _openLoggedOutDeepLink(context, uri))
+          .whenComplete(() {
         _isHandlingDeepLink = false;
         if (mounted) _drainPendingDeepLink();
       }),
@@ -432,6 +610,68 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       webBaseUrl: _config.webBaseUrl,
     );
     await navigator.open(context, uri);
+  }
+
+  bool _canOpenDeepLinkWhileLoggedOut(Uri uri) {
+    final normalized = _normalizeSupportedDeepLinkUri(uri);
+    if (normalized == null) {
+      return false;
+    }
+
+    return _isResetPasswordUri(normalized);
+  }
+
+  Future<void> _openLoggedOutDeepLink(BuildContext context, Uri uri) async {
+    final normalized = _normalizeSupportedDeepLinkUri(uri);
+    if (normalized == null) {
+      return;
+    }
+
+    if (_isResetPasswordUri(normalized)) {
+      await _openResetPasswordScreen(context, normalized);
+    }
+  }
+
+  Uri? _normalizeSupportedDeepLinkUri(Uri uri) {
+    if (!uri.hasScheme) {
+      return uri;
+    }
+
+    final configuredHost = Uri.tryParse(_config.webBaseUrl)?.host.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final allowedHosts = <String>{
+      if (configuredHost != null && configuredHost.isNotEmpty) configuredHost,
+      'ahopefulme.com',
+      'www.ahopefulme.com',
+    };
+
+    if (host.isNotEmpty && !allowedHosts.contains(host)) {
+      return null;
+    }
+
+    return uri;
+  }
+
+  bool _isResetPasswordUri(Uri uri) {
+    final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
+    return segments.length >= 2 &&
+        segments.first.toLowerCase() == 'reset-password';
+  }
+
+  Future<void> _openResetPasswordScreen(BuildContext context, Uri uri) {
+    final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
+    final token = segments.length >= 2 ? Uri.decodeComponent(segments.elementAt(1)) : '';
+    final email = uri.queryParameters['email']?.trim() ?? '';
+
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ResetPasswordScreen(
+          authRepository: _authController.authRepository,
+          resetToken: token,
+          initialEmail: email,
+        ),
+      ),
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -554,45 +794,58 @@ class _AppLoadingScreen extends StatelessWidget {
     final colors = context.appColors;
     return Scaffold(
       backgroundColor: colors.surface,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            children: [
-              const Spacer(),
-              Image.asset(
-                'assets/images/app-icon.png',
-                width: 108,
-                height: 108,
-                fit: BoxFit.contain,
-              ),
-              const Spacer(),
-              Column(
+      body: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    AppConfig.appName,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Inspire the world Around you',
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Image.asset(
+                    'assets/images/app-icon.png',
+                    width: 108,
+                    height: 108,
+                    fit: BoxFit.contain,
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      AppConfig.appName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Inspire the world Around you',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -88,6 +88,25 @@ class AuthRepository {
         'We have emailed your password reset link.';
   }
 
+  Future<String> resetPassword({
+    required String token,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final response = await _apiClient.post(
+      'auth/reset-password',
+      body: <String, dynamic>{
+        'token': token.trim(),
+        'email': email.trim(),
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
+
+    return response['message']?.toString() ?? 'Password reset successful.';
+  }
+
   Future<bool> checkUsernameAvailability(String username) async {
     final normalized = username.trim().replaceFirst('@', '');
     final response = await _apiClient.get(

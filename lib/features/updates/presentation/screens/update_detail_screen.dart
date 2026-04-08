@@ -71,8 +71,17 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   @override
   void initState() {
     super.initState();
-    _liked = widget.initialLiked;
-    _future = widget.repository.fetchUpdate(widget.updateId);
+    _liked = widget.initialDetail?.isLiked == true || widget.initialLiked;
+    _future = widget.repository.fetchUpdate(widget.updateId).then((detail) {
+      if (mounted) {
+        setState(() {
+          _liked = _liked || detail.isLiked;
+        });
+      } else {
+        _liked = _liked || detail.isLiked;
+      }
+      return detail;
+    });
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),
@@ -127,6 +136,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
           createdAt: detail.createdAt,
           user: detail.user,
           comments: detail.comments,
+          isLiked: result.liked,
         ),
       );
     });
@@ -164,6 +174,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
             createdAt: detail.createdAt,
             user: detail.user,
             comments: [comment, ...detail.comments],
+            isLiked: detail.isLiked,
           ),
         );
       });
@@ -421,10 +432,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         final isOwner =
             detail != null &&
             widget.currentUser?.username == detail.user.username;
+        final isAdmin = widget.currentUser?.isAdmin == true;
         final canEdit =
             detail != null &&
-            isOwner &&
+            (isOwner || isAdmin) &&
             detail.type.trim().toLowerCase() == 'update';
+        final canDelete = detail != null && (isOwner || isAdmin);
 
         return WillPopScope(
           onWillPop: () async {
@@ -467,7 +480,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                           value: 'edit',
                           child: Text('Edit Update'),
                         ),
-                      if (isOwner)
+                      if (canDelete)
                         const PopupMenuItem(
                           value: 'delete',
                           child: Text('Delete Update'),
@@ -496,6 +509,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 }
 
                 final colors = context.appColors;
+                final isDark =
+                    Theme.of(context).brightness == Brightness.dark;
                 final isGeneratedActivity =
                     detail.type.trim().toLowerCase() != 'update';
 
@@ -636,14 +651,27 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 child: FilledButton.tonalIcon(
                                   onPressed: () => _toggleLike(detail),
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFFFFF1F4),
+                                    backgroundColor: isDark
+                                        ? Colors.transparent
+                                        : const Color(0xFFFFF1F4),
                                     elevation: 0,
+                                    shadowColor: Colors.transparent,
+                                    surfaceTintColor: Colors.transparent,
+                                    side: isDark
+                                        ? const BorderSide(
+                                            color: Color(0x55FF4D6D),
+                                          )
+                                        : null,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
                                   ),
                                   icon: Icon(
                                     _liked
                                         ? Icons.favorite
                                         : Icons.favorite_border,
-                                      color: const Color(0xFFFF4D6D),
+                                    color: Color(0xFFFF4D6D),
                                   ),
                                   label: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 220),
@@ -662,8 +690,21 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               FilledButton.tonalIcon(
                                 onPressed: () {},
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEEF1FF),
+                                  backgroundColor: isDark
+                                      ? Colors.transparent
+                                      : const Color(0xFFEEF1FF),
                                   elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                  surfaceTintColor: Colors.transparent,
+                                  side: isDark
+                                      ? const BorderSide(
+                                          color: Color(0x553D5AFE),
+                                        )
+                                      : null,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                 ),
                                 icon: const Icon(
                                   Icons.chat_bubble_outline,

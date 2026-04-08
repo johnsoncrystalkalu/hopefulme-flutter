@@ -7,9 +7,11 @@ class User {
     required this.username,
     required this.email,
     required this.gender,
+    required this.role1,
     required this.photoUrl,
     required this.theme,
     required this.isVerified,
+    required this.isAdmin,
   });
 
   final int id;
@@ -17,9 +19,11 @@ class User {
   final String username;
   final String email;
   final String gender;
+  final String role1;
   final String photoUrl;
   final String theme;
   final bool isVerified;
+  final bool isAdmin;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
 
@@ -33,11 +37,18 @@ class User {
       username: json['username']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       gender: json['gender']?.toString() ?? '',
+      role1: json['role1']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       theme: json['theme']?.toString() ?? '',
       isVerified:
           json['verified']?.toString().toLowerCase() == 'true' ||
           json['verified'] == true,
+      isAdmin:
+          json['is_admin'] == true ||
+          json['isAdmin'] == true ||
+          json['user_type']?.toString().toLowerCase() == 'admin' ||
+          json['role']?.toString().toLowerCase() == 'admin' ||
+          json['role1']?.toString().toLowerCase() == 'admin',
     );
   }
 
@@ -48,9 +59,11 @@ class User {
       'username': username,
       'email': email,
       'gender': gender,
+      'role1': role1,
       'photo_url': photoUrl,
       'theme': theme,
       'verified': isVerified,
+      'is_admin': isAdmin,
     };
   }
 }

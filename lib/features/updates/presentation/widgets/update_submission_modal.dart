@@ -223,7 +223,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                             ),
                             SizedBox(width: 5),
                             Text(
-                              'INSPIRING MODE',
+                              'INSPIRE',
                               style: TextStyle(
                                 color: Color(0xFFD97706),
                                 fontSize: 9.5,

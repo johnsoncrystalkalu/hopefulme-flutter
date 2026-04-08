@@ -174,7 +174,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: 'you@example.com',
+                          hintText: 'enter email',
                           filled: true,
                           fillColor: colors.surfaceMuted.withValues(alpha: 0.92),
                           contentPadding: const EdgeInsets.symmetric(

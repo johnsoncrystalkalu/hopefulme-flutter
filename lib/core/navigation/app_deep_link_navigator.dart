@@ -4,6 +4,7 @@ import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
 import 'package:hopefulme_flutter/features/content/presentation/screens/blogs_feed_screen.dart';
+import 'package:hopefulme_flutter/features/content/presentation/screens/inspiration_inbox_screen.dart';
 import 'package:hopefulme_flutter/features/content/presentation/screens/posts_feed_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
@@ -313,7 +314,55 @@ class AppDeepLinkNavigator {
           ),
         );
         return true;
-        
+      case 'inspire':
+        if (segments.length == 1 ||
+            (segments.length >= 2 && segments[1].toLowerCase() == 'inbox')) {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => InspirationInboxScreen(
+                repository: contentRepository,
+                profileRepository: profileRepository,
+                messageRepository: messageRepository,
+                updateRepository: updateRepository,
+                currentUser: currentUser,
+              ),
+            ),
+          );
+          return true;
+        }
+
+        if (segments.length >= 3 && segments[1].toLowerCase() == 'for') {
+          final username = segments[2].trim().replaceFirst('@', '');
+          if (username.isEmpty) {
+            return _openWebPage(context, normalized, title: 'Inspirations');
+          }
+
+          await openUserProfile(
+            context,
+            profileRepository: profileRepository,
+            messageRepository: messageRepository,
+            updateRepository: updateRepository,
+            currentUser: currentUser,
+            username: username,
+          );
+          return true;
+        }
+
+        final inspirationId = _extractLeadingInt(segments.elementAtOrNull(1));
+        if (inspirationId == null) {
+          return _openWebPage(context, normalized, title: 'Inspirations');
+        }
+
+        await openInspirationDetail(
+          context,
+          contentRepository: contentRepository,
+          profileRepository: profileRepository,
+          messageRepository: messageRepository,
+          updateRepository: updateRepository,
+          currentUser: currentUser,
+          inspirationId: inspirationId,
+        );
+        return true;
       case 'store':
         return _openWebPage(context, normalized, title: 'Marketplace');
       case 'tv':

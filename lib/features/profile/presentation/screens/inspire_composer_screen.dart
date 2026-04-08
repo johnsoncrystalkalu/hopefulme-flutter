@@ -98,276 +98,281 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
         surfaceTintColor: colors.surface,
         title: Text('Inspire ${widget.profile.displayName}'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        children: [
-          // Hero Section
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  colors.brand.withValues(alpha: 0.95),
-                  colors.brand.withValues(alpha: 0.85),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: Center(
+  child: ListView(
+    // shrinkWrap: true makes the list only take up as much space as its children need
+    // enabling the Center widget to actually center the content vertically
+    shrinkWrap: true,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+    children: [
+      // Hero Section
+      Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colors.brand.withValues(alpha: 0.95),
+              colors.brand.withValues(alpha: 0.85),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Stack(
+          children: [
+            // Dotted pattern overlay
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _DottedPatternPainter(
+                  dotColor: Colors.white.withValues(alpha: 0.06),
+                  dotSpacing: 20,
+                ),
               ),
-              borderRadius: BorderRadius.circular(28),
             ),
-            child: Stack(
-              children: [
-                // Dotted pattern overlay
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _DottedPatternPainter(
-                      dotColor: Colors.white.withValues(alpha: 0.06),
-                      dotSpacing: 20,
-                    ),
-                  ),
-                ),
-                // Decorative glow
-                Positioned(
-                  top: 0,
-                  right: -60,
-                  child: Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          colors.brand.withValues(alpha: 0.2),
-                          colors.brand.withValues(alpha: 0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Content
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 40,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text('💙', style: TextStyle(fontSize: 48)),
-                      const SizedBox(height: 16),
-                      Text(
-                        'A Gift of Hope',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Send some encouragement to ${widget.profile.displayName}',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+            // Decorative glow
+            Positioned(
+              top: 0,
+              right: -60,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      colors.brand.withValues(alpha: 0.2),
+                      colors.brand.withValues(alpha: 0),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          // Main Form Card
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: colors.borderStrong),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  'Send encouragement',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Write something kind, honest, and uplifting.',
-                  style: TextStyle(color: colors.textMuted, fontSize: 13),
-                ),
-                const SizedBox(height: 20),
-                // Text Input
-                Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceMuted.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    minLines: 8,
-                    maxLines: 10,
-                    decoration: InputDecoration(
-                      hintText: 'Write your inspiration here...',
-                      hintStyle: TextStyle(color: colors.textMuted),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 40,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // Keep column tight
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('💙', style: TextStyle(fontSize: 48)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'A Gift of Hope',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      height: 1.6,
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Send some encouragement to ${widget.profile.displayName}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 24),
+      // Main Form Card
+      Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.borderStrong),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title
+            Text(
+              'Send encouragement',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Write something kind, honest, and uplifting.',
+              style: TextStyle(color: colors.textMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            // Text Input
+            Container(
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border),
+              ),
+              child: TextField(
+                controller: _controller,
+                minLines: 8,
+                maxLines: 10,
+                decoration: InputDecoration(
+                  hintText: 'Write your inspiration here...',
+                  hintStyle: TextStyle(color: colors.textMuted),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 15,
+                  height: 1.6,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Presets Section
+            Text(
+              'Quick picks',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_isLoadingPresets)
+              SizedBox(
+                height: 40,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.brand,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                // Presets Section
-                Text(
-                  'Quick picks',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+              )
+            else
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _presets
+                    .map(
+                      (preset) => FilterChip(
+                        label: Text(preset),
+                        selected: _selectedPreset == preset,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedPreset = _selectedPreset == preset
+                                ? null
+                                : preset;
+                            if (_selectedPreset == preset &&
+                                _controller.text.trim().isEmpty) {
+                              _controller.text = preset;
+                              _controller.selection =
+                                  TextSelection.fromPosition(
+                                TextPosition(offset: preset.length),
+                              );
+                            }
+                          });
+                        },
+                        backgroundColor: colors.surfaceMuted,
+                        selectedColor: colors.brand.withValues(alpha: 0.2),
+                        side: BorderSide(
+                          color: _selectedPreset == preset
+                              ? colors.brand
+                              : colors.border,
+                        ),
+                        labelStyle: TextStyle(
+                          color: _selectedPreset == preset
+                              ? colors.brand
+                              : colors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            const SizedBox(height: 24),
+            // Options Section
+            Container(
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _OptionSwitch(
+                    icon: Icons.visibility_off_outlined,
+                    title: 'Send anonymously',
+                    subtitle: 'Your name won\'t be shown',
+                    value: _isAnonymous,
+                    onChanged: (value) {
+                      setState(() {
+                        _isAnonymous = value;
+                      });
+                    },
+                  ),
+                  Divider(
+                    height: 1,
+                    color: colors.border,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
+                  _OptionSwitch(
+                    icon: Icons.public,
+                    title: 'Make public on profile',
+                    subtitle: 'Others can see this message',
+                    value: _isPublic,
+                    onChanged: (value) {
+                      setState(() {
+                        _isPublic = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Send Button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isSending ? null : _send,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (_isLoadingPresets)
-                  SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
+                child: _isSending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: colors.brand,
+                          color: Colors.white,
                         ),
-                      ),
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: _presets
-                        .map(
-                          (preset) => FilterChip(
-                            label: Text(preset),
-                            selected: _selectedPreset == preset,
-                            onSelected: (_) {
-                              setState(() {
-                                // Toggle preset selection
-                                _selectedPreset = _selectedPreset == preset
-                                    ? null
-                                    : preset;
-                                // If a preset is selected and the text field is empty, auto-fill it
-                                if (_selectedPreset == preset &&
-                                    _controller.text.trim().isEmpty) {
-                                  _controller.text = preset;
-                                  _controller.selection =
-                                      TextSelection.fromPosition(
-                                        TextPosition(offset: preset.length),
-                                      );
-                                }
-                              });
-                            },
-                            backgroundColor: colors.surfaceMuted,
-                            selectedColor: colors.brand.withValues(alpha: 0.2),
-                            side: BorderSide(
-                              color: _selectedPreset == preset
-                                  ? colors.brand
-                                  : colors.border,
-                            ),
-                            labelStyle: TextStyle(
-                              color: _selectedPreset == preset
-                                  ? colors.brand
-                                  : colors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                const SizedBox(height: 24),
-                // Options Section
-                Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceMuted.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      _OptionSwitch(
-                        icon: Icons.visibility_off_outlined,
-                        title: 'Send anonymously',
-                        subtitle: 'Your name won\'t be shown',
-                        value: _isAnonymous,
-                        onChanged: (value) {
-                          setState(() {
-                            _isAnonymous = value;
-                          });
-                        },
-                      ),
-                      Divider(
-                        height: 1,
-                        color: colors.border,
-                        indent: 16,
-                        endIndent: 16,
-                      ),
-                      _OptionSwitch(
-                        icon: Icons.public,
-                        title: 'Make public on profile',
-                        subtitle: 'Others can see this message',
-                        value: _isPublic,
-                        onChanged: (value) {
-                          setState(() {
-                            _isPublic = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Send Button
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isSending ? null : _send,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _isSending
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Send Inspiration'),
-                  ),
-                ),
-              ],
+                      )
+                    : const Text('Send Inspiration'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
+    ],
+  ),
+), );
   }
 }
 
