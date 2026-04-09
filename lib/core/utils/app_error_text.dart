@@ -36,7 +36,7 @@ class AppErrorText {
       return 'The request did not finish in time. You can retry or come back in a moment.';
     }
     if (isOffline(error)) {
-      return 'HopefulMe can still open, but this page needs internet for fresh data. Retry when your connection is back.';
+      return 'It looks like you\'ve lost your internet connection. We\'ll be here when you\'re back online';
     }
     if (error is ApiException && error.message.trim().isNotEmpty) {
       return error.message;

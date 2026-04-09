@@ -203,37 +203,6 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7ED),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: const Color(0xFFFED7AA)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(
-                              Icons.auto_awesome_rounded,
-                              size: 12,
-                              color: Color(0xFFD97706),
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              'INSPIRE',
-                              style: TextStyle(
-                                color: Color(0xFFD97706),
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.7,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -347,7 +316,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                             ),
                                             const SizedBox(width: 6),
                                             Text(
-                                              'Anyone can see',
+                                              'Everyone',
                                               style: TextStyle(
                                                 color: colors.textSecondary,
                                                 fontSize: 11,

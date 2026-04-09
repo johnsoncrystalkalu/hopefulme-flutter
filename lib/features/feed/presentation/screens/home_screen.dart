@@ -550,6 +550,7 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (context) => SettingsScreen(
           username: username,
           profileRepository: widget.profileRepository,
+          themeController: widget.themeController,
         ),
       ),
     );
@@ -935,6 +936,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
         activeItemLabel: _activeSidebarItemLabel,
         onSearchTap: _openSearch,
         onHomeTap: _goHome,
+        onProfileTap: _openProfile,
         onPostsTap: _openPostsFeed,
         onBlogsTap: _openBlogsFeed,
         onActivitiesTap: _openActivities,
@@ -1347,7 +1349,8 @@ class _HomeTopBar extends StatelessWidget {
             ),
             const Spacer(),
             _TopBarIconButton(
-              icon: HeroIcons.chatBubbleLeft,
+              icon: HeroIcons.chatBubbleOvalLeftEllipsis,
+             // icon: HeroIcons.chatBubbleLeftEllipsis,
               unreadCount: unreadMessages,
               onTap: onMessageCenterTap,
             ),
@@ -1843,6 +1846,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.activeItemLabel,
     required this.onSearchTap,
     required this.onHomeTap,
+    required this.onProfileTap,
     required this.onPostsTap,
     required this.onBlogsTap,
     required this.onActivitiesTap,
@@ -1860,6 +1864,7 @@ class _HomeSidebar extends StatelessWidget {
   final String activeItemLabel;
   final Future<void> Function() onSearchTap;
   final Future<void> Function() onHomeTap;
+  final Future<void> Function() onProfileTap;
   final Future<void> Function() onPostsTap;
   final Future<void> Function() onBlogsTap;
   final Future<void> Function() onActivitiesTap;
@@ -1947,13 +1952,13 @@ class _HomeSidebar extends StatelessWidget {
                       onTap: onPostsTap,
                     ),
                     _SidebarItemData(
-                      HeroIcons.sparkles,
+                      HeroIcons.bolt,
                       'Activities',
                       activeItemLabel == 'Activities',
                       onTap: onActivitiesTap,
                     ),
                     _SidebarItemData(
-                      HeroIcons.chatBubbleLeftRight,
+                      HeroIcons.users,
                       'Group Chats',
                       activeItemLabel == 'Group Chats',
                       onTap: onGroupsTap,
@@ -1995,10 +2000,10 @@ class _HomeSidebar extends StatelessWidget {
                   ],
                 ),
                 _SidebarSection(
-                  title: 'Web',
+                  title: 'Discover',
                   items: [
                     _SidebarItemData(
-                      HeroIcons.shoppingBag,
+                      HeroIcons.shoppingCart,
                       'Marketplace',
                       activeItemLabel == 'Marketplace',
                       onTap: onStoreTap,
@@ -2011,7 +2016,7 @@ class _HomeSidebar extends StatelessWidget {
                     ),
                     _SidebarItemData(
                       HeroIcons.heart,
-                      'Outreach',
+                      'Outreaches',
                       activeItemLabel == 'Outreach',
                       onTap: onOutreachTap,
                     ),
@@ -2022,6 +2027,7 @@ class _HomeSidebar extends StatelessWidget {
           ),
           _SidebarFooter(
             user: user,
+            onProfileTap: onProfileTap,
             onLogoutTap: onLogoutTap,
           ),
         ],
@@ -2126,10 +2132,12 @@ class _SidebarItem extends StatelessWidget {
 class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter({
     required this.user,
+    required this.onProfileTap,
     required this.onLogoutTap,
   });
 
   final User? user;
+  final Future<void> Function() onProfileTap;
   final Future<void> Function() onLogoutTap;
 
   @override
@@ -2160,40 +2168,56 @@ class _SidebarFooter extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _Avatar(
-              imageUrl: user?.photoUrl ?? '',
-              label: displayName,
-              radius: 18,
-              backgroundColor: colors.avatarPlaceholder,
-            ),
-            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.sidebarText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onProfileTap(),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        _Avatar(
+                          imageUrl: user?.photoUrl ?? '',
+                          label: displayName,
+                          radius: 18,
+                          backgroundColor: colors.avatarPlaceholder,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.sidebarText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                username,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.sidebarMuted,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    username,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.sidebarMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -2740,7 +2764,7 @@ class _StoriesRow extends StatelessWidget {
                     CircleAvatar(
                       radius: 30,
                       child: Icon(
-                        Icons.person_add_alt_1_rounded,
+                        Icons.arrow_outward,
                         color: Color(0xFF3D5AFE),
                         size: 18,
                       ),

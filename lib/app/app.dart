@@ -70,6 +70,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _isHandlingDeepLink = false;
   bool _isPresenceTrackingActive = false;
   bool _isPresencePingInFlight = false;
+  bool _hasShownSoftUpdatePromptThisSession = false;
 
   // FIX 1: Cooldown timestamp so version check doesn't fire on every resume.
   DateTime? _lastVersionCheck;
@@ -145,7 +146,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     try {
       final response = await http
-          .get(Uri.parse('${_config.baseUrl}/app/version'))
+          .get(Uri.parse('${_config.baseUrl}/api/app/version'))
           .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) return;
@@ -165,7 +166,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       if (_isOutdated(currentVersion, minimumVersion)) {
         final context = _navigatorKey.currentContext;
         if (context != null && context.mounted) {
-          _showForceUpdateDialog(context, storeUrl, message);
+          if (forceUpdate) {
+            _showForceUpdateDialog(context, storeUrl, message);
+          } else if (!_hasShownSoftUpdatePromptThisSession) {
+            _hasShownSoftUpdatePromptThisSession = true;
+            _showSoftUpdateDialog(context, storeUrl, message);
+          }
         }
       }
     } catch (e) {
@@ -510,6 +516,57 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     );
   }
 
+  void _showSoftUpdateDialog(
+    BuildContext context,
+    String storeUrl,
+    String message,
+  ) {
+    final colors = context.appColors;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Icon(Icons.system_update_alt_rounded, color: colors.brand),
+            const SizedBox(width: 10),
+            const Text('Update Available'),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(color: colors.textMuted, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.brand,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.of(context).pop();
+              if (storeUrl.isEmpty) return;
+              final uri = Uri.parse(storeUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: const Text(
+              'Update',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openSignedWebPage(
     BuildContext context, {
     required String title,
@@ -832,7 +889,7 @@ class _AppLoadingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Inspire the world Around you',
+                      'Inspire the world around you',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: colors.textMuted,

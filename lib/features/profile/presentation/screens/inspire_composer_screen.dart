@@ -99,12 +99,14 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
         title: Text('Inspire ${widget.profile.displayName}'),
       ),
       body: Center(
-  child: ListView(
-    // shrinkWrap: true makes the list only take up as much space as its children need
-    // enabling the Center widget to actually center the content vertically
-    shrinkWrap: true,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-    children: [
+        child: Transform.translate(
+          offset: const Offset(8, 0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              children: [
       // Hero Section
       Container(
         decoration: BoxDecoration(
@@ -370,9 +372,12 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
           ],
         ),
       ),
-    ],
-  ),
-), );
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -31,28 +31,28 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Welcome to\nHopefulMe.',
       description:
-          'An inspirational social network community, built just for you',
+          'An inspirational social network community, built just for you.',
       icon: Icons.auto_awesome_rounded,
       accent: Color(0xFF2563EB), // Primary Brand Blue
     ),
     _OnboardingSlideData(
       title: 'Connect and meet\nnew friends.',
       description:
-          'Meet new friends, publish articles, chat, share photos, join group chats, and connect with inspiring people across the globe.',
+          'Chat, share photos, publish articles, join groups, and connect with inspiring people across the globe.',
       icon: Icons.chat_bubble_outline_rounded,
       accent: Color(0xFF4F46E5), // Indigo Accent
     ),
     _OnboardingSlideData(
       title: 'Join our physical\nevents and hangouts.',
       description:
-          'Attend exciting hangouts, life-changing programs, and meetups. HopefulMe hosts regular conferences in in several locations.',
+          'Attend exciting meetups, life-changing programs, and city tours. HopefulMe hosts regular conferences across multiple locations.',
       icon: Icons.event_available_rounded,
       accent: Color(0xFF059669), // Emerald Accent
     ),
     _OnboardingSlideData(
       title: 'Be part of our Outreach programs.',
       description:
-          'Support orphanage visits, school projects and community outreach.',
+          'Get involved in meaningful community projects and outreach initiatives that change lives',
       icon: Icons.handshake_rounded,
       accent: Color(0xFFDB2777), // Rose Accent
     ),

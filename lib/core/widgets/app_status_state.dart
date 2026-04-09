@@ -164,19 +164,19 @@ class AppStatusState extends StatelessWidget {
                   ),
                 ),
                 if (isOffline) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: accentSurface.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.14),
-                      ),
-                    ),
-                    child: const SizedBox.shrink(),
-                  ),
+                 //const SizedBox(height: 16),
+                  // Container(
+                  //   width: double.infinity,
+                  //   padding: const EdgeInsets.all(14),
+                  //   decoration: BoxDecoration(
+                  //     color: accentSurface.withValues(alpha: 0.7),
+                  //     borderRadius: BorderRadius.circular(18),
+                  //     border: Border.all(
+                  //       color: accentColor.withValues(alpha: 0.14),
+                  //     ),
+                  //   ),
+                  //   child: const SizedBox.shrink(),
+                  // ),
                 ],
                 if (onAction != null && actionLabel != null) ...[
                   const SizedBox(height: 20),

@@ -360,7 +360,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   String _postMetaLine(ContentDetail detail) {
     final parts = <String>[
-      if (detail.tag.trim().isNotEmpty) detail.tag.trim(),
+      if (detail.category.trim().isNotEmpty) detail.category.trim(),
       if (detail.createdAt.trim().isNotEmpty)
         formatDetailedTimestamp(detail.createdAt),
     ];
@@ -577,6 +577,36 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     );
   }
 
+  Widget _buildPostMetaPills(ContentDetail detail) {
+    if (detail.label.trim().isEmpty && detail.tag.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (detail.label.trim().isNotEmpty)
+            _ContentPill(
+              label: detail.label.trim(),
+              backgroundColor: const Color(0xFFE8F1FF),
+              borderColor: const Color(0xFFBFDBFE),
+              textColor: const Color(0xFF2563EB),
+            ),
+          if (detail.tag.trim().isNotEmpty)
+            _ContentPill(
+              label: detail.tag.trim(),
+              backgroundColor: const Color(0xFFF3E8FF),
+              borderColor: const Color(0xFFD8B4FE),
+              textColor: const Color(0xFF7C3AED),
+            ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildImageBlock({
     required BuildContext context,
@@ -698,6 +728,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                               top: Radius.zero,
                             ),
                           ),
+                        if (widget.kind == 'post')
+                          _buildPostMetaPills(detail),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
@@ -791,13 +823,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                                 fontWeight: FontWeight.w800,
                                               ),
                                             ),
-                                            if (widget.kind == 'post' &&
-                                                detail.category.trim().isNotEmpty) ...[
-                                              const SizedBox(width: 8),
-                                              _ContentPill(
-                                                label: detail.category.trim(),
-                                              ),
-                                            ],
                                             Text(
                                               formatRelativeTimestamp(
                                                 detail.createdAt,
@@ -833,18 +858,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
                                   ),
-                                ),
-                              ],
-                              if (widget.kind == 'post' &&
-                                  detail.label.trim().isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    if (detail.label.trim().isNotEmpty)
-                                      _ContentPill(
-                                        label: detail.label.trim(),
-                                      ),
-                                  ],
                                 ),
                               ],
                               if (detail.body.isNotEmpty) ...[
@@ -1444,9 +1457,17 @@ class _MediaActionChip extends StatelessWidget {
 }
 
 class _ContentPill extends StatelessWidget {
-  const _ContentPill({required this.label});
+  const _ContentPill({
+    required this.label,
+    this.backgroundColor,
+    this.borderColor,
+    this.textColor,
+  });
 
   final String label;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1454,14 +1475,14 @@ class _ContentPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: colors.surfaceMuted,
+        color: backgroundColor ?? colors.surfaceMuted,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.border),
+        border: Border.all(color: borderColor ?? colors.border),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: colors.textSecondary,
+          color: textColor ?? colors.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
