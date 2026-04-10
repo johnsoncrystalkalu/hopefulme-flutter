@@ -144,7 +144,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         content: TextField(
           controller: controller,
           maxLines: 6,
-          decoration: const InputDecoration(hintText: 'What is on your mind?'),
+          decoration: const InputDecoration(hintText: 'Share your thoughts...'),
         ),
         actions: [
           TextButton(

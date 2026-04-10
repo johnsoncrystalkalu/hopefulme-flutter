@@ -133,7 +133,7 @@ class _ProfileArticlesScreenState extends State<ProfileArticlesScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (_, index) => const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   if (index >= _items.length) {
                     return const Padding(

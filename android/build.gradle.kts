@@ -1,3 +1,6 @@
+import org.gradle.api.JavaVersion
+import org.gradle.api.tasks.compile.JavaCompile
+
 plugins {
     id("com.google.gms.google-services") version "4.4.1" apply false
 }
@@ -21,6 +24,13 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17.toString()
+        targetCompatibility = JavaVersion.VERSION_17.toString()
+    }
 }
 
 tasks.register<Delete>("clean") {

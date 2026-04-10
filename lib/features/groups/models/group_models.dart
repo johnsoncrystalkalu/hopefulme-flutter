@@ -77,6 +77,58 @@ class AppGroup {
   bool get isCommunity => id == 1;
   bool get hasUnread => unreadCount > 0;
 
+  AppGroup copyWith({
+    int? id,
+    String? name,
+    String? info,
+    String? category,
+    String? type,
+    String? status,
+    String? photoUrl,
+    bool? isMember,
+    bool? isOwner,
+    int? membersCount,
+    int? unreadCount,
+    String? updatedAt,
+    int? typingUserId,
+    bool clearTypingUserId = false,
+    String? typingAt,
+    String? typingUserName,
+    String? communityLabel,
+    bool clearCommunityLabel = false,
+    ConversationUser? owner,
+    bool clearOwner = false,
+    GroupMessage? latestMessage,
+    bool clearLatestMessage = false,
+  }) {
+    return AppGroup(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      info: info ?? this.info,
+      category: category ?? this.category,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      photoUrl: photoUrl ?? this.photoUrl,
+      isMember: isMember ?? this.isMember,
+      isOwner: isOwner ?? this.isOwner,
+      membersCount: membersCount ?? this.membersCount,
+      unreadCount: unreadCount ?? this.unreadCount,
+      updatedAt: updatedAt ?? this.updatedAt,
+      typingUserId: clearTypingUserId
+          ? null
+          : (typingUserId ?? this.typingUserId),
+      typingAt: typingAt ?? this.typingAt,
+      typingUserName: typingUserName ?? this.typingUserName,
+      communityLabel: clearCommunityLabel
+          ? null
+          : (communityLabel ?? this.communityLabel),
+      owner: clearOwner ? null : (owner ?? this.owner),
+      latestMessage: clearLatestMessage
+          ? null
+          : (latestMessage ?? this.latestMessage),
+    );
+  }
+
   factory AppGroup.fromJson(Map<String, dynamic> json) {
     return AppGroup(
       id: parseInt(json['id']),
@@ -121,15 +173,27 @@ class GroupMessagePage {
   final AppGroup? group;
 
   factory GroupMessagePage.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as List<dynamic>? ?? <dynamic>[];
+    final payload = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : json;
+    final rawMessages =
+        (payload['messages'] as List<dynamic>?) ??
+        (payload['data'] as List<dynamic>?) ??
+        (json['messages'] as List<dynamic>?) ??
+        (json['data'] as List<dynamic>?) ??
+        <dynamic>[];
+
     return GroupMessagePage(
-      messages: data
+      messages: rawMessages
           .whereType<Map<String, dynamic>>()
           .map(GroupMessage.fromJson)
           .toList(),
-      hasMore: parseBool(json['has_more']),
-      lastReadMessageId: parseInt(json['last_read_message_id']),
-      group: (json['group'] as Map<String, dynamic>?)?.let(AppGroup.fromJson),
+      hasMore: parseBool(payload['has_more'] ?? json['has_more']),
+      lastReadMessageId: parseInt(
+        payload['last_read_message_id'] ?? json['last_read_message_id'],
+      ),
+      group: ((payload['group'] ?? json['group']) as Map<String, dynamic>?)
+          ?.let(AppGroup.fromJson),
     );
   }
 }

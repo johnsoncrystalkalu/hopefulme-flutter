@@ -80,17 +80,17 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     return _displaySenderForMessage(message)?.displayName ?? widget.title;
   }
 
- TextStyle _interactiveStyleForBubble(AppThemeColors colors, bool isMine) {
-  final color = isMine ? const Color(0xFFE0F2FE) : colors.brand;
-  return TextStyle(
-    color: color,
-    fontSize: 14,
-    height: 1.45,
-    fontWeight: FontWeight.w700,
-    decoration: TextDecoration.underline,
-    decorationColor: color,
-  );
-}
+  TextStyle _interactiveStyleForBubble(AppThemeColors colors, bool isMine) {
+    final color = isMine ? const Color(0xFFE0F2FE) : colors.brand;
+    return TextStyle(
+      color: color,
+      fontSize: 14,
+      height: 1.45,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: color,
+    );
+  }
 
   @override
   void initState() {
@@ -124,8 +124,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     if (!mounted || savedDraft.isEmpty) return;
     _isRestoringDraft = true;
     _controller.text = savedDraft;
-    _controller.selection =
-        TextSelection.collapsed(offset: _controller.text.length);
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
     _isRestoringDraft = false;
   }
 
@@ -167,8 +168,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       if (shouldStickToBottom) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
-            _scrollController
-                .jumpTo(_scrollController.position.maxScrollExtent);
+            _scrollController.jumpTo(
+              _scrollController.position.maxScrollExtent,
+            );
           }
         });
       }
@@ -205,7 +207,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       replyId: _replyingTo?.id ?? 0,
       status: 'sending',
       createdAt: DateTime.now().toIso8601String(),
-      sender: _conversation?.latestMessage?.sender ??
+      sender:
+          _conversation?.latestMessage?.sender ??
           widget.currentUser?.toConversationUser(),
       recipient: _conversation?.otherUser,
       replyTo: _replyingTo == null
@@ -256,8 +259,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       if (!mounted) return;
       setState(() {
         _error = error;
-        _messages =
-            _messages.where((item) => item.id != optimisticId).toList();
+        _messages = _messages.where((item) => item.id != optimisticId).toList();
         if (selectedPhoto != null && _selectedPhoto == null) {
           _selectedPhoto = selectedPhoto;
           _selectedPhotoBytes = localPhotoBytes;
@@ -326,11 +328,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   }
 
   // ✅ open image fullscreen with pinch-to-zoom
-  void _openFullImage(
-    BuildContext context, {
-    String? url,
-    Uint8List? bytes,
-  }) {
+  void _openFullImage(BuildContext context, {String? url, Uint8List? bytes}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
@@ -400,7 +398,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
 
   void _handleScroll() {
     if (!_scrollController.hasClients || _isLoading) return;
-    final distanceFromBottom = _scrollController.position.maxScrollExtent -
+    final distanceFromBottom =
+        _scrollController.position.maxScrollExtent -
         _scrollController.position.pixels;
     final shouldShow = distanceFromBottom > 220;
     if (shouldShow != _showJumpToBottom) {
@@ -440,8 +439,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
 
   Future<void> _openUserPosts() async {
     try {
-      final dashboard =
-          await widget.profileRepository.fetchProfile(widget.username);
+      final dashboard = await widget.profileRepository.fetchProfile(
+        widget.username,
+      );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -499,7 +499,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     final conversation = _conversation;
     final otherUser = conversation?.otherUser;
     final typingUserName = conversation?.typingUserName.trim() ?? '';
-    final isSomeoneElseTyping = conversation != null &&
+    final isSomeoneElseTyping =
+        conversation != null &&
         typingUserName.isNotEmpty &&
         conversation.typingUserId != widget.currentUser?.id;
 
@@ -534,33 +535,40 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    VerifiedNameText(
-                      name: otherUser?.displayName ?? widget.title,
-                      verified: otherUser?.isVerified ?? false,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      otherUser == null
-                          ? 'Conversation'
-                          : otherUser.isOnline
+                child: InkWell(
+                  onTap: _openProfile,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        VerifiedNameText(
+                          name: otherUser?.displayName ?? widget.title,
+                          verified: otherUser?.isVerified ?? false,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          otherUser == null
+                              ? 'Conversation'
+                              : otherUser.isOnline
                               ? 'Online now'
                               : otherUser.lastSeen.isNotEmpty
-                                  ? 'Last seen ${formatRelativeTimestamp(otherUser.lastSeen)}'
-                                  : 'Offline',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
+                              ? 'Last seen ${formatRelativeTimestamp(otherUser.lastSeen)}'
+                              : 'Offline',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -591,244 +599,233 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : _error != null
-                            ? AppStatusState.fromError(
-                                error: _error!,
-                                actionLabel: 'Try again',
-                                onAction: _loadThread,
-                              )
-                            : ListView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.fromLTRB(
-                                    16, 16, 16, 20),
-                                itemCount: _messages.length,
-                                itemBuilder: (context, index) {
-                                  final item = _messages[index];
-                                  final previous =
-                                      index > 0 ? _messages[index - 1] : null;
-                                  final isMine = widget.currentUser != null
-                                      ? item.senderId ==
-                                          widget.currentUser!.id
-                                      : item.sender?.username !=
-                                          widget.username;
-                                  final groupedWithPrevious = previous !=
-                                          null &&
-                                      previous.senderId == item.senderId &&
-                                      !_shouldShowDateDivider(index);
+                        ? AppStatusState.fromError(
+                            error: _error!,
+                            actionLabel: 'Try again',
+                            onAction: _loadThread,
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final item = _messages[index];
+                              final previous = index > 0
+                                  ? _messages[index - 1]
+                                  : null;
+                              final isMine = widget.currentUser != null
+                                  ? item.senderId == widget.currentUser!.id
+                                  : item.sender?.username != widget.username;
+                              final groupedWithPrevious =
+                                  previous != null &&
+                                  previous.senderId == item.senderId &&
+                                  !_shouldShowDateDivider(index);
 
-                                  return Column(
-                                    children: [
-                                      if (_shouldShowDateDivider(index))
-                                        _ChatDateDivider(
-                                          label: _dateLabelForIndex(index),
-                                        ),
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom:
-                                              groupedWithPrevious ? 6 : 12,
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: isMine
-                                              ? MainAxisAlignment.end
-                                              : MainAxisAlignment.start,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Flexible(
-                                              child: GestureDetector(
-                                                onLongPressStart:
-                                                    (details) async {
-                                                  HapticFeedback
-                                                      .mediumImpact();
-                                                  final RenderBox overlay =
-                                                      Overlay.of(context)
-                                                              .context
-                                                              .findRenderObject()
-                                                          as RenderBox;
-                                                  final value =
-                                                      await showMenu<String>(
-                                                    context: context,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              16),
-                                                    ),
-                                                    position:
-                                                        RelativeRect.fromRect(
-                                                      details.globalPosition &
-                                                          const Size(40, 40),
-                                                      Offset.zero &
-                                                          overlay.size,
-                                                    ),
-                                                    items: [
-                                                      PopupMenuItem(
-                                                        value: 'reply',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .reply_rounded,
-                                                              size: 20,
-                                                              color:
-                                                                  colors.brand,
-                                                            ),
-                                                            const SizedBox(
-                                                                width: 12),
-                                                            const Text(
-                                                                'Reply'),
-                                                          ],
+                              return Column(
+                                children: [
+                                  if (_shouldShowDateDivider(index))
+                                    _ChatDateDivider(
+                                      label: _dateLabelForIndex(index),
+                                    ),
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: groupedWithPrevious ? 6 : 12,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: isMine
+                                          ? MainAxisAlignment.end
+                                          : MainAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Flexible(
+                                          child: GestureDetector(
+                                            onLongPressStart: (details) async {
+                                              HapticFeedback.mediumImpact();
+                                              final RenderBox overlay =
+                                                  Overlay.of(context).context
+                                                          .findRenderObject()
+                                                      as RenderBox;
+                                              final value = await showMenu<String>(
+                                                context: context,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                ),
+                                                position: RelativeRect.fromRect(
+                                                  details.globalPosition &
+                                                      const Size(40, 40),
+                                                  Offset.zero & overlay.size,
+                                                ),
+                                                items: [
+                                                  PopupMenuItem(
+                                                    value: 'reply',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.reply_rounded,
+                                                          size: 20,
+                                                          color: colors.brand,
                                                         ),
-                                                      ),
-                                                      PopupMenuItem(
-                                                        value: 'copy',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .content_copy_rounded,
-                                                              size: 20,
-                                                              color: colors
-                                                                  .textSecondary,
-                                                            ),
-                                                            const SizedBox(
-                                                                width: 12),
-                                                            const Text(
-                                                                'Copy Text'),
-                                                          ],
+                                                        const SizedBox(
+                                                          width: 12,
                                                         ),
-                                                      ),
-                                                      if (isMine)
-                                                        PopupMenuItem(
-                                                          value: 'delete',
-                                                          child: Row(
-                                                            children: [
-                                                              Icon(
-                                                                Icons
-                                                                    .delete_outline_rounded,
-                                                                size: 20,
-                                                                color: colors
-                                                                    .dangerText,
-                                                              ),
-                                                              const SizedBox(
-                                                                  width: 12),
-                                                              Text(
-                                                                'Delete',
-                                                                style: TextStyle(
-                                                                    color: colors
-                                                                        .dangerText),
-                                                              ),
-                                                            ],
+                                                        const Text('Reply'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'copy',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .content_copy_rounded,
+                                                          size: 20,
+                                                          color: colors
+                                                              .textSecondary,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 12,
+                                                        ),
+                                                        const Text('Copy Text'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  if (isMine)
+                                                    PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                            Icons
+                                                                .delete_outline_rounded,
+                                                            size: 20,
+                                                            color: colors
+                                                                .dangerText,
                                                           ),
-                                                        ),
-                                                    ],
-                                                  );
+                                                          const SizedBox(
+                                                            width: 12,
+                                                          ),
+                                                          Text(
+                                                            'Delete',
+                                                            style: TextStyle(
+                                                              color: colors
+                                                                  .dangerText,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              );
 
-                                                  if (value == 'reply') {
-                                                    setState(() {
-                                                      _replyingTo = item;
-                                                    });
-                                                  } else if (value == 'copy') {
-                                                    await Clipboard.setData(
-                                                      ClipboardData(
-                                                          text: item.message),
-                                                    );
-                                                    if (mounted) {
-                                                      AppToast.info(context,
-                                                          'Text copied');
-                                                    }
-                                                  } else if (value ==
-                                                      'delete') {
-                                                    await _deleteMessage(item);
-                                                  }
-                                                },
-                                                child: Container(
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                    maxWidth: 300,
+                                              if (value == 'reply') {
+                                                setState(() {
+                                                  _replyingTo = item;
+                                                });
+                                              } else if (value == 'copy') {
+                                                await Clipboard.setData(
+                                                  ClipboardData(
+                                                    text: item.message,
                                                   ),
-                                                  margin: EdgeInsets.only(
-                                                    left: isMine ? 48 : 0,
-                                                    right: isMine ? 0 : 24,
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
+                                                );
+                                                if (context.mounted) {
+                                                  AppToast.info(
+                                                    context,
+                                                    'Text copied',
+                                                  );
+                                                }
+                                              } else if (value == 'delete') {
+                                                await _deleteMessage(item);
+                                              }
+                                            },
+                                            child: Container(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 300,
+                                              ),
+                                              margin: EdgeInsets.only(
+                                                left: isMine ? 48 : 0,
+                                                right: isMine ? 0 : 24,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                     horizontal: 14,
                                                     vertical: 11,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: isMine
-                                                        ? colors.brand
-                                                        : colors.surface,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                    border: isMine
-                                                        ? null
-                                                        : Border.all(
-                                                            color:
-                                                                colors.border),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      if (item.replyTo !=
+                                              decoration: BoxDecoration(
+                                                color: isMine
+                                                    ? colors.brand
+                                                    : colors.surface,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: isMine
+                                                    ? null
+                                                    : Border.all(
+                                                        color: colors.border,
+                                                      ),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  if (item.replyTo != null) ...[
+                                                    _ThreadReplyQuote(
+                                                      reply: item.replyTo!,
+                                                      isMine: isMine,
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                  ],
+                                                  // ✅ image with tap to fullscreen
+                                                  if (item
+                                                          .photoUrl
+                                                          .isNotEmpty ||
+                                                      item.localImageBytes !=
                                                           null) ...[
-                                                        _ThreadReplyQuote(
-                                                          reply: item.replyTo!,
-                                                          isMine: isMine,
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 8),
-                                                      ],
-                                                      // ✅ image with tap to fullscreen
-                                                      if (item.photoUrl
-                                                              .isNotEmpty ||
-                                                          item.localImageBytes !=
-                                                              null) ...[
-                                                        GestureDetector(
-                                                          onTap: () =>
-                                                              _openFullImage(
-                                                            context,
-                                                            url: item.localImageBytes ==
-                                                                    null
-                                                                ? item.photoUrl
-                                                                : null,
-                                                            bytes: item
-                                                                .localImageBytes,
-                                                          ),
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        14),
-                                                            child: item.localImageBytes !=
-                                                                    null
-                                                                ? Image.memory(
-                                                                    item.localImageBytes!,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                  )
-                                                                : Image.network(
-                                                                    item.photoUrl,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                    errorBuilder:
-                                                                        (context,
-                                                                                error,
-                                                                                stackTrace) =>
-                                                                            const SizedBox.shrink(),
-                                                                  ),
-                                                          ),
-                                                        ),
-                                                        if (item.message
-                                                            .isNotEmpty)
-                                                          const SizedBox(
-                                                              height: 10),
-                                                      ],
-                                                      if (item.message
-                                                          .isNotEmpty)
+                                                    GestureDetector(
+                                                      onTap: () => _openFullImage(
+                                                        context,
+                                                        url:
+                                                            item.localImageBytes ==
+                                                                null
+                                                            ? item.photoUrl
+                                                            : null,
+                                                        bytes: item
+                                                            .localImageBytes,
+                                                      ),
+                                                      child: ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                        child:
+                                                            item.localImageBytes !=
+                                                                null
+                                                            ? Image.memory(
+                                                                item.localImageBytes!,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              )
+                                                            : Image.network(
+                                                                item.photoUrl,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                errorBuilder:
+                                                                    (
+                                                                      context,
+                                                                      error,
+                                                                      stackTrace,
+                                                                    ) =>
+                                                                        const SizedBox.shrink(),
+                                                              ),
+                                                      ),
+                                                    ),
+                                                    if (item.message.isNotEmpty)
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                  ],
+                                                  if (item.message.isNotEmpty)
                                                     RichDisplayText(
                                                       text: item.message,
                                                       style: TextStyle(
@@ -874,54 +871,52 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                                       onLinkTap: _handleLinkTap,
                                                     ),
 
-                                                      SizedBox(
-                                                        height: item.message
-                                                                .isNotEmpty
-                                                            ? 8
-                                                            : 2,
+                                                  SizedBox(
+                                                    height:
+                                                        item.message.isNotEmpty
+                                                        ? 8
+                                                        : 2,
+                                                  ),
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        formatConversationListTimestamp(
+                                                          item.createdAt,
+                                                        ),
+                                                        style: TextStyle(
+                                                          color: isMine
+                                                              ? Colors.white70
+                                                              : colors
+                                                                    .textMuted,
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
                                                       ),
-                                                      Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            formatConversationListTimestamp(
-                                                              item.createdAt,
-                                                            ),
-                                                            style: TextStyle(
-                                                              color: isMine
-                                                                  ? Colors
-                                                                      .white70
-                                                                  : colors
-                                                                      .textMuted,
-                                                              fontSize: 11,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                          ),
-                                                          if (isMine) ...[
-                                                            const SizedBox(
-                                                                width: 6),
-                                                            _MessageDeliveryStatus(
-                                                              status:
-                                                                  item.status,
-                                                            ),
-                                                          ],
-                                                        ],
-                                                      ),
+                                                      if (isMine) ...[
+                                                        const SizedBox(
+                                                          width: 6,
+                                                        ),
+                                                        _MessageDeliveryStatus(
+                                                          status: item.status,
+                                                        ),
+                                                      ],
                                                     ],
                                                   ),
-                                                ),
+                                                ],
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                   ),
                   if (_showJumpToBottom)
                     Positioned(
@@ -932,8 +927,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                         backgroundColor: colors.surface,
                         foregroundColor: colors.textPrimary,
                         onPressed: _scrollToBottomAnimated,
-                        child: const Icon(
-                            Icons.keyboard_arrow_down_rounded),
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
                       ),
                     ),
                 ],
@@ -942,8 +936,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
             if (_replyingTo != null)
               _ReplyPreview(
                 message: _replyingTo!,
-                senderLabel:
-                    _displaySenderNameForMessage(_replyingTo!),
+                senderLabel: _displaySenderNameForMessage(_replyingTo!),
                 onClear: () => setState(() => _replyingTo = null),
               ),
             if (isSomeoneElseTyping)
@@ -951,8 +944,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child:
-                      _ThreadTypingIndicator(name: typingUserName),
+                  child: _ThreadTypingIndicator(name: typingUserName),
                 ),
               ),
             SafeArea(
@@ -1033,8 +1025,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ConstrainedBox(
-                            constraints:
-                                const BoxConstraints(maxHeight: 120),
+                            constraints: const BoxConstraints(maxHeight: 120),
                             child: TextField(
                               controller: _controller,
                               minLines: 1,
@@ -1047,34 +1038,25 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                 }
                               },
                               decoration: InputDecoration(
-                                hintText:
-                                    'Message..',
-                                hintStyle:
-                                    TextStyle(color: colors.textMuted),
+                                hintText: 'Message..',
+                                hintStyle: TextStyle(color: colors.textMuted),
                                 filled: true,
                                 fillColor: colors.surfaceMuted,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
+                                contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 14,
                                   vertical: 12,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                  borderSide:
-                                      BorderSide(color: colors.border),
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: colors.border),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                  borderSide:
-                                      BorderSide(color: colors.border),
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: colors.border),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                  borderSide:
-                                      BorderSide(color: colors.brand),
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: colors.brand),
                                 ),
                               ),
                             ),
@@ -1108,8 +1090,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                               backspaceColor: colors.brand,
                               dividerColor: colors.border,
                             ),
-                            bottomActionBarConfig:
-                                const BottomActionBarConfig(
+                            bottomActionBarConfig: const BottomActionBarConfig(
                               enabled: false,
                             ),
                             searchViewConfig: SearchViewConfig(
@@ -1170,8 +1151,7 @@ extension on _MessageThreadScreenState {
     if (current == null) return '';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDay =
-        DateTime(current.year, current.month, current.day);
+    final messageDay = DateTime(current.year, current.month, current.day);
     final diff = today.difference(messageDay).inDays;
     if (diff == 0) return 'Today';
     if (diff == 1) return 'Yesterday';
@@ -1256,8 +1236,7 @@ class _ReplyPreview extends StatelessWidget {
                   message.message,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: colors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -1283,8 +1262,7 @@ class _ChatDateDivider extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 14),
       child: Center(
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: colors.surfaceRaised,
             borderRadius: BorderRadius.circular(999),
@@ -1391,8 +1369,7 @@ class _ThreadTypingIndicator extends StatefulWidget {
   final String name;
 
   @override
-  State<_ThreadTypingIndicator> createState() =>
-      _ThreadTypingIndicatorState();
+  State<_ThreadTypingIndicator> createState() => _ThreadTypingIndicatorState();
 }
 
 class _ThreadTypingIndicatorState extends State<_ThreadTypingIndicator>
@@ -1437,18 +1414,14 @@ class _ThreadTypingIndicatorState extends State<_ThreadTypingIndicator>
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: List.generate(3, (index) {
-                final phase =
-                    (_controller.value - (index * 0.16)) % 1.0;
+                final phase = (_controller.value - (index * 0.16)) % 1.0;
                 final wave =
-                    (math.sin((phase * math.pi * 2) - (math.pi / 2)) +
-                            1) /
-                        2;
+                    (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) / 2;
                 final opacity = 0.25 + (wave * 0.75);
                 final yOffset = 1.5 - (wave * 1.5);
 
                 return Padding(
-                  padding:
-                      EdgeInsets.only(right: index == 2 ? 0 : 3),
+                  padding: EdgeInsets.only(right: index == 2 ? 0 : 3),
                   child: Transform.translate(
                     offset: Offset(0, yOffset),
                     child: Opacity(

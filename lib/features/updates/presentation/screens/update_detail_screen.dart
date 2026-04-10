@@ -252,7 +252,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         commentId: target.id,
         comment: replyText.trim(),
       );
-      if (!mounted) {
+      if (!mounted || !pageContext.mounted) {
         return;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -263,7 +263,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         }
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !pageContext.mounted) {
         return;
       }
       AppToast.error(pageContext, error);
@@ -287,7 +287,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         content: TextField(
           controller: controller,
           maxLines: 6,
-          decoration: const InputDecoration(hintText: 'What is on your mind?'),
+          decoration: const InputDecoration(hintText: 'Share your thoughts...'),
         ),
         actions: [
           TextButton(
@@ -439,10 +439,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
             detail.type.trim().toLowerCase() == 'update';
         final canDelete = detail != null && (isOwner || isAdmin);
 
-        return WillPopScope(
-          onWillPop: () async {
+        return PopScope<Object?>(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) {
+              return;
+            }
             _close();
-            return false;
           },
           child: Scaffold(
             backgroundColor: context.appColors.scaffold,
@@ -765,7 +768,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 minLines: 1,
                                 maxLines: 3,
                                 decoration: InputDecoration(
-                                  hintText: 'Share your thoughts...',
+                                  hintText: 'Enter comment...',
                                   filled: true,
                                   fillColor: colors.surfaceMuted,
                                   border: OutlineInputBorder(

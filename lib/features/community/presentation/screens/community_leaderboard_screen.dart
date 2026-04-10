@@ -92,25 +92,12 @@ class _CommunityLeaderboardScreenState
                 _LeaderboardPanel(
                   title: 'Most active in ${_monthName(DateTime.now().month)}',
                   users: data.monthlyTop,
-                  valueBuilder: (user) => user.monthlyActivity.toStringAsFixed(
-                    user.monthlyActivity.truncateToDouble() ==
-                            user.monthlyActivity
-                        ? 0
-                        : 1,
-                  ),
-                  valueLabel: 'Monthly Pts',
                   onOpenProfile: widget.onOpenProfile,
                 ),
                 const SizedBox(height: 18),
                 _LeaderboardPanel(
                   title: 'All-Time Most Active',
                   users: data.allTimeTop,
-                  valueBuilder: (user) => user.loginActivity.toStringAsFixed(
-                    user.loginActivity.truncateToDouble() == user.loginActivity
-                        ? 0
-                        : 1,
-                  ),
-                  valueLabel: 'Total Pts',
                   onOpenProfile: widget.onOpenProfile,
                 ),
               ],
@@ -145,15 +132,11 @@ class _LeaderboardPanel extends StatelessWidget {
   const _LeaderboardPanel({
     required this.title,
     required this.users,
-    required this.valueBuilder,
-    required this.valueLabel,
     required this.onOpenProfile,
   });
 
   final String title;
   final List<FeedUser> users;
-  final String Function(FeedUser user) valueBuilder;
-  final String valueLabel;
   final Future<void> Function(String username) onOpenProfile;
 
   @override
@@ -253,28 +236,6 @@ class _LeaderboardPanel extends StatelessWidget {
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            valueBuilder(user),
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          Text(
-                            valueLabel,
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),

@@ -19,7 +19,6 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:flutter/services.dart';
-import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -312,9 +311,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openUpdate(ProfileContentItem item) async {
-    final snapshot = await _profileFuture;
-    final profile = snapshot.profile;
-    final result = await Navigator.of(context).push<UpdateDetailResult>(
+    final navigator = Navigator.of(context);
+    await _profileFuture;
+    if (!mounted) return;
+    final result = await navigator.push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
           updateId: item.id,
@@ -672,8 +672,8 @@ class _ProfileHeaderCard extends StatelessWidget {
     String username,
     GlobalKey menuKey,
   ) async {
-    final RenderBox? renderBox =
-        menuKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderObject = menuKey.currentContext?.findRenderObject();
+    final RenderBox? renderBox = renderObject is RenderBox ? renderObject : null;
     if (renderBox == null || !renderBox.hasSize) return;
     final position = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
@@ -904,7 +904,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       value: _formatCount(profile.followersCount),
-                      label: 'Followers',
+                      label: 'FOLLOWERS',
                       onTap: onFollowers,
                     ),
                   ),
@@ -912,7 +912,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       value: _formatCount(profile.followingCount),
-                      label: 'Following',
+                      label: 'FOLLOWING',
                       onTap: onFollowing,
                     ),
                   ),
@@ -920,7 +920,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       value: _formatCount(updatesCount),
-                      label: 'Updates',
+                      label: 'POSTS',
                       onTap: onPosts,
                     ),
                   ),
@@ -2066,7 +2066,7 @@ class _PanelCard extends StatelessWidget {
         border: Border.all(color: context.appColors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: context.appColors.shadow.withOpacity(0.08),
+            color: context.appColors.shadow.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -2086,7 +2086,6 @@ class _LargeAvatar extends StatelessWidget {
     this.isEditable = false,
     this.onEditMedia,
     this.showMenu,
-    this.menuKey,
   });
 
   final String imageUrl;
@@ -2096,8 +2095,6 @@ class _LargeAvatar extends StatelessWidget {
   final bool isEditable;
   final Future<void> Function()? onEditMedia;
   final Future<void> Function()? showMenu;
-  final GlobalKey? menuKey;
-
   @override
   Widget build(BuildContext context) {
     final initials = label
@@ -2163,7 +2160,7 @@ class _LargeAvatar extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: context.appColors.shadow.withOpacity(0.18),
+                          color: context.appColors.shadow.withValues(alpha: 0.18),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -2199,7 +2196,7 @@ class _LargeAvatar extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: context.appColors.shadow.withOpacity(0.12),
+                          color: context.appColors.shadow.withValues(alpha: 0.12),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

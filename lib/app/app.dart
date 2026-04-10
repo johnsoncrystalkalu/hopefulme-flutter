@@ -158,8 +158,6 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       final message = data['message']?.toString() ??
           'A new version of Hopeful Me is available. Please update to continue.';
 
-      if (!forceUpdate) return;
-
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
 

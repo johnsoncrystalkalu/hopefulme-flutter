@@ -430,7 +430,11 @@ class _OptionSwitch extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Switch(value: value, onChanged: onChanged, activeColor: colors.brand),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: colors.brand,
+          ),
         ],
       ),
     );

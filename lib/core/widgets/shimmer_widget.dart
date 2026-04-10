@@ -7,7 +7,6 @@ class AppShimmer extends StatelessWidget {
     required this.child,
     required this.baseColor,
     required this.highlightColor,
-    super.key,
   });
 
   final Widget child;

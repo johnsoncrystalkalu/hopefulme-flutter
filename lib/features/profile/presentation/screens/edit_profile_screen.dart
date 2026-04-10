@@ -376,7 +376,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             _LabeledField(
                               label: 'Role / Title',
                               child: DropdownButtonFormField<String>(
-                                value:
+                                initialValue:
                                     _selectedRole.isNotEmpty &&
                                         _roleOptions.contains(_selectedRole)
                                     ? _selectedRole
@@ -459,7 +459,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   label: 'Country',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
-                                    value:
+                                    initialValue:
                                         _selectedCountry.isNotEmpty &&
                                             _countryOptions.contains(
                                               _selectedCountry,
@@ -496,7 +496,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   label: 'State / Region',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
-                                    value:
+                                    initialValue:
                                         _selectedState.isNotEmpty &&
                                             _stateOptions.contains(
                                               _selectedState,
@@ -571,7 +571,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   label: 'Birth Day',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
-                                    value: _selectedBirthDay.isNotEmpty
+                                    initialValue: _selectedBirthDay.isNotEmpty
                                         ? _selectedBirthDay
                                         : null,
                                     decoration: const InputDecoration(
@@ -598,7 +598,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   label: 'Birth Month',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
-                                    value: _selectedBirthMonth.isNotEmpty
+                                    initialValue: _selectedBirthMonth.isNotEmpty
                                         ? _selectedBirthMonth
                                         : null,
                                     decoration: const InputDecoration(

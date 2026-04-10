@@ -6,7 +6,6 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
-import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 
@@ -159,7 +158,7 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (_, itemIndex) => const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   if (index >= _items.length) {
                     return const Padding(

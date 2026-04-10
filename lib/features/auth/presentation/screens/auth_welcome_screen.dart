@@ -52,7 +52,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Be part of our Outreach programs.',
       description:
-          'Get involved in meaningful community projects and outreach initiatives that change lives',
+          'Get involved in meaningful community projects and outreach initiatives that change lives.',
       icon: Icons.handshake_rounded,
       accent: Color(0xFFDB2777), // Rose Accent
     ),

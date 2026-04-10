@@ -221,7 +221,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         commentId: target.id,
         comment: replyText.trim(),
       );
-      if (!mounted) {
+      if (!mounted || !pageContext.mounted) {
         return;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -232,7 +232,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         }
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !pageContext.mounted) {
         return;
       }
       AppToast.error(pageContext, error);
@@ -504,7 +504,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 height: 42,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  // border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: colors.shadow.withValues(alpha: 0.08),
@@ -583,30 +583,25 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.fromLTRB(0, 1, 2, 0),
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: 0,
+        runSpacing: 0,
         children: [
           if (detail.label.trim().isNotEmpty)
             _ContentPill(
               label: detail.label.trim(),
-              backgroundColor: const Color(0xFFE8F1FF),
-              borderColor: const Color(0xFFBFDBFE),
               textColor: const Color(0xFF2563EB),
             ),
-          if (detail.tag.trim().isNotEmpty)
-            _ContentPill(
-              label: detail.tag.trim(),
-              backgroundColor: const Color(0xFFF3E8FF),
-              borderColor: const Color(0xFFD8B4FE),
-              textColor: const Color(0xFF7C3AED),
-            ),
+          // if (detail.tag.trim().isNotEmpty)
+          //   _ContentPill(
+          //     label: detail.tag.trim(),
+          //     textColor: const Color(0xFF7C3AED),
+          //   ),
         ],
       ),
     );
   }
-
 
   Widget _buildImageBlock({
     required BuildContext context,
@@ -728,8 +723,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                               top: Radius.zero,
                             ),
                           ),
-                        if (widget.kind == 'post')
-                          _buildPostMetaPills(detail),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
@@ -880,6 +873,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   onHashtagTap: _openSearchQuery,
                                   onLinkTap: _handleLinkTap,
                                 ),
+                                if (widget.kind == 'post') ...[
+                                  const SizedBox(height: 14),
+                                  _buildPostMetaPills(detail),
+                                ],
                               ],
                               if (detail.secondaryPhotoUrl.isNotEmpty) ...[
                                 const SizedBox(height: 16),
@@ -894,8 +891,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   _buildPostImageActions(
                                     colors,
                                     primaryUrl: '',
-                                    secondaryUrl: detail
-                                            .originalSecondaryPhotoUrl
+                                    secondaryUrl:
+                                        detail.originalSecondaryPhotoUrl
                                             .trim()
                                             .isNotEmpty
                                         ? detail.originalSecondaryPhotoUrl
@@ -1457,16 +1454,9 @@ class _MediaActionChip extends StatelessWidget {
 }
 
 class _ContentPill extends StatelessWidget {
-  const _ContentPill({
-    required this.label,
-    this.backgroundColor,
-    this.borderColor,
-    this.textColor,
-  });
+  const _ContentPill({required this.label, this.textColor});
 
   final String label;
-  final Color? backgroundColor;
-  final Color? borderColor;
   final Color? textColor;
 
   @override
@@ -1475,9 +1465,8 @@ class _ContentPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: backgroundColor ?? colors.surfaceMuted,
+        color: colors.surfaceMuted.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor ?? colors.border),
       ),
       child: Text(
         label,

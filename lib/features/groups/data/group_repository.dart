@@ -100,14 +100,14 @@ class GroupRepository {
             'groups/$groupId/messages',
             body: {
               'message': trimmed,
-              if (replyId case final value?) 'reply_id': value,
+              ...?switch (replyId) { final value? => {'reply_id': value}, null => null },
             },
           )
         : await _authRepository.postMultipart(
             'groups/$groupId/messages',
             fields: {
               if (trimmed.isNotEmpty) 'message': trimmed,
-              if (replyId case final value?) 'reply_id': '$value',
+              ...?switch (replyId) { final value? => {'reply_id': '$value'}, null => null },
             },
             files: [
               ApiMultipartFile(

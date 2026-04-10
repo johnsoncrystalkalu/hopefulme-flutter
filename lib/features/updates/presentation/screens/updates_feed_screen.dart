@@ -15,7 +15,6 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
-import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -332,7 +331,7 @@ class _ActivitiesComposerCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  'What is on your mind?',
+                  'Share your thoughts...',
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 14,

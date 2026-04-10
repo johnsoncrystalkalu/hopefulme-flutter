@@ -375,7 +375,7 @@ class _FriendOfDayCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withOpacity(0.06),
+            color: colors.shadow.withValues(alpha: 0.06),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -391,9 +391,9 @@ class _FriendOfDayCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.topRight,
                   colors: [
-                    colors.brand.withOpacity(0.12),
+                    colors.brand.withValues(alpha: 0.12),
                     colors.surface,
-                    colors.accent.withOpacity(0.10),
+                    colors.accent.withValues(alpha: 0.10),
                   ],
                 ),
               ),
@@ -463,7 +463,7 @@ class _FriendOfDayCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.surfaceMuted,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colors.border.withOpacity(0.8)),
+                    border: Border.all(color: colors.border.withValues(alpha: 0.8)),
                   ),
                   child: Column(
                     children: [
@@ -479,7 +479,7 @@ class _FriendOfDayCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: colors.brand.withOpacity(0.12),
+                                    color: colors.brand.withValues(alpha: 0.12),
                                     blurRadius: 18,
                                     offset: const Offset(0, 8),
                                   ),
@@ -871,7 +871,7 @@ class _NewestHeartsPanel extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colors.brand.withOpacity(0.16),
+                color: colors.brand.withValues(alpha: 0.16),
               ),
             ),
           ),

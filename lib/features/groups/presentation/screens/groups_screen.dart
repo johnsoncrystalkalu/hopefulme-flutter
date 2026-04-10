@@ -193,7 +193,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         Text(
                           'Join conversations, share ideas, build community.',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 14,
                           ),
                         ),
@@ -212,7 +212,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: myGroups.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        separatorBuilder: (_, index) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
                           final group = myGroups[index];
                           return _MyGroupCard(
@@ -378,7 +378,7 @@ class _CommunityCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: colors.brand.withOpacity(0.18), width: 2),
+          border: Border.all(color: colors.brand.withValues(alpha: 0.18), width: 2),
         ),
         child: Row(
           children: [

@@ -29,15 +29,15 @@ class AppSendActionButton extends StatelessWidget {
               ? colors.brandGradient
               : LinearGradient(
                   colors: [
-                    colors.textMuted.withOpacity(0.32),
-                    colors.textMuted.withOpacity(0.22),
+                    colors.textMuted.withValues(alpha: 0.32),
+                    colors.textMuted.withValues(alpha: 0.22),
                   ],
                 ),
           borderRadius: BorderRadius.circular(18),
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: colors.brand.withOpacity(0.18),
+                    color: colors.brand.withValues(alpha: 0.18),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                     spreadRadius: -8,

@@ -40,14 +40,14 @@ class MessageRepository {
             'messages/$username',
             body: {
               if (trimmed.isNotEmpty) 'message': trimmed,
-              if (replyId case final id?) 'reply_id': id,
+              ...?switch (replyId) { final id? => {'reply_id': id}, null => null },
             },
           )
         : await _authRepository.postMultipart(
             'messages/$username',
             fields: {
               if (trimmed.isNotEmpty) 'message': trimmed,
-              if (replyId case final id?) 'reply_id': '$id',
+              ...?switch (replyId) { final id? => {'reply_id': '$id'}, null => null },
             },
             files: [
               ApiMultipartFile(

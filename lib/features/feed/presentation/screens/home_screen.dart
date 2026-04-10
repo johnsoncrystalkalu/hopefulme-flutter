@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element, unused_element_parameter
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -469,6 +471,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openNotifications() async {
+    if (!mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => NotificationsScreen(
@@ -792,6 +798,10 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
       }
     } catch (_) {
       // Fall back to the direct web URL if the bridge request fails.
+    }
+
+    if (!mounted) {
+      return;
     }
 
     await Navigator.of(context).push(
@@ -3044,7 +3054,6 @@ class _QuoteGrid extends StatelessWidget {
   }
 }
 
-// ignore: unused_element
 class _BirthdayCelebrationCard extends StatelessWidget {
   const _BirthdayCelebrationCard({
     required this.users,
@@ -3524,7 +3533,6 @@ class _UpdateFeedCard extends StatelessWidget {
 }
 
 // Reserved for potential future dedicated blog card styling on Home.
-// ignore: unused_element
 class _BlogFeedCard extends StatelessWidget {
   const _BlogFeedCard({
     required this.entry,
@@ -3687,7 +3695,6 @@ class _BlogFeedCard extends StatelessWidget {
 }
 
 // Kept for possible future grouped feed navigation UI.
-// ignore: unused_element
 class _FeedExploreMoreCard extends StatelessWidget {
   const _FeedExploreMoreCard({
     required this.onOpenUpdatesFeed,

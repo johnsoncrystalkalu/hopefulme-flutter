@@ -404,7 +404,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              value:
+                              initialValue:
                                   _selectedRole.isNotEmpty &&
                                       _roleOptions.contains(_selectedRole)
                                   ? _selectedRole
