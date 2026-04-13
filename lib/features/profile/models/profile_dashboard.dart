@@ -131,6 +131,7 @@ class ProfileSummary {
     required this.hobby,
     required this.role1,
     required this.role2,
+    required this.rank,
     required this.location,
     required this.city,
     required this.state,
@@ -159,6 +160,7 @@ class ProfileSummary {
   final String hobby;
   final String role1;
   final String role2;
+  final String rank;
   final String location;
   final String city;
   final String state;
@@ -215,6 +217,7 @@ class ProfileSummary {
       hobby: json['hobby']?.toString() ?? '',
       role1: json['role1']?.toString() ?? '',
       role2: json['role2']?.toString() ?? '',
+      rank: json['rank']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',

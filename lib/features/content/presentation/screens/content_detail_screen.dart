@@ -67,6 +67,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   late Future<ContentDetail> _future;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmittingComment = false;
+  bool _isLoadingMoreComments = false;
   BlogActionResult? _pendingBlogAction;
 
   bool _isOwner(ContentDetail detail) {
@@ -92,10 +93,16 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     super.dispose();
   }
 
-  Future<ContentDetail> _load() {
+  Future<ContentDetail> _load({int commentPage = 1}) {
     return switch (widget.kind) {
-      'blog' => widget.repository.fetchBlog(widget.contentId),
-      _ => widget.repository.fetchPost(widget.contentId),
+      'blog' => widget.repository.fetchBlog(
+        widget.contentId,
+        commentPage: commentPage,
+      ),
+      _ => widget.repository.fetchPost(
+        widget.contentId,
+        commentPage: commentPage,
+      ),
     };
   }
 
@@ -125,24 +132,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       _commentController.clear();
       setState(() {
         _future = Future<ContentDetail>.value(
-          ContentDetail(
-            id: detail.id,
-            kind: detail.kind,
-            title: detail.title,
-            body: detail.body,
-            videoUrl: detail.videoUrl,
-            photoUrl: detail.photoUrl,
-            originalPhotoUrl: detail.originalPhotoUrl,
-            secondaryPhotoUrl: detail.secondaryPhotoUrl,
-            originalSecondaryPhotoUrl: detail.originalSecondaryPhotoUrl,
-            tag: detail.tag,
-            category: detail.category,
-            label: detail.label,
-            views: detail.views,
-            likesCount: detail.likesCount,
+          detail.copyWith(
             commentsCount: detail.commentsCount + 1,
-            createdAt: detail.createdAt,
-            user: detail.user,
+            commentsTotal: detail.commentsTotal + 1,
             comments: [comment, ...detail.comments],
           ),
         );
@@ -151,6 +143,40 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       if (mounted) {
         setState(() {
           _isSubmittingComment = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreComments(ContentDetail detail) async {
+    if (_isLoadingMoreComments || !detail.hasMoreComments) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMoreComments = true;
+    });
+
+    try {
+      final nextPage = await _load(commentPage: detail.commentsCurrentPage + 1);
+      if (!mounted) return;
+      setState(() {
+        _future = Future<ContentDetail>.value(
+          detail.copyWith(
+            comments: [...detail.comments, ...nextPage.comments],
+            commentsCurrentPage: nextPage.commentsCurrentPage,
+            commentsLastPage: nextPage.commentsLastPage,
+            commentsTotal: nextPage.commentsTotal,
+          ),
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreComments = false;
         });
       }
     }
@@ -583,24 +609,24 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
 
     return Padding(
-  padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-  child: Wrap(
-    spacing: 0,
-    runSpacing: 0,
-    children: [
-      if (detail.label.trim().isNotEmpty)
-        _ContentPill(
-          label: detail.label.trim(),
-          textColor: const Color(0xFF2A41D4), // Using your new Brand Blue
-        ),
-      if (detail.tag.trim().isNotEmpty)
-        _ContentPill(
-          label: detail.tag.trim(),
-          textColor: const Color(0xFF7C3AED), // Deep Purple
-        ),
-    ],
-  ),
-);
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
+      child: Wrap(
+        spacing: 0,
+        runSpacing: 0,
+        children: [
+          if (detail.label.trim().isNotEmpty)
+            _ContentPill(
+              label: detail.label.trim(),
+              textColor: const Color(0xFF2A41D4), // Using your new Brand Blue
+            ),
+          if (detail.tag.trim().isNotEmpty)
+            _ContentPill(
+              label: detail.tag.trim(),
+              textColor: const Color(0xFF7C3AED), // Deep Purple
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildImageBlock({
@@ -853,10 +879,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   ),
                                 ),
                               ],
-                               if (widget.kind == 'post') ...[
-                                  const SizedBox(height: 14),
-                                  _buildPostMetaPills(detail),
-                                ],
+                              if (widget.kind == 'post') ...[
+                                const SizedBox(height: 14),
+                                _buildPostMetaPills(detail),
+                              ],
                               if (detail.body.isNotEmpty) ...[
                                 const SizedBox(height: 18),
                                 RichDisplayText(
@@ -877,7 +903,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   onHashtagTap: _openSearchQuery,
                                   onLinkTap: _handleLinkTap,
                                 ),
-                            
                               ],
                               if (detail.secondaryPhotoUrl.isNotEmpty) ...[
                                 const SizedBox(height: 16),
@@ -1011,6 +1036,21 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                               ),
                             ),
                           ),
+                        if (detail.hasMoreComments) ...[
+                          const SizedBox(height: 4),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isLoadingMoreComments
+                                  ? null
+                                  : () => _loadMoreComments(detail),
+                              child: Text(
+                                _isLoadingMoreComments
+                                    ? 'Loading comments...'
+                                    : 'Load more comments',
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1458,10 +1498,7 @@ class _ContentPill extends StatelessWidget {
   final String label;
   final Color textColor;
 
-  const _ContentPill({
-    required this.label,
-    required this.textColor,
-  });
+  const _ContentPill({required this.label, required this.textColor});
 
   @override
   Widget build(BuildContext context) {
@@ -1470,9 +1507,9 @@ class _ContentPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         // Subtle background tint (8% opacity is the "sweet spot")
-        color: textColor.withOpacity(0.08), 
+        color: textColor.withOpacity(0.08),
         // 500 radius ensures it's always a pill shape regardless of width
-        borderRadius: BorderRadius.circular(500), 
+        borderRadius: BorderRadius.circular(500),
         // Optional: Very faint border to define the shape on white backgrounds
         border: Border.all(color: textColor.withOpacity(0.12), width: 0.5),
       ),

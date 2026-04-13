@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
@@ -37,6 +39,16 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
+      final cachedUser = await _authRepository.readCachedUser();
+      if (cachedUser != null) {
+        _currentUser = cachedUser;
+        _isAuthenticated = true;
+        _isBootstrapping = false;
+        _setLoading(false);
+        unawaited(_refreshSessionInBackground());
+        return;
+      }
+
       _currentUser = await _authRepository.currentUser();
       _isAuthenticated = true;
     } on ApiException catch (error) {
@@ -55,6 +67,24 @@ class AuthController extends ChangeNotifier {
     } finally {
       _isBootstrapping = false;
       _setLoading(false);
+    }
+  }
+
+  Future<void> _refreshSessionInBackground() async {
+    try {
+      _currentUser = await _authRepository.currentUser();
+      _isAuthenticated = true;
+      _errorMessage = null;
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      final isUnauthorized = error.statusCode == 401 || error.statusCode == 403;
+      if (isUnauthorized) {
+        _currentUser = null;
+        _isAuthenticated = false;
+        await _authRepository.clearLocalSession();
+      }
+    } finally {
+      notifyListeners();
     }
   }
 

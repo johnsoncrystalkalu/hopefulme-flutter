@@ -116,6 +116,21 @@ class FeedRepository {
     }
   }
 
+  Future<FriendOfTheDayResponse> fetchFriendOfTheDay() async {
+    const key = 'friend-of-the-day';
+    try {
+      final response = await _authRepository.get('community/friend-of-the-day');
+      await _cache.save(key, response);
+      return FriendOfTheDayResponse.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return FriendOfTheDayResponse.fromJson(cached);
+      }
+      rethrow;
+    }
+  }
+
   Future<List<FeedUser>> fetchMostActiveUsers({int limit = 4}) async {
     final normalizedLimit = limit.clamp(1, 12);
     final key = 'most-active:$normalizedLimit';

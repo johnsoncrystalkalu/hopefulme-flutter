@@ -66,13 +66,14 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   final TextEditingController _commentController = TextEditingController();
   bool _liked = false;
   bool _isSubmittingComment = false;
+  bool _isLoadingMoreComments = false;
   bool _shouldRefresh = false;
 
   @override
   void initState() {
     super.initState();
     _liked = widget.initialDetail?.isLiked ?? widget.initialLiked;
-    _future = widget.repository.fetchUpdate(widget.updateId).then((detail) {
+    _future = _load().then((detail) {
       if (mounted) {
         setState(() {
           _liked = detail.isLiked;
@@ -90,6 +91,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     )..value = 1;
   }
 
+  Future<UpdateDetail> _load({int commentPage = 1}) {
+    return widget.repository.fetchUpdate(
+      widget.updateId,
+      commentPage: commentPage,
+    );
+  }
+
   @override
   void dispose() {
     _likeController.dispose();
@@ -99,7 +107,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
   Future<void> _refresh() async {
     setState(() {
-      _future = widget.repository.fetchUpdate(widget.updateId);
+      _future = _load();
     });
     await _future;
   }
@@ -123,21 +131,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     setState(() {
       _liked = result.liked;
       _future = Future.value(
-        UpdateDetail(
-          id: detail.id,
-          type: detail.type,
-          status: detail.status,
-          photoUrl: detail.photoUrl,
-          originalPhotoUrl: detail.originalPhotoUrl,
-          device: detail.device,
-          views: detail.views,
-          likesCount: result.count,
-          commentsCount: detail.commentsCount,
-          createdAt: detail.createdAt,
-          user: detail.user,
-          comments: detail.comments,
-          isLiked: result.liked,
-        ),
+        detail.copyWith(likesCount: result.count, isLiked: result.liked),
       );
     });
   }
@@ -161,20 +155,10 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       _commentController.clear();
       setState(() {
         _future = Future.value(
-          UpdateDetail(
-            id: detail.id,
-            type: detail.type,
-            status: detail.status,
-            photoUrl: detail.photoUrl,
-            originalPhotoUrl: detail.originalPhotoUrl,
-            device: detail.device,
-            views: detail.views,
-            likesCount: detail.likesCount,
+          detail.copyWith(
             commentsCount: detail.commentsCount + 1,
-            createdAt: detail.createdAt,
-            user: detail.user,
+            commentsTotal: detail.commentsTotal + 1,
             comments: [comment, ...detail.comments],
-            isLiked: detail.isLiked,
           ),
         );
       });
@@ -182,6 +166,40 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       if (mounted) {
         setState(() {
           _isSubmittingComment = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreComments(UpdateDetail detail) async {
+    if (_isLoadingMoreComments || !detail.hasMoreComments) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMoreComments = true;
+    });
+
+    try {
+      final nextPage = await _load(commentPage: detail.commentsCurrentPage + 1);
+      if (!mounted) return;
+      setState(() {
+        _future = Future.value(
+          detail.copyWith(
+            comments: [...detail.comments, ...nextPage.comments],
+            commentsCurrentPage: nextPage.commentsCurrentPage,
+            commentsLastPage: nextPage.commentsLastPage,
+            commentsTotal: nextPage.commentsTotal,
+          ),
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreComments = false;
         });
       }
     }
@@ -658,17 +676,6 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 ),
                               ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                              child: Text(
-                                'debug isLiked: local=$_liked | detail=${detail.isLiked} | initialDetail=${widget.initialDetail?.isLiked} | initialLiked=${widget.initialLiked}',
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Padding(
                               padding: const EdgeInsets.fromLTRB(
                                 18,
                                 14,
@@ -846,6 +853,21 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   ),
                                 ),
                               ),
+                            if (detail.hasMoreComments) ...[
+                              const SizedBox(height: 4),
+                              Center(
+                                child: TextButton(
+                                  onPressed: _isLoadingMoreComments
+                                      ? null
+                                      : () => _loadMoreComments(detail),
+                                  child: Text(
+                                    _isLoadingMoreComments
+                                        ? 'Loading comments...'
+                                        : 'Load more comments',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -7,6 +7,7 @@ class User {
     required this.username,
     required this.email,
     required this.gender,
+    this.rank = '',
     required this.role1,
     required this.photoUrl,
     required this.theme,
@@ -19,6 +20,7 @@ class User {
   final String username;
   final String email;
   final String gender;
+  final String rank;
   final String role1;
   final String photoUrl;
   final String theme;
@@ -37,6 +39,7 @@ class User {
       username: json['username']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       gender: json['gender']?.toString() ?? '',
+      rank: json['rank']?.toString() ?? '',
       role1: json['role1']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       theme: json['theme']?.toString() ?? '',
@@ -59,6 +62,7 @@ class User {
       'username': username,
       'email': email,
       'gender': gender,
+      'rank': rank,
       'role1': role1,
       'photo_url': photoUrl,
       'theme': theme,

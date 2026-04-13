@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_card.dart';
@@ -239,6 +240,16 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     }
   }
 
+  Future<void> _openFullImage() async {
+    final imageUrl = widget.photoUrl.trim();
+    if (imageUrl.isEmpty) {
+      await widget.onOpenUpdate();
+      return;
+    }
+
+    await FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isDeleted) {
@@ -268,7 +279,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
           ? null
           : () => widget.onOpenProfile!(widget.ownerUsername!),
       onCardTap: () => widget.onOpenUpdate(),
-      onImageTap: () => widget.onOpenUpdate(),
+      onImageTap: _openFullImage,
       onMentionTap: widget.onOpenProfile,
       onHashtagTap: widget.onOpenHashtag,
       onLinkTap: widget.onOpenLink,

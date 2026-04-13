@@ -882,7 +882,7 @@ class _AppLoadingScreen extends StatelessWidget {
                       AppConfig.appName,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: colors.textPrimary,
+                        color: colors.brand,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,
@@ -893,7 +893,7 @@ class _AppLoadingScreen extends StatelessWidget {
                       'Inspire the world around you',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: colors.textMuted,
+                        color: Colors.orange,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),

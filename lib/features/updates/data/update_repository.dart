@@ -9,8 +9,13 @@ class UpdateRepository {
 
   final AuthRepository _authRepository;
 
-  Future<UpdateDetail> fetchUpdate(int id) async {
-    final response = await _authRepository.get('updates/$id');
+  Future<UpdateDetail> fetchUpdate(int id, {int commentPage = 1}) async {
+    final response = await _authRepository.get(
+      'updates/$id',
+      queryParameters: commentPage > 1
+          ? <String, dynamic>{'comment_page': commentPage}
+          : null,
+    );
     return UpdateDetail.fromJson(
       response['update'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );

@@ -371,7 +371,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                         const SizedBox(height: 16),
                         _MediaCard(
                           title: 'Cover Photo',
-                          subtitle: 'Used at the top of your profile page.',
+                          subtitle: 'Used at the top of your profile page (optional).',
                           preview: _MediaPreview.cover(
                             imageUrl: profile?.coverUrl ?? '',
                             fallbackImageUrl: profile?.photoUrl ?? '',

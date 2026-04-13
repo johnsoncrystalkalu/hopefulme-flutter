@@ -9,7 +9,6 @@ import 'package:hopefulme_flutter/features/community/presentation/widgets/most_a
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
-import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -39,6 +38,7 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
   final List<FeedUser> _items = <FeedUser>[];
   List<FeedUser> _onlineUsers = const <FeedUser>[];
   List<FeedUser> _newMembers = const <FeedUser>[];
+  FeedUser? _friendOfTheDay;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -65,15 +65,22 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
       _page = 1;
       _hasMore = true;
       _items.clear();
+      _friendOfTheDay = null;
     });
 
     try {
-      final page = await widget.feedRepository.fetchMeetNewFriends(page: 1);
+      final results = await Future.wait<Object>([
+        widget.feedRepository.fetchMeetNewFriends(page: 1),
+        widget.feedRepository.fetchFriendOfTheDay(),
+      ]);
+      final page = results[0] as FeedUserPage;
+      final dailyFriendResponse = results[1] as FriendOfTheDayResponse;
       if (!mounted) return;
       setState(() {
         _items.addAll(page.items);
         _onlineUsers = page.onlineUsers;
         _newMembers = page.newMembers;
+        _friendOfTheDay = dailyFriendResponse.friend;
         _hasMore = page.hasMore;
       });
     } catch (error) {
@@ -135,29 +142,21 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
     );
   }
 
-  Future<void> _openChat(FeedUser user) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => MessageThreadScreen(
-          repository: widget.messageRepository,
-          profileRepository: widget.profileRepository,
-          updateRepository: widget.updateRepository,
-          currentUser: widget.currentUser,
-          username: user.username,
-          title: user.displayName,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final width = MediaQuery.of(context).size.width;
     final showRail = width >= 1100;
-    final featured = _items.isNotEmpty
-        ? _items.first
-        : (_newMembers.isNotEmpty ? _newMembers.first : null);
+    final featured = _friendOfTheDay;
+    final featuredUsername = featured?.username.trim().toLowerCase();
+    final suggestedItems = featuredUsername == null
+        ? _items
+        : _items
+              .where(
+                (user) =>
+                    user.username.trim().toLowerCase() != featuredUsername,
+              )
+              .toList(growable: false);
     return Scaffold(
       backgroundColor: colors.scaffold,
       appBar: buildAppScreenAppBar(
@@ -184,6 +183,14 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                   if (showRail)
                     Column(
                       children: [
+                        if (featured != null) ...[
+                          _FriendOfDayCard(
+                            user: featured,
+                            onProfileTap: () => _openProfile(featured.username),
+                            onHelloTap: () => _openProfile(featured.username),
+                          ),
+                          const SizedBox(height: 22),
+                        ],
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -214,16 +221,24 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                         const SizedBox(height: 22),
                         _MeetMainColumn(
                           featured: featured,
-                          items: _items,
+                          items: suggestedItems,
                           isLoadingMore: _isLoadingMore,
                           onProfileTap: _openProfile,
-                          onHelloTap: _openChat,
+                          onHelloTap: (user) => _openProfile(user.username),
                         ),
                       ],
                     )
                   else
                     Column(
                       children: [
+                        if (featured != null) ...[
+                          _FriendOfDayCard(
+                            user: featured,
+                            onProfileTap: () => _openProfile(featured.username),
+                            onHelloTap: () => _openProfile(featured.username),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
                         if (_onlineUsers.isNotEmpty)
                           _OnlinePanel(
                             users: _onlineUsers,
@@ -244,10 +259,10 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                         const SizedBox(height: 20),
                         _MeetMainColumn(
                           featured: featured,
-                          items: _items,
+                          items: suggestedItems,
                           isLoadingMore: _isLoadingMore,
                           onProfileTap: _openProfile,
-                          onHelloTap: _openChat,
+                          onHelloTap: (user) => _openProfile(user.username),
                         ),
                       ],
                     ),
@@ -280,13 +295,7 @@ class _MeetMainColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (featured != null)
-          _FriendOfDayCard(
-            user: featured!,
-            onProfileTap: () => onProfileTap(featured!.username),
-            onHelloTap: () => onHelloTap(featured!),
-          ),
-        const SizedBox(height: 28),
+      
         Row(
           children: [
             Text(
@@ -463,7 +472,9 @@ class _FriendOfDayCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.surfaceMuted,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colors.border.withValues(alpha: 0.8)),
+                    border: Border.all(
+                      color: colors.border.withValues(alpha: 0.8),
+                    ),
                   ),
                   child: Column(
                     children: [

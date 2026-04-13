@@ -30,9 +30,12 @@ import 'package:hopefulme_flutter/features/content/presentation/screens/inspirat
 import 'package:hopefulme_flutter/features/content/presentation/screens/posts_feed_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/widgets/feed_special_cards.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
+import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
+import 'package:hopefulme_flutter/features/groups/presentation/screens/group_thread_screen.dart';
 import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_screen.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -43,6 +46,7 @@ import 'package:hopefulme_flutter/features/notifications/models/app_notification
 import 'package:hopefulme_flutter/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -55,6 +59,19 @@ import 'package:hopefulme_flutter/features/library/data/library_repository.dart'
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+bool _looksLikeDefaultProfilePhoto(String photoUrl) {
+  final trimmed = photoUrl.trim();
+  if (trimmed.isEmpty) {
+    return true;
+  }
+
+  final normalized = trimmed.toLowerCase();
+  return trimmed.length < 32 ||
+      normalized.contains('default') ||
+      (normalized.contains('avatar') &&
+          (normalized.contains('male') || normalized.contains('female')));
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -96,8 +113,9 @@ class _HomeScreenState extends State<HomeScreen>
   static const _topbarRefreshInterval = Duration(seconds: 60);
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _homeScrollController = ScrollController();
-  final ValueNotifier<_TopBarSnapshot> _topBarSnapshot =
-      ValueNotifier(const _TopBarSnapshot());
+  final ValueNotifier<_TopBarSnapshot> _topBarSnapshot = ValueNotifier(
+    const _TopBarSnapshot(),
+  );
   late Future<FeedDashboard> _dashboardFuture;
   late final String _webBaseUrl;
   Timer? _pollingTimer;
@@ -192,7 +210,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool get _isAppInForeground =>
-      _appLifecycleState == null || _appLifecycleState == AppLifecycleState.resumed;
+      _appLifecycleState == null ||
+      _appLifecycleState == AppLifecycleState.resumed;
 
   bool get _shouldPollTopbar => _isHomeRouteVisible && _isAppInForeground;
 
@@ -242,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _seedHomeUpdatesFromDashboard(FeedDashboard dashboard) {
     final updates = dashboard.feed
-        .where((entry) => entry.type == 'update')
+        .where((entry) => entry.type == 'update' || entry.type == 'advert')
         .toList(growable: false);
     if (!mounted) {
       _homeUpdates = updates;
@@ -311,7 +330,10 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  List<FeedEntry> _mergeFeedEntries(List<FeedEntry> existing, List<FeedEntry> next) {
+  List<FeedEntry> _mergeFeedEntries(
+    List<FeedEntry> existing,
+    List<FeedEntry> next,
+  ) {
     final merged = <FeedEntry>[...existing];
     final seenIds = merged.map((entry) => entry.id).toSet();
     for (final entry in next) {
@@ -333,7 +355,9 @@ class _HomeScreenState extends State<HomeScreen>
     int? unreadMessages;
     Object? conversationsError;
     try {
-      final notificationsFuture = widget.notificationRepository.fetchPage(page: 1);
+      final notificationsFuture = widget.notificationRepository.fetchPage(
+        page: 1,
+      );
       final conversationsFuture = widget.messageRepository.fetchConversations();
 
       try {
@@ -528,6 +552,25 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  Future<void> _openGroupPreview(AppGroup group) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => GroupThreadScreen(
+          groupId: group.id,
+          currentUser: widget.authController.currentUser,
+          repository: widget.groupRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
+        ),
+      ),
+    );
+
+    if (changed ?? false) {
+      await _refreshUnreadGroups(silent: true);
+    }
+  }
+
   Future<void> _openConversation(ConversationListItem item) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -562,6 +605,23 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _openEditMedia() async {
+    final username = widget.authController.currentUser?.username ?? '';
+    if (username.trim().isEmpty) {
+      AppToast.error(context, 'Unable to open photo upload right now.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => EditProfileMediaScreen(
+          username: username,
+          repository: widget.profileRepository,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleLinkTap(String url) async {
     String processedUrl = url.trim();
     if (!processedUrl.startsWith('http://') &&
@@ -591,7 +651,7 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-Future<void> _openUpdateDetail(FeedEntry entry) async {
+  Future<void> _openUpdateDetail(FeedEntry entry) async {
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -624,7 +684,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
       await _refreshDashboard();
     }
   }
-  
+
   Future<void> _openPostDetail(FeedEntry entry) async {
     await openPostDetail(
       context,
@@ -806,17 +866,18 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            WebPageScreen(title: title, url: targetUrl),
+        builder: (context) => WebPageScreen(title: title, url: targetUrl),
       ),
     );
   }
 
   Future<void> _openStorePage() => _openWebPage('Marketplace', '/store/home');
 
-  Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv/home');
+  Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv');
 
   Future<void> _openOutreachPage() => _openWebPage('Outreach', '/outreach');
+
+  Future<void> _openAdminPage() => _openWebPage('Admin', '/admin');
 
   Future<void> _openPrivacyPolicyPage() =>
       _openWebPage('Privacy Policy', '/privacy');
@@ -956,6 +1017,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
         onStoreTap: _openStorePage,
         onTvTap: _openTvPage,
         onOutreachTap: _openOutreachPage,
+        onAdminTap: _openAdminPage,
         onMeetNewFriendsTap: _openMeetNewFriends,
         onLogoutTap: _handleLogout,
       ),
@@ -965,12 +1027,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
       key: _scaffoldKey,
       backgroundColor: colors.scaffold,
       bottomNavigationBar: showBottomNav ? _buildBottomNav() : null,
-      drawer: isDesktop
-          ? null
-          : Drawer(
-              width: 256,
-              child: sidebar,
-            ),
+      drawer: isDesktop ? null : Drawer(width: 256, child: sidebar),
       body: Row(
         children: [
           if (isDesktop) sidebar,
@@ -1025,7 +1082,8 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                               sliver: SliverToBoxAdapter(
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final fitsRail = constraints.maxWidth >= 1380;
+                                    final fitsRail =
+                                        constraints.maxWidth >= 1380;
                                     if (fitsRail) {
                                       return Row(
                                         crossAxisAlignment:
@@ -1044,31 +1102,32 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                                                     _isLoadingMoreHomeUpdates,
                                                 feedRepository:
                                                     widget.feedRepository,
+                                                groupRepository:
+                                                    widget.groupRepository,
+                                                onOpenEditMedia: _openEditMedia,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
                                                 onMeetNewFriendsTap:
                                                     _openMeetNewFriends,
-                                                onOpenProfile:
-                                                    _openUserProfile,
-                                                onOpenUpdate:
-                                                    _openUpdateDetail,
+                                                onOpenProfile: _openUserProfile,
+                                                onOpenUpdate: _openUpdateDetail,
                                                 onOpenPost: _openPostDetail,
-                                                onOpenPostById:
-                                                    _openPostById,
+                                                onOpenPostById: _openPostById,
                                                 onOpenBlog: _openBlogDetail,
-                                                onOpenPostsFeed:
-                                                    _openPostsFeed,
-                                                onOpenHashtag:
-                                                    _openSearchQuery,
-                                                onOpenLink:
-                                                    _handleLinkTap,
+                                                onOpenPostsFeed: _openPostsFeed,
+                                                onOpenHashtag: _openSearchQuery,
+                                                onOpenLink: _handleLinkTap,
                                                 onOpenTodayBirthdays:
                                                     _openTodayBirthdays,
+                                                onOpenGroups: _openGroups,
+                                                onOpenGroupPreview:
+                                                    _openGroupPreview,
                                                 updateRepository:
                                                     widget.updateRepository,
                                                 isLoading:
                                                     snapshot.connectionState ==
-                                                        ConnectionState.waiting &&
+                                                        ConnectionState
+                                                            .waiting &&
                                                     dashboard == null,
                                                 error: snapshot.error
                                                     ?.toString(),
@@ -1082,8 +1141,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                                               child: _RightRail(
                                                 user: user,
                                                 dashboard: dashboard,
-                                                onOpenProfile:
-                                                    _openUserProfile,
+                                                onOpenProfile: _openUserProfile,
                                               ),
                                             ),
                                           ),
@@ -1100,8 +1158,10 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                                           homeUpdates: _homeUpdates,
                                           isLoadingMoreUpdates:
                                               _isLoadingMoreHomeUpdates,
-                                          feedRepository:
-                                              widget.feedRepository,
+                                          feedRepository: widget.feedRepository,
+                                          groupRepository:
+                                              widget.groupRepository,
+                                          onOpenEditMedia: _openEditMedia,
                                           onCreateUpdate: _openCreateUpdate,
                                           onMeetNewFriendsTap:
                                               _openMeetNewFriends,
@@ -1115,6 +1175,9 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                                           onOpenLink: _handleLinkTap,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
+                                          onOpenGroups: _openGroups,
+                                          onOpenGroupPreview:
+                                              _openGroupPreview,
                                           updateRepository:
                                               widget.updateRepository,
                                           isLoading:
@@ -1128,8 +1191,7 @@ Future<void> _openUpdateDetail(FeedEntry entry) async {
                                           child: _RightRail(
                                             user: user,
                                             dashboard: dashboard,
-                                            onOpenProfile:
-                                                _openUserProfile,
+                                            onOpenProfile: _openUserProfile,
                                           ),
                                         ),
                                       ],
@@ -1288,11 +1350,8 @@ class _TopBarSnapshot {
   }
 
   @override
-  int get hashCode => Object.hash(
-    unreadNotifications,
-    unreadMessages,
-    unreadGroups,
-  );
+  int get hashCode =>
+      Object.hash(unreadNotifications, unreadMessages, unreadGroups);
 }
 
 class _HomeTopBar extends StatelessWidget {
@@ -1338,44 +1397,41 @@ class _HomeTopBar extends StatelessWidget {
             if (onMenuTap != null) ...[
               IconButton(
                 onPressed: onMenuTap,
-                icon: HeroIcon(
-                  HeroIcons.bars3,
-                  size: 24,
-                  color: colors.icon,
-                ),
+                icon: HeroIcon(HeroIcons.bars3, size: 24, color: colors.icon),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 12),
             ],
             RichText(
-  text: TextSpan(
-    children: [
-      TextSpan(
-        text: 'Hopeful',
-        style: TextStyle(
-          color: colors.brand,
-          fontSize: 27,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1.1,
-        ),
-      ),
-      TextSpan(
-        text: 'Me',
-        style: TextStyle(
-          color: Colors.orange,
-          fontSize: 27,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1.1,
-        ),
-      ),
-    ],
-  ),
-),
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Hopeful',
+                    style: TextStyle(
+                      color: colors.brand,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.1,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Me',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      // color: colors.brand,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const Spacer(),
             _TopBarIconButton(
               icon: HeroIcons.chatBubbleOvalLeftEllipsis,
-             // icon: HeroIcons.chatBubbleLeftEllipsis,
+              // icon: HeroIcons.chatBubbleLeftEllipsis,
               unreadCount: unreadMessages,
               onTap: onMessageCenterTap,
             ),
@@ -1417,10 +1473,7 @@ class _HomeTopBar extends StatelessWidget {
                         : 'Switch to Dark Mode',
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'settings',
-                  child: Text('Settings'),
-                ),
+                const PopupMenuItem(value: 'settings', child: Text('Settings')),
                 // const PopupMenuItem(value: 'home', child: Text('Go Home')),
                 const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
@@ -1455,10 +1508,7 @@ class _TopBarIconButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: _BadgeTopBarIcon(
-          icon: icon,
-          count: unreadCount,
-        ),
+        child: _BadgeTopBarIcon(icon: icon, count: unreadCount),
       ),
     );
   }
@@ -1881,6 +1931,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onStoreTap,
     required this.onTvTap,
     required this.onOutreachTap,
+    required this.onAdminTap,
     required this.onMeetNewFriendsTap,
     required this.onLogoutTap,
   });
@@ -1899,163 +1950,176 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onStoreTap;
   final Future<void> Function() onTvTap;
   final Future<void> Function() onOutreachTap;
+  final Future<void> Function() onAdminTap;
   final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function() onLogoutTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final showAdminPanel = user?.rank.trim().isNotEmpty ?? false;
     return Container(
       width: 256,
       decoration: BoxDecoration(color: colors.sidebar),
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 44, 20, 18),
-                  child: Row(
-                    children: [
-                      SizedBox(
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 12, 0, 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    child: Text(
+                      'Navigation',
+                      style: TextStyle(
+                        color: colors.sidebarText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: InkWell(
+                      onTap: () => onSearchTap(),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
                         height: 40,
-                        child: Image.asset(
-                          'assets/images/logo-banner-light.png',
-                          fit: BoxFit.contain,
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.045),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.06),
+                          ),
                         ),
+                        child: Row(
+                          children: [
+                            HeroIcon(
+                              HeroIcons.magnifyingGlass,
+                              size: 16,
+                              color: colors.sidebarMuted,
+                            ),
+                            const SizedBox(width: 9),
+                            Text(
+                              'Search',
+                              style: TextStyle(
+                                color: colors.sidebarMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  _SidebarSection(
+                    title: 'Community',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.home,
+                        'Home',
+                        activeItemLabel == 'Home',
+                        onTap: onHomeTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.newspaper,
+                        'Post & News',
+                        activeItemLabel == 'Post & News',
+                        onTap: onPostsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.bolt,
+                        'Activities',
+                        activeItemLabel == 'Activities',
+                        onTap: onActivitiesTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.users,
+                        'Group Chats',
+                        activeItemLabel == 'Group Chats',
+                        onTap: onGroupsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.userPlus,
+                        'Meet New Friends',
+                        activeItemLabel == 'Meet New Friends',
+                        onTap: onMeetNewFriendsTap,
                       ),
                     ],
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: InkWell(
-                    onTap: () => onSearchTap(),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: colors.sidebarSurface,
-                        borderRadius: BorderRadius.circular(14),
+                  _SidebarSection(
+                    title: 'Content',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.pencilSquare,
+                        'Blog & Articles',
+                        activeItemLabel == 'Blog & Articles',
+                        onTap: onBlogsTap,
                       ),
-                      child: Row(
-                        children: [
-                          SizedBox(width: 14),
-                          HeroIcon(
-                            HeroIcons.magnifyingGlass,
-                            size: 18,
-                            color: colors.sidebarMuted,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Search...',
-                            style: TextStyle(
-                              color: colors.sidebarMuted,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                      _SidebarItemData(
+                        HeroIcons.sparkles,
+                        'Inspirations',
+                        activeItemLabel == 'Inspirations',
+                        onTap: onInspirationsTap,
                       ),
-                    ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 18),
-                _SidebarSection(
-                  title: 'Community',
-                  items: [
-                    _SidebarItemData(
-                      HeroIcons.home,
-                      'Home',
-                      activeItemLabel == 'Home',
-                      onTap: onHomeTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.newspaper,
-                      'Post & News',
-                      activeItemLabel == 'Post & News',
-                      onTap: onPostsTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.bolt,
-                      'Activities',
-                      activeItemLabel == 'Activities',
-                      onTap: onActivitiesTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.users,
-                      'Group Chats',
-                      activeItemLabel == 'Group Chats',
-                      onTap: onGroupsTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.userPlus,
-                      'Meet New Friends',
-                      activeItemLabel == 'Meet New Friends',
-                      onTap: onMeetNewFriendsTap,
-                    ),
-                  ],
-                ),
-                _SidebarSection(
-                  title: 'Content',
-                  items: [
-                    _SidebarItemData(
-                      HeroIcons.pencilSquare,
-                      'Blog & Articles',
-                      activeItemLabel == 'Blog & Articles',
-                      onTap: onBlogsTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.sparkles,
-                      'Inspirations',
-                      activeItemLabel == 'Inspirations',
-                      onTap: onInspirationsTap,
-                    ),
-                  ],
-                ),
-                _SidebarSection(
-                  title: 'Resources',
-                  items: [
-                    _SidebarItemData(
-                      HeroIcons.bookOpen,
-                      'Library',
-                      activeItemLabel == 'Library',
-                      onTap: onLibraryTap,
-                    ),
-                  ],
-                ),
-                _SidebarSection(
-                  title: 'Discover',
-                  items: [
-                    _SidebarItemData(
-                      HeroIcons.shoppingCart,
-                      'Marketplace',
-                      activeItemLabel == 'Marketplace',
-                      onTap: onStoreTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.tv,
-                      'HopefulMe TV',
-                      activeItemLabel == 'HopefulMe TV',
-                      onTap: onTvTap,
-                    ),
-                    _SidebarItemData(
-                      HeroIcons.heart,
-                      'Outreaches',
-                      activeItemLabel == 'Outreach',
-                      onTap: onOutreachTap,
-                    ),
-                  ],
-                ),
-              ],
+                  _SidebarSection(
+                    title: 'Resources',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.bookOpen,
+                        'Library',
+                        activeItemLabel == 'Library',
+                        onTap: onLibraryTap,
+                      ),
+                      if (showAdminPanel)
+                        _SidebarItemData(
+                          HeroIcons.shieldCheck,
+                          'Admin',
+                          activeItemLabel == 'Admin',
+                          onTap: onAdminTap,
+                        ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Discover',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.shoppingCart,
+                        'Marketplace',
+                        activeItemLabel == 'Marketplace',
+                        onTap: onStoreTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.tv,
+                        'HopefulMe TV',
+                        activeItemLabel == 'HopefulMe TV',
+                        onTap: onTvTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.heart,
+                        'Outreaches',
+                        activeItemLabel == 'Outreach',
+                        onTap: onOutreachTap,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          _SidebarFooter(
-            user: user,
-            onProfileTap: onProfileTap,
-            onLogoutTap: onLogoutTap,
-          ),
-        ],
+            _SidebarFooter(
+              user: user,
+              onProfileTap: onProfileTap,
+              onLogoutTap: onLogoutTap,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2070,19 +2134,19 @@ class _SidebarSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+            padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
             child: Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.8,
+                color: Color(0xFF7A8FA8),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
               ),
             ),
           ),
@@ -2109,42 +2173,67 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     const activeColor = Color(0xFF3D5AFE);
-    const inactiveColor = Color(0xFF94A3B8);
-    const textColor = Color(0xFFDDE6F6);
+    const inactiveColor = Color(0xFF90A3BD);
+    final textColor = colors.sidebarText.withValues(alpha: 0.9);
 
     final isActive = item.active;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: isActive ? activeColor : null,
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: item.onTap == null ? null : () => item.onTap!(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? activeColor.withValues(alpha: 0.14)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               children: [
-                HeroIcon(
-                  item.icon,
-                  style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
-                  color: isActive ? Colors.white : inactiveColor,
-                  size: 18,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  item.label,
-                  style: TextStyle(
-                    color: isActive ? Colors.white : textColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  width: 3,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: isActive ? activeColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
+                const SizedBox(width: 10),
+                HeroIcon(
+                  item.icon,
+                  style:
+                      isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
+                  color: isActive ? activeColor : inactiveColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isActive ? Colors.white : textColor,
+                      fontSize: 12,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (isActive)
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 11,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
               ],
             ),
           ),
@@ -2176,20 +2265,19 @@ class _SidebarFooter extends StatelessWidget {
         : '@hopefulme';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
       decoration: BoxDecoration(
         color: colors.sidebar,
         border: Border(
-          top: BorderSide(
-            color: colors.sidebarSurface,
-          ),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: colors.sidebarSurface,
-          borderRadius: BorderRadius.circular(18),
+          color: Colors.white.withValues(alpha: 0.045),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
@@ -2280,6 +2368,8 @@ class _HomeContent extends StatelessWidget {
     required this.homeUpdates,
     required this.isLoadingMoreUpdates,
     required this.feedRepository,
+    required this.groupRepository,
+    required this.onOpenEditMedia,
     required this.onCreateUpdate,
     required this.onMeetNewFriendsTap,
     required this.onOpenProfile,
@@ -2291,6 +2381,8 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenHashtag,
     required this.onOpenLink,
     required this.onOpenTodayBirthdays,
+    required this.onOpenGroups,
+    required this.onOpenGroupPreview,
     required this.updateRepository,
     required this.isLoading,
     required this.error,
@@ -2301,6 +2393,8 @@ class _HomeContent extends StatelessWidget {
   final List<FeedEntry> homeUpdates;
   final bool isLoadingMoreUpdates;
   final FeedRepository feedRepository;
+  final GroupRepository groupRepository;
+  final Future<void> Function() onOpenEditMedia;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function(String username) onOpenProfile;
@@ -2312,6 +2406,8 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function(String hashtag) onOpenHashtag;
   final Future<void> Function(String url) onOpenLink;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
+  final Future<void> Function() onOpenGroups;
+  final Future<void> Function(AppGroup group) onOpenGroupPreview;
   final UpdateRepository updateRepository;
   final bool isLoading;
   final String? error;
@@ -2319,7 +2415,12 @@ class _HomeContent extends StatelessWidget {
   List<Widget> _buildFeedSections(BuildContext context, FeedDashboard data) {
     final widgets = <Widget>[];
     final postsBlock = data.feed
-        .where((entry) => entry.type != 'update' && entry.type != 'blog')
+        .where(
+          (entry) =>
+              entry.type != 'update' &&
+              entry.type != 'blog' &&
+              entry.type != 'advert',
+        )
         .toList(growable: false);
 
     if (postsBlock.isNotEmpty) {
@@ -2364,6 +2465,29 @@ class _HomeContent extends StatelessWidget {
         ),
       );
       widgets.add(
+        FutureBuilder<GroupPage>(
+          future: groupRepository.fetchGroups(page: 1),
+          builder: (context, snapshot) {
+            final groups = snapshot.data?.items
+                    .where((group) => group.status == 'active')
+                    .take(2)
+                    .toList(growable: false) ??
+                const <AppGroup>[];
+            if (groups.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 12),
+              child: _HomeGroupsPreviewCard(
+                groups: groups,
+                onOpenGroups: onOpenGroups,
+                onOpenGroup: onOpenGroupPreview,
+              ),
+            );
+          },
+        ),
+      );
+      widgets.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 8, top: 12),
           child: MostActiveUsersCard(
@@ -2380,11 +2504,13 @@ class _HomeContent extends StatelessWidget {
         homeUpdates.map(
           (entry) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _UpdateFeedCard(
+            child: _FeedEntryCard(
               entry: entry,
               currentUser: user,
               onOpenProfile: onOpenProfile,
               onOpenUpdate: onOpenUpdate,
+              onOpenPost: onOpenPost,
+              onOpenBlog: onOpenBlog,
               onOpenHashtag: onOpenHashtag,
               onOpenLink: onOpenLink,
               updateRepository: updateRepository,
@@ -2424,6 +2550,10 @@ class _HomeContent extends StatelessWidget {
     if (data == null) {
       return const SizedBox.shrink();
     }
+    final currentUser = user;
+    final shouldPromptForPhoto =
+        currentUser != null &&
+        _looksLikeDefaultProfilePhoto(currentUser.photoUrl);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2435,6 +2565,10 @@ class _HomeContent extends StatelessWidget {
           onCreateUpdate: onMeetNewFriendsTap,
         ),
         const SizedBox(height: 12),
+        if (data.feedNotice != null) ...[
+          FeedNoticeCard(notice: data.feedNotice!, onOpenLink: onOpenLink),
+          const SizedBox(height: 14),
+        ],
         _ComposerCard(user: user, onCreateUpdate: onCreateUpdate),
         const SizedBox(height: 14),
         if (data.todayBirthdays.isNotEmpty) ...[
@@ -2445,25 +2579,29 @@ class _HomeContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
         ],
+        if (shouldPromptForPhoto) ...[
+          _ProfilePhotoReminderCard(user: currentUser, onTap: onOpenEditMedia),
+          const SizedBox(height: 12),
+        ],
         Padding(
           padding: const EdgeInsets.only(top: 12),
-            child: _SectionHeader(
-              title: 'Quotes for you',
-              leading: Container(
-                width: 34,
-                height: 34,
+          child: _SectionHeader(
+            title: 'Quotes for you',
+            leading: Container(
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 color: context.appColors.brand.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.format_quote_rounded,
-                  color: context.appColors.brand,
-                  size: 15,
-                ),
+                color: context.appColors.brand,
+                size: 15,
               ),
             ),
           ),
+        ),
         Transform.translate(
           offset: const Offset(0, -25),
           child: _QuoteGrid(
@@ -2671,9 +2809,7 @@ class _PostCategoryStrip extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-            side: BorderSide(
-              color: isAll ? colors.brand : colors.borderStrong,
-            ),
+            side: BorderSide(color: isAll ? colors.brand : colors.borderStrong),
             backgroundColor: colors.surface,
             selectedColor: colors.brand,
             shape: RoundedRectangleBorder(
@@ -2771,6 +2907,7 @@ class _StoriesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return SizedBox(
       height: 96,
       child: ListView.separated(
@@ -2829,7 +2966,7 @@ class _StoriesRow extends StatelessWidget {
                       imageUrl: user.photoUrl,
                       label: user.displayName,
                       radius: 28,
-                      backgroundColor: Colors.white,
+                      backgroundColor: colors.avatarPlaceholder,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -2859,8 +2996,6 @@ class _ComposerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstName = (user?.displayName ?? 'there').split(' ').first;
-
     return _SurfaceCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -2874,6 +3009,7 @@ class _ComposerCard extends StatelessWidget {
                 _Avatar(
                   imageUrl: user?.photoUrl ?? '',
                   label: user?.displayName ?? 'U',
+                  backgroundColor: context.appColors.avatarPlaceholder,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2890,7 +3026,7 @@ class _ComposerCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        "Share your thoughts, $firstName",
+                        "Share your thoughts...",
                         style: TextStyle(
                           color: context.appColors.textMuted,
                           fontSize: 14, // Slightly increased for readability
@@ -2904,65 +3040,80 @@ class _ComposerCard extends StatelessWidget {
 
             const SizedBox(height: 16), // Increased spacing for a cleaner look
             // Bottom Row: Chips and Publish Button
-    Row(
-  children: [
-    // --- Photo Trigger ---
-    InkWell(
-      onTap: () => onCreateUpdate(),
-      borderRadius: BorderRadius.circular(12),
-      child: _ComposerChip(
-        icon: Icons.image_outlined,
-        label: 'Photo',
-        background: context.appColors.accentSoft.withOpacity(0.5), // Softened
-        color: context.appColors.accentSoftText,
-      ),
-    ),
-    
-    const SizedBox(width: 8),
+            Row(
+              children: [
+                // --- Photo Trigger ---
+                InkWell(
+                  onTap: () => onCreateUpdate(),
+                  borderRadius: BorderRadius.circular(12),
+                  child: _ComposerChip(
+                    icon: Icons.image_outlined,
+                    label: 'Photo',
+                    background: context.appColors.accentSoft.withValues(
+                      alpha: 0.5,
+                    ),
+                    color: context.appColors.accentSoftText,
+                  ),
+                ),
 
-    // --- Feeling Trigger ---
-    InkWell(
-      onTap: () => onCreateUpdate(),
-      borderRadius: BorderRadius.circular(12),
-      child: _ComposerChip(
-        icon: Icons.sentiment_satisfied_alt_outlined,
-        label: 'Feeling',
-        background: context.appColors.warningSoft.withOpacity(0.5), // Softened
-        color: context.appColors.warningText,
-      ),
-    ),
+                const SizedBox(width: 8),
 
-    const Spacer(), 
+                // --- Feeling Trigger ---
+                InkWell(
+                  onTap: () => onCreateUpdate(),
+                  borderRadius: BorderRadius.circular(12),
+                  child: _ComposerChip(
+                    icon: Icons.sentiment_satisfied_alt_outlined,
+                    label: 'Feeling',
+                    background: context.appColors.warningSoft.withValues(
+                      alpha: 0.5,
+                    ),
+                    color: context.appColors.warningText,
+                  ),
+                ),
 
-    // --- The "Publish" Button ---
-    SizedBox(
-      height: 32, 
-      child: FilledButton(
-        onPressed: () => onCreateUpdate(),
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF2A41D4), // Using your new deep brand color
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Post',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                const Spacer(),
+
+                // --- The "Publish" Button ---
+                SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    onPressed: null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: context.appColors.brand,
+                      disabledBackgroundColor: context.appColors.brand
+                          .withValues(alpha: 0.55),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white.withValues(
+                        alpha: 0.92,
+                      ),
+                      elevation: 0,
+                      side: BorderSide(
+                        color: context.appColors.brand.withValues(alpha: 0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Post',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.arrow_forward_rounded, size: 14),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_forward_rounded, size: 14),
-          ],
-        ),
-      ),
-    ),
-  ],
-),  
           ],
         ),
       ),
@@ -3049,7 +3200,7 @@ class _QuoteGrid extends StatelessWidget {
                       imageUrl: quote.photoUrl,
                       fit: BoxFit.cover,
                       backgroundColor: context.appColors.surfaceMuted,
-                     // placeholderLabel: quote.title,
+                      // placeholderLabel: quote.title,
                     )
                   else
                     Container(color: const Color(0xFF3D5AFE)),
@@ -3105,115 +3256,128 @@ class _BirthdayCelebrationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final previewUsers = users.take(5).toList();
-return _SurfaceCard(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // Header remains consistent with your padding
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: _SectionHeader(
-          title: 'Today\'s Birthdays',
-          accent: '🎂',
-          action: 'View all',
-          onActionTap: () => onViewAll(),
-        ),
-      ),
-
-      // Community Text - Slightly tighter padding
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          users.length == 1
-              ? 'Someone in the HopefulMe community is celebrating today.'
-              : '${users.length} people are celebrating their big day!',
-          style: TextStyle(
-            color: colors.textSecondary.withOpacity(0.7),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header remains consistent with your padding
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _SectionHeader(
+              title: 'Today\'s Birthdays',
+              accent: '🎂',
+              action: 'View all',
+              onActionTap: () => onViewAll(),
+            ),
           ),
-        ),
-      ),
 
-      const SizedBox(height: 16),
-
-      // Horizontal Scroll for a "Story" feel
-      SizedBox(
-        height: 130, // Fixed height for the scroll area
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          itemCount: previewUsers.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final user = previewUsers[index];
-            return InkWell(
-              onTap: () => onOpenProfile(user.username),
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                children: [
-                  // Avatar with a "Celebration Ring"
-                  Container(
-                    padding: const EdgeInsets.all(2.5), // The "Ring" thickness
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFFF4D6D), // Your Like Red
-                          context.appColors.brand, // Your Brand Blue
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: CircleAvatar(
-                        radius: 28,
-                        backgroundImage: user.photoUrl.isNotEmpty
-                            ? NetworkImage(ImageUrlResolver.avatar(user.photoUrl, size: 80))
-                            : null,
-                        child: user.photoUrl.isEmpty ? const Icon(Icons.person) : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Name - Using your established w800 weight
-                  VerifiedNameText(
-                    name: user.displayName.split(' ')[0], // Only first name for space
-                    verified: user.isVerified,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  
-                  // Subtext
-                  Text(
-                    user.cityState.isNotEmpty ? user.cityState : '@${user.username}',
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: colors.textMuted.withOpacity(0.8),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+          // Community Text - Slightly tighter padding
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              users.length == 1
+                  ? 'Someone in the HopefulMe community is celebrating today.'
+                  : '${users.length} people are celebrating their big day!',
+              style: TextStyle(
+                color: colors.textSecondary.withValues(alpha: 0.7),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          },
-        ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Horizontal Scroll for a "Story" feel
+          SizedBox(
+            height: 130, // Fixed height for the scroll area
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: previewUsers.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final user = previewUsers[index];
+                return InkWell(
+                  onTap: () => onOpenProfile(user.username),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    children: [
+                      // Avatar with a "Celebration Ring"
+                      Container(
+                        padding: const EdgeInsets.all(
+                          2.5,
+                        ), // The "Ring" thickness
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFFF4D6D), // Your Like Red
+                              context.appColors.brand, // Your Brand Blue
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundImage: user.photoUrl.isNotEmpty
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      user.photoUrl,
+                                      size: 80,
+                                    ),
+                                  )
+                                : null,
+                            child: user.photoUrl.isEmpty
+                                ? const Icon(Icons.person)
+                                : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Name - Using your established w800 weight
+                      VerifiedNameText(
+                        name: user.displayName.split(
+                          ' ',
+                        )[0], // Only first name for space
+                        verified: user.isVerified,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+
+                      // Subtext
+                      Text(
+                        user.cityState.isNotEmpty
+                            ? user.cityState
+                            : '@${user.username}',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: colors.textMuted.withValues(alpha: 0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
       ),
-      const SizedBox(height: 12),
-    ],
-  ),
-);
+    );
   }
 }
 
@@ -3315,8 +3479,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                               width: 44,
                               height: 44,
                               backgroundColor: colors.surfaceMuted,
-                              placeholderLabel:
-                                  previewUsers[index].displayName,
+                              placeholderLabel: previewUsers[index].displayName,
                               placeholderIcon: Icons.person,
                               showShimmer: false,
                             ),
@@ -3406,30 +3569,29 @@ class _FeedEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return switch (entry.type) {
-      'update' => _UpdateFeedCard(
-        entry: entry,
-        currentUser: currentUser,
-        onOpenProfile: onOpenProfile,
-        onOpenUpdate: onOpenUpdate,
-        onOpenHashtag: onOpenHashtag,
-        onOpenLink: onOpenLink,
-        updateRepository: updateRepository,
-      ),
-      // 'blog' => _BlogFeedCard(
-      //   entry: entry,
-      //   onOpenProfile: onOpenProfile,
-      //   onOpenBlog: onOpenBlog,
-      //   onOpenHashtag: onOpenHashtag,
-      // ),
-      _ => _PostFeedCard(
+    if (entry.type == 'advert') {
+      return FeedAdvertCard(entry: entry);
+    }
+
+    if (entry.type == 'post' || entry.type == 'blog') {
+      return _PostFeedCard(
         entry: entry,
         onOpenPost: onOpenPost,
         onOpenProfile: onOpenProfile,
         onOpenHashtag: onOpenHashtag,
         onOpenLink: onOpenLink,
-      ),
-    };
+      );
+    }
+
+    return _UpdateFeedCard(
+      entry: entry,
+      currentUser: currentUser,
+      onOpenProfile: onOpenProfile,
+      onOpenUpdate: onOpenUpdate,
+      onOpenHashtag: onOpenHashtag,
+      onOpenLink: onOpenLink,
+      updateRepository: updateRepository,
+    );
   }
 }
 
@@ -3865,6 +4027,200 @@ class _FeedExploreChip extends StatelessWidget {
   }
 }
 
+class _HomeGroupsPreviewCard extends StatelessWidget {
+  const _HomeGroupsPreviewCard({
+    required this.groups,
+    required this.onOpenGroups,
+    required this.onOpenGroup,
+  });
+
+  final List<AppGroup> groups;
+  final Future<void> Function() onOpenGroups;
+  final Future<void> Function(AppGroup group) onOpenGroup;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _SurfaceCard(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Group Chats',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () => onOpenGroups(),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      'See All ↗',
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...groups.map(
+              (group) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: InkWell(
+                  onTap: () => onOpenGroup(group),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        if (group.photoUrl.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: AppNetworkImage(
+                                imageUrl: group.photoUrl,
+                                fit: BoxFit.cover,
+                                placeholderLabel: group.name,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: colors.brandGradient,
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: const Icon(
+                              Icons.groups_2_outlined,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${group.membersCount} members',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.accentSoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            group.isMember ? 'Open' : 'Join',
+                            style: TextStyle(
+                              color: colors.brand,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePhotoReminderCard extends StatelessWidget {
+  const _ProfilePhotoReminderCard({required this.user, required this.onTap});
+
+  final User user;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add a profile photo so people can recognize you in birthdays, chats, and the community feed.',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 12.8,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: () => onTap(),
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('Upload Photo'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RightRail extends StatelessWidget {
   const _RightRail({
     required this.user,
@@ -4035,13 +4391,13 @@ class _Avatar extends StatelessWidget {
     required this.imageUrl,
     required this.label,
     this.radius = 18,
-    this.backgroundColor = const Color(0xFFEEF1FF),
+    this.backgroundColor,
   });
 
   final String imageUrl;
   final String label;
   final double radius;
-  final Color backgroundColor;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -4051,7 +4407,7 @@ class _Avatar extends StatelessWidget {
       imageUrl: imageUrl,
       label: initials,
       radius: radius,
-      backgroundColor: backgroundColor,
+      backgroundColor: backgroundColor ?? context.appColors.avatarPlaceholder,
     );
   }
 

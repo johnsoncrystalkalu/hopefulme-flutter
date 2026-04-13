@@ -134,14 +134,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               hobby: dashboard.profile.hobby,
               role1: dashboard.profile.role1,
               role2: dashboard.profile.role2,
+              rank: dashboard.profile.rank,
               location: dashboard.profile.location,
               city: dashboard.profile.city,
-                state: dashboard.profile.state,
-                birthday: dashboard.profile.birthday,
-                phoneNumber: dashboard.profile.phoneNumber,
-                emailNotifications: dashboard.profile.emailNotifications,
-                theme: dashboard.profile.theme,
-                device: dashboard.profile.device,
+              state: dashboard.profile.state,
+              birthday: dashboard.profile.birthday,
+              phoneNumber: dashboard.profile.phoneNumber,
+              emailNotifications: dashboard.profile.emailNotifications,
+              theme: dashboard.profile.theme,
+              device: dashboard.profile.device,
               verified: dashboard.profile.verified,
               photoUrl: dashboard.profile.photoUrl,
               coverUrl: dashboard.profile.coverUrl,
@@ -535,8 +536,6 @@ class _ProfileHero extends StatelessWidget {
         ],
       ),
     );
- 
- 
   }
 }
 
@@ -675,7 +674,9 @@ class _ProfileHeaderCard extends StatelessWidget {
     GlobalKey menuKey,
   ) async {
     final renderObject = menuKey.currentContext?.findRenderObject();
-    final RenderBox? renderBox = renderObject is RenderBox ? renderObject : null;
+    final RenderBox? renderBox = renderObject is RenderBox
+        ? renderObject
+        : null;
     if (renderBox == null || !renderBox.hasSize) return;
     final position = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
@@ -784,6 +785,11 @@ class _ProfileHeaderCard extends StatelessWidget {
           spacing: 14,
           runSpacing: 10,
           children: [
+            if (profile.rank.trim().isNotEmpty)
+              _MetaInline(
+                icon: Icons.workspace_premium_outlined,
+                label: profile.rank.trim(),
+              ),
             if (profile.locationLabel.isNotEmpty)
               _MetaInline(
                 icon: Icons.location_on_outlined,
@@ -858,72 +864,75 @@ class _ProfileHeaderCard extends StatelessWidget {
                           ],
                         )
                       : Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    // --- Follow / Following Button ---
-    Expanded(
-      child: _ActionButton(
-        icon: isTogglingFollow
-            ? Icons.hourglass_top
-            : isFollowing
-                ? Icons.check_circle_rounded // Rounded check looks more "done"
-                : Icons.person_add_rounded,
-        label: isTogglingFollow
-            ? 'Wait...'
-            : isFollowing
-                ? 'Following'
-                : 'Follow',
-        // --- NEW LOGIC ---
-        // If following: subtle white/brand-tinted bg with brand text
-        // If not following: solid brand background with white text
-        highlighted: true, 
-        highlightColor: isFollowing 
-            ? context.appColors.brand.withOpacity(0.12) // Subtle tint
-            : context.appColors.brand, // Solid punch
-        textColor: isFollowing 
-            ? context.appColors.brand 
-            : Colors.white,
-        iconColor: isFollowing 
-            ? context.appColors.brand 
-            : Colors.white,
-        compact: true,
-        onTap: onToggleFollow,
-      ),
-    ),
-    
-    const SizedBox(width: 8),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // --- Follow / Following Button ---
+                            Expanded(
+                              child: _ActionButton(
+                                icon: isTogglingFollow
+                                    ? Icons.hourglass_top
+                                    : isFollowing
+                                    ? Icons
+                                          .check_circle_rounded // Rounded check looks more "done"
+                                    : Icons.person_add_rounded,
+                                label: isTogglingFollow
+                                    ? 'Wait...'
+                                    : isFollowing
+                                    ? 'Following'
+                                    : 'Follow',
+                                // --- NEW LOGIC ---
+                                // If following: subtle white/brand-tinted bg with brand text
+                                // If not following: solid brand background with white text
+                                highlighted: true,
+                                highlightColor: isFollowing
+                                    ? context.appColors.brand.withOpacity(
+                                        0.12,
+                                      ) // Subtle tint
+                                    : context.appColors.brand, // Solid punch
+                                textColor: isFollowing
+                                    ? context.appColors.brand
+                                    : Colors.white,
+                                iconColor: isFollowing
+                                    ? context.appColors.brand
+                                    : Colors.white,
+                                compact: true,
+                                onTap: onToggleFollow,
+                              ),
+                            ),
 
-    // --- Chat Button (Standard / Secondary) ---
-    Expanded(
-      child: _ActionButton(
-        icon: Icons.chat_bubble_outline_rounded,
-        label: 'Chat',
-        compact: true,
-        onTap: onMessage,
-        // Keeps it clean and secondary
-        highlighted: false, 
-        //iconColor: AppColors.success,
-      ),
-    ),
+                            const SizedBox(width: 8),
 
-    const SizedBox(width: 8),
+                            // --- Chat Button (Standard / Secondary) ---
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.chat_bubble_outline_rounded,
+                                label: 'Chat',
+                                compact: true,
+                                onTap: onMessage,
+                                // Keeps it clean and secondary
+                                highlighted: false,
+                                //iconColor: AppColors.success,
+                              ),
+                            ),
 
-    // --- Inspire Button (The "Standout") ---
-    Expanded(
-      child: _ActionButton(
-  icon: Icons.auto_awesome,
-  label: 'Inspire',
-  highlighted: false,
-  // 0.05 opacity makes it almost transparent but keeps the "warmth"
- // highlightColor: const Color(0xFFFF9800).withOpacity(0.08), 
-  iconColor: const Color(0xFFFF9800),
-  //textColor: const Color(0xFFFF9800),
-  compact: true,
-  onTap: onInspire,
-),
-    ),
-  ],
-),
+                            const SizedBox(width: 8),
+
+                            // --- Inspire Button (The "Standout") ---
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.auto_awesome,
+                                label: 'Inspire',
+                                highlighted: false,
+                                // 0.05 opacity makes it almost transparent but keeps the "warmth"
+                                // highlightColor: const Color(0xFFFF9800).withOpacity(0.08),
+                                iconColor: const Color(0xFFFF9800),
+                                //textColor: const Color(0xFFFF9800),
+                                compact: true,
+                                onTap: onInspire,
+                              ),
+                            ),
+                          ],
+                        ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -1276,7 +1285,7 @@ class _ProfileTabs extends StatelessWidget {
             ),
             _TabButton(
               label: 'Photos',
-             // badge: '$photosCount',
+              // badge: '$photosCount',
               selected: selectedTab == _ProfileTab.photos,
               onTap: () => onSelected(_ProfileTab.photos),
             ),
@@ -2188,7 +2197,9 @@ class _LargeAvatar extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: context.appColors.shadow.withValues(alpha: 0.18),
+                          color: context.appColors.shadow.withValues(
+                            alpha: 0.18,
+                          ),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -2224,7 +2235,9 @@ class _LargeAvatar extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: context.appColors.shadow.withValues(alpha: 0.12),
+                          color: context.appColors.shadow.withValues(
+                            alpha: 0.12,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -2283,6 +2296,7 @@ class _MetaInline extends StatelessWidget {
     );
   }
 }
+
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
@@ -2308,15 +2322,17 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // Default to your dark grey if no highlight color provided
     final activeBgColor = highlightColor ?? const Color(0xFF1F2937);
-    
-    // Logic for Content Colors: 
-    // If a custom color is passed, use it. 
-    // Else if highlighted, use white. 
+
+    // Logic for Content Colors:
+    // If a custom color is passed, use it.
+    // Else if highlighted, use white.
     // Else use theme defaults.
-    final finalIconColor = iconColor ?? 
+    final finalIconColor =
+        iconColor ??
         (highlighted ? Colors.white : context.appColors.textSecondary);
-        
-    final finalTextColor = textColor ?? 
+
+    final finalTextColor =
+        textColor ??
         (highlighted ? Colors.white : context.appColors.textPrimary);
 
     return InkWell(
@@ -2339,11 +2355,7 @@ class _ActionButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: compact ? 15 : 16,
-              color: finalIconColor,
-            ),
+            Icon(icon, size: compact ? 15 : 16, color: finalIconColor),
             SizedBox(width: compact ? 6 : 8),
             Flexible(
               child: Text(
@@ -2364,6 +2376,7 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
+
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.value, required this.label, this.onTap});
 

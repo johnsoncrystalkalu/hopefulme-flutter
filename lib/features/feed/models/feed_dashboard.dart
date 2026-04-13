@@ -4,6 +4,7 @@ import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 class FeedDashboard {
   const FeedDashboard({
     required this.feed,
+    required this.feedNotice,
     required this.following,
     required this.suggested,
     required this.onlineUsers,
@@ -13,6 +14,7 @@ class FeedDashboard {
   });
 
   final List<FeedEntry> feed;
+  final FeedNotice? feedNotice;
   final List<FeedUser> following;
   final List<FeedUser> suggested;
   final List<FeedUser> onlineUsers;
@@ -23,6 +25,7 @@ class FeedDashboard {
   factory FeedDashboard.fromJson(Map<String, dynamic> json) {
     return FeedDashboard(
       feed: _mapList(json['feed'], FeedEntry.fromJson),
+      feedNotice: FeedNotice.fromDynamic(json['feed_notice']),
       following: _mapList(json['following'], FeedUser.fromJson),
       suggested: _mapList(json['suggested'], FeedUser.fromJson),
       onlineUsers: _mapList(json['online_users'], FeedUser.fromJson),
@@ -53,12 +56,14 @@ class FeedDashboard {
 class FeedEntryPage {
   const FeedEntryPage({
     required this.items,
+    required this.feedNotice,
     required this.currentPage,
     required this.lastPage,
     required this.total,
   });
 
   final List<FeedEntry> items;
+  final FeedNotice? feedNotice;
   final int currentPage;
   final int lastPage;
   final int total;
@@ -74,6 +79,7 @@ class FeedEntryPage {
 
     return FeedEntryPage(
       items: items,
+      feedNotice: FeedNotice.fromDynamic(json['feed_notice']),
       currentPage: parseInt(meta['current_page'], fallback: 1),
       lastPage: parseInt(meta['last_page'], fallback: 1),
       total: parseInt(meta['total']),
@@ -121,6 +127,24 @@ class FeedUserPage {
   }
 }
 
+class FriendOfTheDayResponse {
+  const FriendOfTheDayResponse({required this.friend});
+
+  final FeedUser? friend;
+
+  factory FriendOfTheDayResponse.fromJson(Map<String, dynamic> json) {
+    final friendJson =
+        json['friend'] as Map<String, dynamic>? ??
+        json['daily_friend'] as Map<String, dynamic>? ??
+        json['user'] as Map<String, dynamic>? ??
+        json['data'] as Map<String, dynamic>?;
+
+    return FriendOfTheDayResponse(
+      friend: friendJson == null ? null : FeedUser.fromJson(friendJson),
+    );
+  }
+}
+
 class FeedEntry {
   const FeedEntry({
     required this.id,
@@ -136,6 +160,8 @@ class FeedEntry {
     required this.commentsCount,
     required this.views,
     required this.createdAt,
+    required this.linkUrl,
+    this.isSponsored = false,
     this.isLiked = false,
   });
 
@@ -152,6 +178,8 @@ class FeedEntry {
   final int commentsCount;
   final int views;
   final String createdAt;
+  final String linkUrl;
+  final bool isSponsored;
   final bool isLiked;
 
   factory FeedEntry.fromJson(Map<String, dynamic> json) {
@@ -167,11 +195,16 @@ class FeedEntry {
           userJson?['fullname']?.toString() ??
           'Untitled',
       body: _plainText(
-        json['content']?.toString() ?? json['status']?.toString() ?? '',
+        json['content']?.toString() ??
+            json['status']?.toString() ??
+            json['body']?.toString() ??
+            '',
       ),
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_url']?.toString() ?? json['image_url']?.toString() ?? '',
+      ),
       originalPhotoUrl: ImageUrlResolver.resolveOriginal(
-        json['photo_url']?.toString() ?? '',
+        json['photo_url']?.toString() ?? json['image_url']?.toString() ?? '',
       ),
       device: json['device']?.toString() ?? '',
       user: user,
@@ -179,6 +212,9 @@ class FeedEntry {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
+      linkUrl:
+          json['url']?.toString() ?? json['update_link']?.toString() ?? '',
+      isSponsored: parseBool(json['is_sponsored']),
       isLiked: parseBool(json['is_liked']),
     );
   }
@@ -199,6 +235,42 @@ class FeedEntry {
         .replaceAll(RegExp(r' *\n *'), '\n')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
+  }
+}
+
+class FeedNotice {
+  const FeedNotice({
+    required this.title,
+    required this.message,
+    required this.imageUrl,
+    required this.ctaText,
+    required this.ctaUrl,
+    required this.tone,
+  });
+
+  final String title;
+  final String message;
+  final String imageUrl;
+  final String ctaText;
+  final String ctaUrl;
+  final String tone;
+
+  factory FeedNotice.fromJson(Map<String, dynamic> json) {
+    return FeedNotice(
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      imageUrl: ImageUrlResolver.resolve(json['image_url']?.toString() ?? ''),
+      ctaText: json['cta_text']?.toString() ?? '',
+      ctaUrl: json['cta_url']?.toString() ?? '',
+      tone: json['tone']?.toString() ?? 'brand',
+    );
+  }
+
+  static FeedNotice? fromDynamic(dynamic value) {
+    if (value is! Map<String, dynamic>) {
+      return null;
+    }
+    return FeedNotice.fromJson(value);
   }
 }
 

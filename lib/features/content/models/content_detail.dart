@@ -22,6 +22,9 @@ class ContentDetail {
     required this.createdAt,
     required this.user,
     required this.comments,
+    this.commentsCurrentPage = 1,
+    this.commentsLastPage = 1,
+    this.commentsTotal = 0,
   });
 
   final int id;
@@ -42,6 +45,11 @@ class ContentDetail {
   final String createdAt;
   final FeedUser? user;
   final List<ContentComment> comments;
+  final int commentsCurrentPage;
+  final int commentsLastPage;
+  final int commentsTotal;
+
+  bool get hasMoreComments => commentsCurrentPage < commentsLastPage;
 
   factory ContentDetail.fromApi(
     Map<String, dynamic> json, {
@@ -50,6 +58,12 @@ class ContentDetail {
     final user = (json['user'] as Map<String, dynamic>?)?.let(
       FeedUser.fromJson,
     );
+    final commentsMeta =
+        json['comments_meta'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final comments = (json['comments'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(ContentComment.fromJson)
+        .toList();
     return ContentDetail(
       id: parseInt(json['id']),
       kind: kind,
@@ -79,10 +93,62 @@ class ContentDetail {
       commentsCount: parseInt(json['comments_count']),
       createdAt: json['created_at']?.toString() ?? '',
       user: user,
-      comments: (json['comments'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(ContentComment.fromJson)
-          .toList(),
+      comments: comments,
+      commentsCurrentPage: parseInt(commentsMeta['current_page'], fallback: 1),
+      commentsLastPage: parseInt(commentsMeta['last_page'], fallback: 1),
+      commentsTotal: parseInt(
+        commentsMeta['total'],
+        fallback: parseInt(json['comments_count'], fallback: comments.length),
+      ),
+    );
+  }
+
+  ContentDetail copyWith({
+    int? id,
+    String? kind,
+    String? title,
+    String? body,
+    String? videoUrl,
+    String? photoUrl,
+    String? originalPhotoUrl,
+    String? secondaryPhotoUrl,
+    String? originalSecondaryPhotoUrl,
+    String? tag,
+    String? category,
+    String? label,
+    int? views,
+    int? likesCount,
+    int? commentsCount,
+    String? createdAt,
+    FeedUser? user,
+    List<ContentComment>? comments,
+    int? commentsCurrentPage,
+    int? commentsLastPage,
+    int? commentsTotal,
+  }) {
+    return ContentDetail(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      videoUrl: videoUrl ?? this.videoUrl,
+      photoUrl: photoUrl ?? this.photoUrl,
+      originalPhotoUrl: originalPhotoUrl ?? this.originalPhotoUrl,
+      secondaryPhotoUrl: secondaryPhotoUrl ?? this.secondaryPhotoUrl,
+      originalSecondaryPhotoUrl:
+          originalSecondaryPhotoUrl ?? this.originalSecondaryPhotoUrl,
+      tag: tag ?? this.tag,
+      category: category ?? this.category,
+      label: label ?? this.label,
+      views: views ?? this.views,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
+      createdAt: createdAt ?? this.createdAt,
+      user: user ?? this.user,
+      comments: comments ?? this.comments,
+      commentsCurrentPage: commentsCurrentPage ?? this.commentsCurrentPage,
+      commentsLastPage: commentsLastPage ?? this.commentsLastPage,
+      commentsTotal: commentsTotal ?? this.commentsTotal,
     );
   }
 
@@ -101,6 +167,7 @@ class ContentDetail {
       commentsCount: commentsCount,
       views: views,
       createdAt: createdAt,
+      linkUrl: '',
     );
   }
 }

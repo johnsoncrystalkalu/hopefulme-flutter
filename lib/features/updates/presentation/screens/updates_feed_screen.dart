@@ -9,6 +9,7 @@ import 'package:hopefulme_flutter/features/community/presentation/widgets/most_a
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/widgets/feed_special_cards.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
@@ -52,6 +53,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   bool _hasMore = true;
   int _page = 1;
   String? _error;
+  FeedNotice? _feedNotice;
 
   @override
   void initState() {
@@ -72,6 +74,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       _error = null;
       _page = 1;
       _hasMore = true;
+      _feedNotice = null;
       _items.clear();
     });
 
@@ -81,6 +84,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       setState(() {
         _items.addAll(page.items);
         _hasMore = page.hasMore;
+        _feedNotice = page.feedNotice;
       });
     } catch (error) {
       if (!mounted) return;
@@ -236,6 +240,13 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                           user: widget.currentUser,
                           onTap: _openCreateUpdate,
                         ),
+                        if (_feedNotice != null) ...[
+                          const SizedBox(height: 14),
+                          FeedNoticeCard(
+                            notice: _feedNotice!,
+                            onOpenLink: _handleLinkTap,
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         MostActiveUsersCard(
                           feedRepository: widget.feedRepository,
@@ -254,31 +265,36 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                   }
 
                   final entry = _items[itemIndex];
-return RepaintBoundary(
-                    child: InteractiveUpdateCard(
-                      key: ValueKey('updates-feed-${entry.id}-${entry.createdAt}'),
-                      updateId: entry.id,
-                      updateType: entry.updateType,
-                      title: entry.user?.displayName ?? entry.title,
-                      body: entry.body,
-                      photoUrl: entry.photoUrl,
-                      avatarUrl: entry.user?.photoUrl ?? '',
-                      fallbackLabel: entry.user?.displayName ?? entry.title,
-                      device: entry.device,
-                      createdAt: entry.createdAt,
-                      likesCount: entry.likesCount,
-                      commentsCount: entry.commentsCount,
-                      views: entry.views,
-                      updateRepository: widget.updateRepository,
-                      currentUser: widget.currentUser,
-                      ownerUsername: entry.user?.username,
-                      isVerified: entry.user?.isVerified ?? false,
-                      isLiked: entry.isLiked,
-                      onOpenProfile: _openProfile,
-                      onOpenUpdate: () => _openUpdate(entry),
-                      onOpenHashtag: _openSearchQuery,
-                      onOpenLink: _handleLinkTap,
-                    ),
+                  return RepaintBoundary(
+                    child: switch (entry.type) {
+                      'advert' => FeedAdvertCard(entry: entry),
+                      _ => InteractiveUpdateCard(
+                        key: ValueKey(
+                          'updates-feed-${entry.id}-${entry.createdAt}',
+                        ),
+                        updateId: entry.id,
+                        updateType: entry.updateType,
+                        title: entry.user?.displayName ?? entry.title,
+                        body: entry.body,
+                        photoUrl: entry.photoUrl,
+                        avatarUrl: entry.user?.photoUrl ?? '',
+                        fallbackLabel: entry.user?.displayName ?? entry.title,
+                        device: entry.device,
+                        createdAt: entry.createdAt,
+                        likesCount: entry.likesCount,
+                        commentsCount: entry.commentsCount,
+                        views: entry.views,
+                        updateRepository: widget.updateRepository,
+                        currentUser: widget.currentUser,
+                        ownerUsername: entry.user?.username,
+                        isVerified: entry.user?.isVerified ?? false,
+                        isLiked: entry.isLiked,
+                        onOpenProfile: _openProfile,
+                        onOpenUpdate: () => _openUpdate(entry),
+                        onOpenHashtag: _openSearchQuery,
+                        onOpenLink: _handleLinkTap,
+                      ),
+                    },
                   );
                 },
               ),

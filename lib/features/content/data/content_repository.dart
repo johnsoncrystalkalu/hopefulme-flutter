@@ -28,10 +28,15 @@ class ContentRepository {
   final AuthRepository _authRepository;
   final PageCache _cache;
 
-  Future<ContentDetail> fetchPost(int id) async {
-    final key = 'post:$id';
+  Future<ContentDetail> fetchPost(int id, {int commentPage = 1}) async {
+    final key = 'post:$id:comments:$commentPage';
     try {
-      final response = await _authRepository.get('post/$id');
+      final response = await _authRepository.get(
+        'post/$id',
+        queryParameters: commentPage > 1
+            ? <String, dynamic>{'comment_page': commentPage}
+            : null,
+      );
       await _cache.save(key, response);
       return ContentDetail.fromApi(
         response['post'] as Map<String, dynamic>? ?? <String, dynamic>{},
@@ -49,10 +54,15 @@ class ContentRepository {
     }
   }
 
-  Future<ContentDetail> fetchBlog(int id) async {
-    final key = 'blog:$id';
+  Future<ContentDetail> fetchBlog(int id, {int commentPage = 1}) async {
+    final key = 'blog:$id:comments:$commentPage';
     try {
-      final response = await _authRepository.get('blogs/$id');
+      final response = await _authRepository.get(
+        'blogs/$id',
+        queryParameters: commentPage > 1
+            ? <String, dynamic>{'comment_page': commentPage}
+            : null,
+      );
       await _cache.save(key, response);
       return ContentDetail.fromApi(
         response['blog'] as Map<String, dynamic>? ?? <String, dynamic>{},

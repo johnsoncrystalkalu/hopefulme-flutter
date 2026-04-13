@@ -1,24 +1,37 @@
 import 'package:flutter/material.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RECOMMENDED THEME — Social Premium + Brand Blue
+//
+// Concept: Twitter/X structure but with brand blue (#3D5AFE) baked into
+// the dark surface stack — so dark mode feels distinctly *yours*, not generic.
+//
+// Dark:
+//   Scaffold     → #111827  blue-tinted dark (warmer than Twitter, cooler than navy)
+//   Surface      → #161F2E  brand-tinted card layer
+//   SurfaceMuted → #192338  input fills, inset areas
+//   SurfaceRaised→ #1C2840  modals, bottom sheets
+//   Sidebar      → #0C1220  deepest brand-tinted black
+//
+// Light:
+//   Scaffold     → #FFFFFF  Twitter true white — brand blue pops on white
+//   Surface      → #FFFFFF  same
+//   SurfaceMuted → #fbfcfd  faint brand-tinted input bg (not grey, slightly blue)
+//   Border       → #EEF0F8  brand-tinted hairline
+// ─────────────────────────────────────────────────────────────────────────────
+
 class AppColors {
   const AppColors._();
 
-  // static const brand = Color(0xFF3D5AFE);
-  // static const brandDark = Color(0xFF2742D6);
-static const brand = Color(0xFF2D46E5);     // Slightly more saturated and deeper
-static const brandDark = Color(0xFF1A2EB5); // A true deep navy-tinted indigo
+  // Brand — your electric blue
+static const brand      = Color(0xFF3252E6);
+static const brandDark  = Color(0xFF2846CC);
   static const accent = Color(0xFF7C3AED);
+
+  // Semantic
   static const danger = Color(0xFFFF4D6D);
   static const warning = Color(0xFFFFB020);
   static const success = Color(0xFF16A34A);
-  static const scaffold = Color(0xFFF4F7FB);
-  static const surface = Colors.white;
-  static const border = Color(0xFFE2E8F0);
-  static const borderSoft = Color(0xFFD6E0EE);
-  static const text = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const faint = Color(0xFF94A3B8);
-  static const softFill = Color(0xFFF8FAFC);
 }
 
 @immutable
@@ -87,79 +100,109 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color heroFallback;
   final Color shadow;
 
-  LinearGradient get brandGradient => LinearGradient(colors: [brand, brand]);
-  LinearGradient get heroGradient => LinearGradient(
-    colors: [heroStart, heroStart],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  LinearGradient get brandGradient => LinearGradient(
+        colors: [AppColors.brand, AppColors.brandDark],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
 
+  LinearGradient get heroGradient => LinearGradient(
+        colors: [heroStart, heroEnd],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+
+  // ─── LIGHT ───────────────────────────────────────────────────────────────
+  // Twitter true white — brand blue pops on pure white.
+  // Borders get a faint blue tint so even hairlines feel on-brand.
   static const light = AppThemeColors(
     brand: AppColors.brand,
     brandStrong: AppColors.brandDark,
     heroStart: AppColors.brandDark,
     heroEnd: AppColors.brand,
     accent: AppColors.accent,
-    scaffold: Color(0xFFF4F7FB),
-    surface: Colors.white,
-    surfaceMuted: Color(0xFFF8FAFC),
-    surfaceRaised: Color(0xFFF1F5F9),
-    border: Color(0xFFE2E8F0),
-    borderStrong: Color(0xFFD6E0EE),
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF334155),
-    textMuted: Color(0xFF64748B),
-    icon: Color(0xFF64748B),
-    sidebar: Color(0xFF0A0F1E),
-    sidebarSurface: Color.fromRGBO(255, 255, 255, 0.08),
-    sidebarText: Color(0xFFDDE6F6),
-    sidebarMuted: Color(0xFF94A3B8),
-    accentSoft: Color(0xFFEEF1FF),
+
+    scaffold: Color(0xFFfafbfb),       // Twitter true white
+    surface: Color(0xFFFFFFFF),        // Flush — no separation needed
+    surfaceMuted: Color(0xFFfafbfb),   // Faint brand-blue input bg
+    surfaceRaised: Color(0xFFEEF1FF),  // Brand-tinted raised panels
+
+    border: Color(0xFFEEF0F8),         // Brand-tinted hairline
+    borderStrong: Color(0xFFD5DAF0),   // Visible brand-tinted divider
+
+    textPrimary: Color(0xFF0F1419),    // Twitter ink black
+    textSecondary: Color(0xFF2D3748),  // Dark slate
+    textMuted: Color(0xFF536471),      // Twitter grey
+    icon: Color(0xFF536471),
+
+    sidebar: Color(0xFF111827),        // Match dark scaffold
+    sidebarSurface: Color.fromRGBO(255, 255, 255, 0.07),
+    sidebarText: Color(0xFFF0F4FF),
+    sidebarMuted: Color(0xFF7A8FA8),
+
+    accentSoft: Color(0xFFEEF0FF),     // Brand soft fill
     accentSoftText: AppColors.brand,
-    unreadSurface: Color(0xFFF5F8FF),
+    unreadSurface: Color(0xFFF0F3FF),
+
     warningSoft: Color(0xFFFFF8EC),
     warningText: AppColors.warning,
-    dangerSoft: Color(0xFFFFF1F4),
+    dangerSoft: Color(0xFFFFF0F2),
     dangerText: AppColors.danger,
     success: AppColors.success,
-    avatarPlaceholder: Color(0xFFEEF1FF),
-    heroFallback: Color(0xFF0F172A),
-    shadow: Color.fromRGBO(15, 23, 42, 0.06),
+
+    avatarPlaceholder: Color(0xFFEEF0FF),
+    heroFallback: Color(0xFF0F1419),
+    shadow: Color.fromRGBO(61, 90, 254, 0.10), // Brand-tinted shadow
   );
 
+  // ─── DARK ────────────────────────────────────────────────────────────────
+  // Twitter Dim structure + brand blue baked into every surface layer.
+  // The result: a dark mode that is unmistakably yours.
+  //
+  // Elevation stack:
+  //   #0C1220  sidebar       (deepest)
+  //   #111827  scaffold      ← base
+  //   #161F2E  surface       (+1)
+  //   #192338  surfaceMuted  (+1.5 — inputs)
+  //   #1C2840  surfaceRaised (+2 — modals)
   static const dark = AppThemeColors(
-   // brand: Color(0xFF7C93FF),
-     brand: AppColors.brand,
-  //  brandStrong: Color(0xFF5876FF),
-   brandStrong: AppColors.brandDark,
-    heroStart: Color(0xFF1C2F99),
-    heroEnd: Color(0xFF3049D8),
+    brand: AppColors.brand,
+    brandStrong: AppColors.brandDark,
+    heroStart: Color(0xFF1A3580),
+    heroEnd: Color(0xFF3D5AFE),
     accent: Color(0xFFA78BFA),
-    scaffold: Color(0xFF0B1220),
-    surface: Color(0xFF111A2E),
-    surfaceMuted: Color(0xFF162238),
-    surfaceRaised: Color(0xFF1A2842),
-    border: Color(0xFF23324D),
-    borderStrong: Color(0xFF31425F),
-    textPrimary: Color(0xFFF8FAFC),
-    textSecondary: Color(0xFFD7E0EE),
-    textMuted: Color(0xFF9FB1C8),
-    icon: Color(0xFFB7C4D7),
-    sidebar: Color(0xFF070D18),
-    sidebarSurface: Color.fromRGBO(255, 255, 255, 0.06),
-    sidebarText: Color(0xFFF8FAFC),
-    sidebarMuted: Color(0xFF8FA3BD),
-    accentSoft: Color(0xFF1E2B4C),
-    accentSoftText: Color(0xFFAFC0FF),
-    unreadSurface: Color(0xFF15203A),
-    warningSoft: Color(0xFF372B15),
+
+    scaffold: Color(0xFF111827),       // Blue-tinted dark base
+    surface: Color(0xFF161F2E),        // Brand-tinted card layer
+    surfaceMuted: Color(0xFF192338),   // Input fills, inset areas
+    surfaceRaised: Color(0xFF1C2840),  // Modals, bottom sheets
+
+    border: Color(0xFF1F2E44),         // Brand-tinted structural border
+    borderStrong: Color(0xFF273852),   // Visible brand-tinted divider
+
+    textPrimary: Color(0xFFF0F4FF),    // Cool off-white with blue tint
+    textSecondary: Color(0xFF8BA0BE),  // Blue-grey secondary
+    textMuted: Color(0xFF506070),      // Muted blue-grey
+    icon: Color(0xFF7A90AA),
+
+    sidebar: Color(0xFF0C1220),        // Deepest brand-tinted black
+    sidebarSurface: Color.fromRGBO(61, 90, 254, 0.08), // Brand-tinted overlay
+    sidebarText: Color(0xFFF0F4FF),
+    sidebarMuted: Color(0xFF506070),
+
+    accentSoft: Color(0xFF1A2550),     // Rich brand fill — distinctive
+    accentSoftText: Color(0xFFBBCBFF),
+    unreadSurface: Color(0xFF141E34),  // Slightly blue-shifted unread bg
+
+    warningSoft: Color(0xFF2A2010),
     warningText: Color(0xFFFFC966),
-    dangerSoft: Color(0xFF3A1720),
+    dangerSoft: Color(0xFF2C1018),
     dangerText: Color(0xFFFF94A8),
     success: Color(0xFF4ADE80),
-    avatarPlaceholder: Color(0xFF1E2B4C),
-    heroFallback: Color(0xFF050A14),
-    shadow: Color.fromRGBO(2, 6, 23, 0.38),
+
+    avatarPlaceholder: Color(0xFF1A2550),
+    heroFallback: Color(0xFF0C1220),
+    shadow: Color.fromRGBO(10, 15, 40, 0.60), // Deep brand-tinted shadow
   );
 
   @override
@@ -231,10 +274,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
   @override
   AppThemeColors lerp(ThemeExtension<AppThemeColors>? other, double t) {
-    if (other is! AppThemeColors) {
-      return this;
-    }
-
+    if (other is! AppThemeColors) return this;
     return AppThemeColors(
       brand: Color.lerp(brand, other.brand, t)!,
       brandStrong: Color.lerp(brandStrong, other.brandStrong, t)!,
@@ -263,11 +303,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       dangerSoft: Color.lerp(dangerSoft, other.dangerSoft, t)!,
       dangerText: Color.lerp(dangerText, other.dangerText, t)!,
       success: Color.lerp(success, other.success, t)!,
-      avatarPlaceholder: Color.lerp(
-        avatarPlaceholder,
-        other.avatarPlaceholder,
-        t,
-      )!,
+      avatarPlaceholder:
+          Color.lerp(avatarPlaceholder, other.avatarPlaceholder, t)!,
       heroFallback: Color.lerp(heroFallback, other.heroFallback, t)!,
       shadow: Color.lerp(shadow, other.shadow, t)!,
     );
@@ -290,19 +327,18 @@ class AppTheme {
     required Brightness brightness,
     required AppThemeColors colors,
   }) {
-    final colorScheme =
-        ColorScheme.fromSeed(
-          brightness: brightness,
-          seedColor: colors.brand,
-        ).copyWith(
-          primary: colors.brand,
-          secondary: colors.accent,
-          surface: colors.surface,
-          onSurface: colors.textPrimary,
-          onPrimary: Colors.white,
-          outline: colors.border,
-          error: colors.dangerText,
-        );
+    final colorScheme = ColorScheme.fromSeed(
+      brightness: brightness,
+      seedColor: colors.brand,
+    ).copyWith(
+      primary: colors.brand,
+      secondary: colors.accent,
+      surface: colors.surface,
+      onSurface: colors.textPrimary,
+      onPrimary: Colors.white,
+      outline: colors.border,
+      error: colors.dangerText,
+    );
 
     return ThemeData(
       brightness: brightness,
@@ -317,9 +353,9 @@ class AppTheme {
               ? Typography.material2021().white
               : Typography.material2021().black)
           .apply(
-            bodyColor: colors.textPrimary,
-            displayColor: colors.textPrimary,
-          ),
+        bodyColor: colors.textPrimary,
+        displayColor: colors.textPrimary,
+      ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
@@ -370,10 +406,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.surfaceMuted,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: TextStyle(color: colors.textMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -393,18 +427,16 @@ class AppTheme {
           minimumSize: const Size.fromHeight(52),
           backgroundColor: colors.brand,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.brand,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -414,7 +446,8 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         color: colors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     );
   }

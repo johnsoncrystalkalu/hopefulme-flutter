@@ -5,6 +5,7 @@ import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 
 const List<String> _monthLabels = <String>[
   'Jan',
@@ -43,6 +44,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _quoteController = TextEditingController();
+  final _secondaryRoleController = TextEditingController();
   final _hobbyController = TextEditingController();
   final _cityController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -63,6 +65,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   List<String> _countryOptions = const <String>[];
   List<String> _stateOptions = const <String>[];
   bool _loadingStates = false;
+
+  bool get _showLegacyOnboardingNote => false;
 
   static List<String> _uniqueOptions(List<String> values) {
     final seen = <String>{};
@@ -105,6 +109,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _quoteController.dispose();
+    _secondaryRoleController.dispose();
     _hobbyController.dispose();
     _cityController.dispose();
     _phoneController.dispose();
@@ -131,6 +136,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _usernameController.text = profile.username;
       _emailController.text = profile.email;
       _quoteController.text = profile.quote;
+      _secondaryRoleController.text = profile.role2;
       _hobbyController.text = profile.hobby;
       _cityController.text = profile.city;
       _phoneController.text = profile.phoneNumber;
@@ -229,6 +235,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         quote: _quoteController.text.trim(),
         hobby: _hobbyController.text.trim(),
         role1: _selectedRole.trim(),
+        role2: _secondaryRoleController.text.trim(),
         location: _selectedCountry.trim(),
         city: _cityController.text.trim(),
         state: _selectedState.trim(),
@@ -243,10 +250,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
       if (widget.showOnboardingIntro) {
-        await Navigator.of(context).pushNamedAndRemoveUntil(
-          HomeScreen.routeName,
-          (route) => false,
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (context) => EditProfileMediaScreen(
+              username: widget.username,
+              repository: widget.repository,
+            ),
+          ),
         );
+        if (!mounted) {
+          return;
+        }
+        await Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(HomeScreen.routeName, (route) => false);
         return;
       }
       Navigator.of(context).pop(profile);
@@ -296,6 +313,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       if (widget.showOnboardingIntro) ...[
                         Container(
                           width: double.infinity,
+                          padding: const EdgeInsets.all(22),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                colors.brand.withValues(alpha: 0.16),
+                                colors.accentSoft,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: colors.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.shadow.withValues(alpha: 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.surface.withValues(alpha: 0.92),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  'Step 2 of 3',
+                                  style: TextStyle(
+                                    color: colors.brand,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Let\'s finish setting up your profile',
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 24,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'A few personal details help us personalize your experience and make HopefulMe feel more like home.',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 13.5,
+                                  height: 1.55,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (widget.showOnboardingIntro &&
+                          _showLegacyOnboardingNote) ...[
+                        Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: colors.accentSoft,
@@ -330,121 +417,139 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      const _CardTitle(
-                        title: 'Basic Info',
-                        subtitle: 'Keep your public identity fresh and clear.',
-                      ),
-                      const SizedBox(height: 10),
-                      _EditCard(
-                        child: Column(
-                          children: [
-                            _LabeledField(
-                              label: 'Full Name',
-                              child: TextFormField(
-                                controller: _fullnameController,
-                                validator: _required('Full name is required.'),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            _LabeledField(
-                              label: 'Username',
-                              child: TextFormField(
-                                controller: _usernameController,
-                                validator: _required('Username is required.'),
-                                onChanged: (_) => setState(() {}),
-                                decoration: const InputDecoration(
-                                  prefixText: '@',
-                                ),
-                              ),
-                            ),
-                            _LabeledField(
-                              label: 'Email',
-                              child: TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Email is required.';
-                                  }
-                                  if (!value.contains('@')) {
-                                    return 'Enter a valid email.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            _LabeledField(
-                              label: 'Role / Title',
-                              child: DropdownButtonFormField<String>(
-                                initialValue:
-                                    _selectedRole.isNotEmpty &&
-                                        _roleOptions.contains(_selectedRole)
-                                    ? _selectedRole
-                                    : null,
-                                decoration: const InputDecoration(
-                                  hintText: 'Select your role...',
-                                ),
-                                items: _roleOptions
-                                    .map(
-                                      (role) => DropdownMenuItem<String>(
-                                        value: role,
-                                        child: Text(role),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedRole = value ?? '';
-                                  });
-                                },
-                              ),
-                            ),
-                            _LabeledField(
-                              label: 'Personal Quote',
-                              child: TextFormField(
-                                controller: _quoteController,
-                                minLines: 2,
-                                maxLines: 4,
-                              ),
-                            ),
-                          ],
+                      if (!widget.showOnboardingIntro) ...[
+                        const _CardTitle(
+                          title: 'Basic Info',
+                          subtitle:
+                              'This is how others will recognize you on HopefulMe',
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 10),
+                        _EditCard(
+                          child: Column(
+                            children: [
+                              _LabeledField(
+                                label: 'Full Name',
+                                child: TextFormField(
+                                  controller: _fullnameController,
+                                  validator: _required(
+                                    'Full name is required.',
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              _LabeledField(
+                                label: 'Username',
+                                child: TextFormField(
+                                  controller: _usernameController,
+                                  validator: _required('Username is required.'),
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: const InputDecoration(
+                                    prefixText: '@',
+                                  ),
+                                ),
+                              ),
+                              _LabeledField(
+  label: 'Gender',
+  child: Row(
+    children: [
+      Expanded(
+        child: _ChoiceChip(
+          label: 'Male',
+          selected: _gender == 'male',
+          onTap: () => setState(() => _gender = 'male'),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _ChoiceChip(
+          label: 'Female',
+          selected: _gender == 'female',
+          onTap: () => setState(() => _gender = 'female'),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _ChoiceChip(
+          label: 'Other',
+          selected: _gender == 'other',
+          onTap: () => setState(() => _gender = 'other'),
+        ),
+      ),
+    ],
+  ),
+),
+                              _LabeledField(
+                                label: 'Email',
+                                hint:
+                                    'Visible only to you. We use this for login and account-related messages.',
+                                child: TextFormField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Email is required.';
+                                    }
+                                    if (!value.contains('@')) {
+                                      return 'Enter a valid email.';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                             
+                              _LabeledField(
+                                label: 'Role / Title',
+                                child: DropdownButtonFormField<String>(
+                                  initialValue:
+                                      _selectedRole.isNotEmpty &&
+                                          _roleOptions.contains(_selectedRole)
+                                      ? _selectedRole
+                                      : null,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select your role...',
+                                  ),
+                                  items: _roleOptions
+                                      .map(
+                                        (role) => DropdownMenuItem<String>(
+                                          value: role,
+                                          child: Text(role),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedRole = value ?? '';
+                                    });
+                                  },
+                                ),
+                              ),
+                              _LabeledField(
+                                label:
+                                    'Secondary Role (Your work, career, dream, or aspiration)',
+                                child: TextFormField(
+                                  controller: _secondaryRoleController,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: const InputDecoration(
+                                    hintText:
+                                        'Enter role that reflects your career',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       const _CardTitle(
-                        title: 'Personal',
-                        subtitle:
-                            'Use the same guided fields as the web editor.',
+                        title: 'Personal Details',
+                        subtitle: 'Tell us a bit more about yourself.',
                       ),
                       const SizedBox(height: 10),
                       _EditCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _SectionLabel(label: 'Gender'),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _ChoiceChip(
-                                  label: 'Male',
-                                  selected: _gender == 'male',
-                                  onTap: () => setState(() => _gender = 'male'),
-                                ),
-                                _ChoiceChip(
-                                  label: 'Female',
-                                  selected: _gender == 'female',
-                                  onTap: () =>
-                                      setState(() => _gender = 'female'),
-                                ),
-                                _ChoiceChip(
-                                  label: 'Other',
-                                  selected: _gender == 'other',
-                                  onTap: () =>
-                                      setState(() => _gender = 'other'),
-                                ),
-                              ],
-                            ),
                             const SizedBox(height: 18),
                             _LabeledField(
                               label: 'Hobbies & Interests',
@@ -452,6 +557,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 controller: _hobbyController,
                               ),
                             ),
+                            if (widget.showOnboardingIntro)
+                              _LabeledField(
+                                label:
+                                    'Secondary Role (Your work, career, dream, or aspiration)',
+                                child: TextFormField(
+                                  controller: _secondaryRoleController,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: const InputDecoration(
+                                    hintText:
+                                        '',
+                                  ),
+                                ),
+                              ),
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final isWide = constraints.maxWidth >= 620;
@@ -559,6 +678,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                             _LabeledField(
                               label: 'Phone Number',
+                              hint: 'Visible only to you..',
                               child: TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
@@ -577,16 +697,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     decoration: const InputDecoration(
                                       hintText: 'Day',
                                     ),
-                                    items: List<DropdownMenuItem<String>>.generate(
-                                      31,
-                                      (index) {
-                                        final day = '${index + 1}';
-                                        return DropdownMenuItem<String>(
-                                          value: day,
-                                          child: Text(day),
-                                        );
-                                      },
-                                    ),
+                                    items:
+                                        List<DropdownMenuItem<String>>.generate(
+                                          31,
+                                          (index) {
+                                            final day = '${index + 1}';
+                                            return DropdownMenuItem<String>(
+                                              value: day,
+                                              child: Text(day),
+                                            );
+                                          },
+                                        ),
                                     onChanged: (value) {
                                       setState(() {
                                         _selectedBirthDay = value ?? '';
@@ -604,16 +725,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     decoration: const InputDecoration(
                                       hintText: 'Month',
                                     ),
-                                    items: List<DropdownMenuItem<String>>.generate(
-                                      _monthLabels.length,
-                                      (index) {
-                                        final month = '${index + 1}';
-                                        return DropdownMenuItem<String>(
-                                          value: month,
-                                          child: Text(_monthLabels[index]),
-                                        );
-                                      },
-                                    ),
+                                    items:
+                                        List<DropdownMenuItem<String>>.generate(
+                                          _monthLabels.length,
+                                          (index) {
+                                            final month = '${index + 1}';
+                                            return DropdownMenuItem<String>(
+                                              value: month,
+                                              child: Text(_monthLabels[index]),
+                                            );
+                                          },
+                                        ),
                                     onChanged: (value) {
                                       setState(() {
                                         _selectedBirthMonth = value ?? '';
@@ -632,10 +754,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           Expanded(child: monthField),
                                         ],
                                       )
-                                    : Column(
-                                        children: [dayField, monthField],
-                                      );
+                                    : Column(children: [dayField, monthField]);
                               },
+                            ),
+                            _LabeledField(
+                              label: 'Favourite Quote',
+                              child: TextFormField(
+                                controller: _quoteController,
+                                minLines: 2,
+                                maxLines: 4,
+                                decoration: const InputDecoration(
+                                  hintText:
+                                      'A short line that reflects your mindset or story',
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -676,43 +808,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      const _CardTitle(
-                        title: 'Preferences',
-                        subtitle:
-                            'Choose how HopefulMe reaches you outside the app.',
-                      ),
-                      const SizedBox(height: 10),
-                      _EditCard(
-                        child: SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          value: _emailNotifications,
-                          activeThumbColor: colors.brand,
-                          activeTrackColor: colors.brand.withValues(alpha: 0.35),
-                          title: Text(
-                            'Email Notifications',
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Receive important HopefulMe emails like account updates, reminders, and greetings.',
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 12.5,
-                              height: 1.45,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _emailNotifications = value;
-                            });
-                          },
+                      if (!widget.showOnboardingIntro) ...[
+                        const SizedBox(height: 16),
+                        const _CardTitle(
+                          title: 'Preferences',
+                          subtitle:
+                              'Manage how you receive updates and notifications',
                         ),
-                      ),
-                      const SizedBox(height: 18),
+                        const SizedBox(height: 10),
+                        _EditCard(
+                          child: SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: _emailNotifications,
+                            activeThumbColor: colors.brand,
+                            activeTrackColor: colors.brand.withValues(
+                              alpha: 0.35,
+                            ),
+                            title: Text(
+                              'Email Notifications',
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Receive important emails like account updates and reminders.',
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 12.5,
+                                height: 1.45,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _emailNotifications = value;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
@@ -726,7 +862,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Save Changes'),
+                              : Text(
+                                  widget.showOnboardingIntro
+                                      ? 'Save & Continue to Photo'
+                                      : 'Save Changes',
+                                ),
                         ),
                       ),
                     ],
@@ -803,10 +943,11 @@ class _EditCard extends StatelessWidget {
 }
 
 class _LabeledField extends StatelessWidget {
-  const _LabeledField({required this.label, required this.child});
+  const _LabeledField({required this.label, required this.child, this.hint});
 
   final String label;
   final Widget child;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -826,6 +967,31 @@ class _LabeledField extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           child,
+          if (hint != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 14,
+                  color: colors.textMuted,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    hint!,
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11.5,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

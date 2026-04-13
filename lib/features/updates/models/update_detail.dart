@@ -16,6 +16,9 @@ class UpdateDetail {
     required this.createdAt,
     required this.user,
     required this.comments,
+    this.commentsCurrentPage = 1,
+    this.commentsLastPage = 1,
+    this.commentsTotal = 0,
     this.isLiked = false,
   });
 
@@ -31,12 +34,23 @@ class UpdateDetail {
   final String createdAt;
   final FeedUser user;
   final List<UpdateComment> comments;
+  final int commentsCurrentPage;
+  final int commentsLastPage;
+  final int commentsTotal;
   final bool isLiked;
+
+  bool get hasMoreComments => commentsCurrentPage < commentsLastPage;
 
   factory UpdateDetail.fromJson(Map<String, dynamic> json) {
     final user = FeedUser.fromJson(
       json['user'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
+    final commentsMeta =
+        json['comments_meta'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final comments = (json['comments'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(UpdateComment.fromJson)
+        .toList();
 
     return UpdateDetail(
       id: parseInt(json['id']),
@@ -52,11 +66,52 @@ class UpdateDetail {
       commentsCount: parseInt(json['comments_count']),
       createdAt: json['created_at']?.toString() ?? '',
       user: user,
-      comments: (json['comments'] as List<dynamic>? ?? <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(UpdateComment.fromJson)
-          .toList(),
+      comments: comments,
+      commentsCurrentPage: parseInt(commentsMeta['current_page'], fallback: 1),
+      commentsLastPage: parseInt(commentsMeta['last_page'], fallback: 1),
+      commentsTotal: parseInt(
+        commentsMeta['total'],
+        fallback: parseInt(json['comments_count'], fallback: comments.length),
+      ),
       isLiked: parseBool(json['is_liked']),
+    );
+  }
+
+  UpdateDetail copyWith({
+    int? id,
+    String? type,
+    String? status,
+    String? photoUrl,
+    String? originalPhotoUrl,
+    String? device,
+    int? views,
+    int? likesCount,
+    int? commentsCount,
+    String? createdAt,
+    FeedUser? user,
+    List<UpdateComment>? comments,
+    int? commentsCurrentPage,
+    int? commentsLastPage,
+    int? commentsTotal,
+    bool? isLiked,
+  }) {
+    return UpdateDetail(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      photoUrl: photoUrl ?? this.photoUrl,
+      originalPhotoUrl: originalPhotoUrl ?? this.originalPhotoUrl,
+      device: device ?? this.device,
+      views: views ?? this.views,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
+      createdAt: createdAt ?? this.createdAt,
+      user: user ?? this.user,
+      comments: comments ?? this.comments,
+      commentsCurrentPage: commentsCurrentPage ?? this.commentsCurrentPage,
+      commentsLastPage: commentsLastPage ?? this.commentsLastPage,
+      commentsTotal: commentsTotal ?? this.commentsTotal,
+      isLiked: isLiked ?? this.isLiked,
     );
   }
 }
