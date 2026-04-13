@@ -71,14 +71,14 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   @override
   void initState() {
     super.initState();
-    _liked = widget.initialDetail?.isLiked == true || widget.initialLiked;
+    _liked = widget.initialDetail?.isLiked ?? widget.initialLiked;
     _future = widget.repository.fetchUpdate(widget.updateId).then((detail) {
       if (mounted) {
         setState(() {
-          _liked = _liked || detail.isLiked;
+          _liked = detail.isLiked;
         });
       } else {
-        _liked = _liked || detail.isLiked;
+        _liked = detail.isLiked;
       }
       return detail;
     });
@@ -512,8 +512,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 }
 
                 final colors = context.appColors;
-                final isDark =
-                    Theme.of(context).brightness == Brightness.dark;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
                 final isGeneratedActivity =
                     detail.type.trim().toLowerCase() != 'update';
 
@@ -522,299 +521,334 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-                          child: Row(
-                            children: [
-                              InkWell(
-                                onTap: () => _openProfile(detail.user.username),
-                                borderRadius: BorderRadius.circular(999),
-                                child: CircleAvatar(
-                                  radius: 22,
-                                  backgroundImage:
-                                      detail.user.photoUrl.isNotEmpty
-                                      ? NetworkImage(
-                                          ImageUrlResolver.avatar(
-                                            detail.user.photoUrl,
-                                            size: 66,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                18,
+                                18,
+                                12,
+                              ),
+                              child: Row(
+                                children: [
+                                  InkWell(
+                                    onTap: () =>
+                                        _openProfile(detail.user.username),
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: CircleAvatar(
+                                      radius: 22,
+                                      backgroundImage:
+                                          detail.user.photoUrl.isNotEmpty
+                                          ? NetworkImage(
+                                              ImageUrlResolver.avatar(
+                                                detail.user.photoUrl,
+                                                size: 66,
+                                              ),
+                                            )
+                                          : null,
+                                      child: detail.user.photoUrl.isEmpty
+                                          ? const Icon(Icons.person)
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () =>
+                                          _openProfile(detail.user.username),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          VerifiedNameText(
+                                            name: detail.user.displayName,
+                                            verified: detail.user.isVerified,
+                                            style: TextStyle(
+                                              color: colors.textPrimary,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
-                                        )
-                                      : null,
-                                  child: detail.user.photoUrl.isEmpty
-                                      ? const Icon(Icons.person)
-                                      : null,
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            detail.device.isNotEmpty
+                                                ? '${formatRelativeTimestamp(detail.createdAt)} · ${detail.device}'
+                                                : formatRelativeTimestamp(
+                                                    detail.createdAt,
+                                                  ),
+                                            style: TextStyle(
+                                              color: colors.textMuted,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (detail.status.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  18,
+                                  0,
+                                  18,
+                                  12,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    RichDisplayText(
+                                      text: detail.status,
+                                      style: TextStyle(
+                                        color: isGeneratedActivity
+                                            ? colors.textMuted.withValues(
+                                                alpha: 0.82,
+                                              )
+                                            : colors.textSecondary,
+                                        fontSize: isGeneratedActivity ? 14 : 15,
+                                        height: 1.6,
+                                        fontWeight: isGeneratedActivity
+                                            ? FontWeight.w400
+                                            : FontWeight.w500,
+                                      ),
+                                      onMentionTap: _openProfile,
+                                      onHashtagTap: _openSearchQuery,
+                                      onLinkTap: _handleLinkTap,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () =>
-                                      _openProfile(detail.user.username),
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      VerifiedNameText(
-                                        name: detail.user.displayName,
-                                        verified: detail.user.isVerified,
-                                        style: TextStyle(
-                                          color: colors.textPrimary,
-                                          fontSize: 15,
+                            if (detail.photoUrl.isNotEmpty)
+                              InkWell(
+                                onTap: () => _openFullImage(
+                                  detail.originalPhotoUrl.isNotEmpty
+                                      ? detail.originalPhotoUrl
+                                      : detail.photoUrl,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: 260,
+                                    maxHeight:
+                                        MediaQuery.of(context).size.height *
+                                        0.58,
+                                  ),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: AppNetworkImage(
+                                      imageUrl:
+                                          detail.originalPhotoUrl.isNotEmpty
+                                          ? detail.originalPhotoUrl
+                                          : detail.photoUrl,
+                                      fit: BoxFit.cover,
+                                      backgroundColor: colors.surfaceMuted,
+                                      placeholderLabel: detail.user.displayName,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                              child: Text(
+                                'debug isLiked: local=$_liked | detail=${detail.isLiked} | initialDetail=${widget.initialDetail?.isLiked} | initialLiked=${widget.initialLiked}',
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                14,
+                                18,
+                                16,
+                              ),
+                              child: Row(
+                                children: [
+                                  ScaleTransition(
+                                    scale: _likeController,
+                                    child: FilledButton.tonalIcon(
+                                      onPressed: () => _toggleLike(detail),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: isDark
+                                            ? Colors.transparent
+                                            : const Color(0xFFFFF1F4),
+                                        elevation: 0,
+                                        shadowColor: Colors.transparent,
+                                        surfaceTintColor: Colors.transparent,
+                                        side: isDark
+                                            ? const BorderSide(
+                                                color: Color(0x55FF4D6D),
+                                              )
+                                            : null,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        _liked
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: Color(0xFFFF4D6D),
+                                        fill: _liked ? 1 : 0,
+                                      ),
+                                      label: AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 220,
+                                        ),
+                                        child: Text(
+                                          '${detail.likesCount}',
+                                          key: ValueKey(detail.likesCount),
+                                          style: const TextStyle(
+                                            color: Color(0xFFFF4D6D),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  FilledButton.tonalIcon(
+                                    onPressed: () {},
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: isDark
+                                          ? Colors.transparent
+                                          : const Color(0xFFEEF1FF),
+                                      elevation: 0,
+                                      shadowColor: Colors.transparent,
+                                      surfaceTintColor: Colors.transparent,
+                                      side: isDark
+                                          ? const BorderSide(
+                                              color: Color(0x553D5AFE),
+                                            )
+                                          : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.chat_bubble_outline,
+                                      color: Color(0xFF3D5AFE),
+                                    ),
+                                    label: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      child: Text(
+                                        '${detail.commentsCount}',
+                                        key: ValueKey(detail.commentsCount),
+                                        style: const TextStyle(
+                                          color: Color(0xFF3D5AFE),
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        detail.device.isNotEmpty
-                                            ? '${formatRelativeTimestamp(detail.createdAt)} · ${detail.device}'
-                                            : formatRelativeTimestamp(
-                                                detail.createdAt,
-                                              ),
-                                        style: TextStyle(
-                                          color: colors.textMuted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (detail.status.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                RichDisplayText(
-                                  text: detail.status,
-                                  style: TextStyle(
-                                    color: isGeneratedActivity
-                                        ? colors.textMuted.withValues(
-                                            alpha: 0.82,
-                                          )
-                                        : colors.textSecondary,
-                                    fontSize: isGeneratedActivity ? 14 : 15,
-                                    height: 1.6,
-                                    fontWeight: isGeneratedActivity
-                                        ? FontWeight.w400
-                                        : FontWeight.w500,
-                                  ),
-                                  onMentionTap: _openProfile,
-                                  onHashtagTap: _openSearchQuery,
-                                  onLinkTap: _handleLinkTap,
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (detail.photoUrl.isNotEmpty)
-                          InkWell(
-                            onTap: () => _openFullImage(
-                              detail.originalPhotoUrl.isNotEmpty
-                                  ? detail.originalPhotoUrl
-                                  : detail.photoUrl,
-                            ),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: 260,
-                                maxHeight:
-                                    MediaQuery.of(context).size.height * 0.58,
-                              ),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: AppNetworkImage(
-                                  imageUrl: detail.originalPhotoUrl.isNotEmpty
-                                      ? detail.originalPhotoUrl
-                                      : detail.photoUrl,
-                                  fit: BoxFit.cover,
-                                  backgroundColor: colors.surfaceMuted,
-                                  placeholderLabel: detail.user.displayName,
-                                ),
-                              ),
-                            ),
-                          ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                          child: Row(
-                            children: [
-                              ScaleTransition(
-                                scale: _likeController,
-                                child: FilledButton.tonalIcon(
-                                  onPressed: () => _toggleLike(detail),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: isDark
-                                        ? Colors.transparent
-                                        : const Color(0xFFFFF1F4),
-                                    elevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    surfaceTintColor: Colors.transparent,
-                                    side: isDark
-                                        ? const BorderSide(
-                                            color: Color(0x55FF4D6D),
-                                          )
-                                        : null,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
                                     ),
                                   ),
-                                  icon: Icon(
-                                    _liked
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: Color(0xFFFF4D6D),
-                                  ),
-                                  label: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 220),
-                                    child: Text(
-                                      '${detail.likesCount}',
-                                      key: ValueKey(detail.likesCount),
-                                      style: const TextStyle(
-                                        color: Color(0xFFFF4D6D),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              FilledButton.tonalIcon(
-                                onPressed: () {},
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: isDark
-                                      ? Colors.transparent
-                                      : const Color(0xFFEEF1FF),
-                                  elevation: 0,
-                                  shadowColor: Colors.transparent,
-                                  surfaceTintColor: Colors.transparent,
-                                  side: isDark
-                                      ? const BorderSide(
-                                          color: Color(0x553D5AFE),
-                                        )
-                                      : null,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.chat_bubble_outline,
-                                  color: Color(0xFF3D5AFE),
-                                ),
-                                label: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 220),
-                                  child: Text(
-                                    '${detail.commentsCount}',
-                                    key: ValueKey(detail.commentsCount),
-                                    style: const TextStyle(
-                                      color: Color(0xFF3D5AFE),
+                                  const Spacer(),
+                                  Text(
+                                    '${detail.views} views',
+                                    style: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                              const Spacer(),
-                              Text(
-                                '${detail.views} views',
-                                style: TextStyle(
-                                  color: colors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Comments',
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _commentController,
-                                minLines: 1,
-                                maxLines: 3,
-                                decoration: InputDecoration(
-                                  hintText: 'Enter comment...',
-                                  filled: true,
-                                  fillColor: colors.surfaceMuted,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            AppSendActionButton(
-                              onPressed: _isSubmittingComment
-                                  ? null
-                                  : () => _submitComment(detail),
-                              isBusy: _isSubmittingComment,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        if (detail.comments.isEmpty)
-                          Text(
-                            'No comments yet.',
-                            style: TextStyle(color: colors.textMuted),
-                          )
-                        else
-                          ...detail.comments.map(
-                            (comment) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _CommentTile(
-                                comment: comment,
-                                onProfileTap: () =>
-                                    _openProfile(comment.user.username),
-                                onMentionTap: _openProfile,
-                                onHashtagTap: _openSearchQuery,
-                                onLinkTap: _handleLinkTap,
-                                onReplyTap: () =>
-                                    _replyToComment(detail, comment),
-                                onDelete: () => _deleteComment(comment),
-                                isOwner:
-                                    widget.currentUser?.id == comment.user.id,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Comments',
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _commentController,
+                                    minLines: 1,
+                                    maxLines: 3,
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter comment...',
+                                      filled: true,
+                                      fillColor: colors.surfaceMuted,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                AppSendActionButton(
+                                  onPressed: _isSubmittingComment
+                                      ? null
+                                      : () => _submitComment(detail),
+                                  isBusy: _isSubmittingComment,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            if (detail.comments.isEmpty)
+                              Text(
+                                'No comments yet.',
+                                style: TextStyle(color: colors.textMuted),
+                              )
+                            else
+                              ...detail.comments.map(
+                                (comment) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _CommentTile(
+                                    comment: comment,
+                                    onProfileTap: () =>
+                                        _openProfile(comment.user.username),
+                                    onMentionTap: _openProfile,
+                                    onHashtagTap: _openSearchQuery,
+                                    onLinkTap: _handleLinkTap,
+                                    onReplyTap: () =>
+                                        _replyToComment(detail, comment),
+                                    onDelete: () => _deleteComment(comment),
+                                    isOwner:
+                                        widget.currentUser?.id ==
+                                        comment.user.id,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );

@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 
@@ -50,8 +51,11 @@ class UpdateRepository {
   Future<LikeResult> toggleLike(int id) async {
     final response = await _authRepository.post('likes/update/$id');
     return LikeResult(
-      liked: response['liked'] as bool? ?? false,
-      count: response['count'] as int? ?? 0,
+      liked: parseBool(
+        response['is_liked'],
+        fallback: parseBool(response['liked']),
+      ),
+      count: parseInt(response['count']),
     );
   }
 

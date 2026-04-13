@@ -179,7 +179,7 @@ class FeedEntry {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
-      isLiked: json['is_liked'] as bool? ?? false,
+      isLiked: parseBool(json['is_liked']),
     );
   }
 
@@ -267,7 +267,10 @@ class CommunityLeaderboard {
 
   factory CommunityLeaderboard.fromJson(Map<String, dynamic> json) {
     return CommunityLeaderboard(
-      monthlyTop: FeedDashboard._mapList(json['monthly_top'], FeedUser.fromJson),
+      monthlyTop: FeedDashboard._mapList(
+        json['monthly_top'],
+        FeedUser.fromJson,
+      ),
       allTimeTop: FeedDashboard._mapList(
         json['all_time_top'],
         FeedUser.fromJson,

@@ -101,8 +101,13 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final bodyChanged = oldWidget.body != widget.body;
     final likesChanged = oldWidget.likesCount != widget.likesCount;
     final commentsChanged = oldWidget.commentsCount != widget.commentsCount;
+    final likedChanged = oldWidget.isLiked != widget.isLiked;
 
-    if (updateChanged || bodyChanged || likesChanged || commentsChanged) {
+    if (updateChanged ||
+        bodyChanged ||
+        likesChanged ||
+        commentsChanged ||
+        likedChanged) {
       _body = widget.body;
       _likesCount = widget.likesCount;
       _commentsCount = widget.commentsCount;
@@ -298,9 +303,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             child: ScaleTransition(
               scale: _likeController,
               child: _ActionPill(
-                icon: _liked
-                    ? Icons.favorite          // ❤️ filled = liked
-                    : Icons.favorite_border,  // 🤍 outline = not liked
+                icon: _liked ? Icons.favorite : Icons.favorite_border,
+                iconFill: _liked ? 1 : 0,
                 label: '$_likesCount',
                 color: const Color(0xFFFF4D6D),
                 background: const Color(0xFFFFF1F4),
@@ -331,12 +335,14 @@ class _ActionPill extends StatelessWidget {
     required this.label,
     required this.color,
     required this.background,
+    this.iconFill,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final Color background;
+  final double? iconFill;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +360,7 @@ class _ActionPill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: color, fill: iconFill),
           const SizedBox(width: 6),
           Text(
             label,

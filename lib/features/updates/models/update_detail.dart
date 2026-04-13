@@ -56,7 +56,7 @@ class UpdateDetail {
           .whereType<Map<String, dynamic>>()
           .map(UpdateComment.fromJson)
           .toList(),
-      isLiked: json['is_liked'] as bool? ?? false,
+      isLiked: parseBool(json['is_liked']),
     );
   }
 }

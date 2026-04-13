@@ -39,10 +39,11 @@ class ProfileDashboard {
       totalPosts: parseInt(json['total_posts']),
       updatesCount: parseInt(json['updates_count']),
       photosCount: parseInt(json['photos_count']),
-      mutualFollowers: (json['mutual_followers'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(ProfileMutualFollower.fromJson)
-          .toList(),
+      mutualFollowers:
+          (json['mutual_followers'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(ProfileMutualFollower.fromJson)
+              .toList(),
     );
   }
 
@@ -355,7 +356,7 @@ class ProfileContentItem {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
-      isLiked: json['is_liked'] as bool? ?? false,
+      isLiked: parseBool(json['is_liked']),
     );
   }
 }

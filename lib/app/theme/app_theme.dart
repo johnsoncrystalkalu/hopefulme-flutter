@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   const AppColors._();
 
-  static const brand = Color(0xFF3D5AFE);
-  static const brandDark = Color(0xFF2742D6);
+  // static const brand = Color(0xFF3D5AFE);
+  // static const brandDark = Color(0xFF2742D6);
+static const brand = Color(0xFF2D46E5);     // Slightly more saturated and deeper
+static const brandDark = Color(0xFF1A2EB5); // A true deep navy-tinted indigo
   static const accent = Color(0xFF7C3AED);
   static const danger = Color(0xFFFF4D6D);
   static const warning = Color(0xFFFFB020);

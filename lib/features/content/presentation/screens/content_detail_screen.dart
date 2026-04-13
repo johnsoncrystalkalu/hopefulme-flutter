@@ -583,24 +583,24 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 1, 2, 0),
-      child: Wrap(
-        spacing: 0,
-        runSpacing: 0,
-        children: [
-          if (detail.label.trim().isNotEmpty)
-            _ContentPill(
-              label: detail.label.trim(),
-              textColor: const Color(0xFF2563EB),
-            ),
-          // if (detail.tag.trim().isNotEmpty)
-          //   _ContentPill(
-          //     label: detail.tag.trim(),
-          //     textColor: const Color(0xFF7C3AED),
-          //   ),
-        ],
-      ),
-    );
+  padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
+  child: Wrap(
+    spacing: 0,
+    runSpacing: 0,
+    children: [
+      if (detail.label.trim().isNotEmpty)
+        _ContentPill(
+          label: detail.label.trim(),
+          textColor: const Color(0xFF2A41D4), // Using your new Brand Blue
+        ),
+      if (detail.tag.trim().isNotEmpty)
+        _ContentPill(
+          label: detail.tag.trim(),
+          textColor: const Color(0xFF7C3AED), // Deep Purple
+        ),
+    ],
+  ),
+);
   }
 
   Widget _buildImageBlock({
@@ -853,6 +853,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   ),
                                 ),
                               ],
+                               if (widget.kind == 'post') ...[
+                                  const SizedBox(height: 14),
+                                  _buildPostMetaPills(detail),
+                                ],
                               if (detail.body.isNotEmpty) ...[
                                 const SizedBox(height: 18),
                                 RichDisplayText(
@@ -873,10 +877,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   onHashtagTap: _openSearchQuery,
                                   onLinkTap: _handleLinkTap,
                                 ),
-                                if (widget.kind == 'post') ...[
-                                  const SizedBox(height: 14),
-                                  _buildPostMetaPills(detail),
-                                ],
+                            
                               ],
                               if (detail.secondaryPhotoUrl.isNotEmpty) ...[
                                 const SizedBox(height: 16),
@@ -1454,26 +1455,34 @@ class _MediaActionChip extends StatelessWidget {
 }
 
 class _ContentPill extends StatelessWidget {
-  const _ContentPill({required this.label, this.textColor});
-
   final String label;
-  final Color? textColor;
+  final Color textColor;
+
+  const _ContentPill({
+    required this.label,
+    required this.textColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.only(right: 6, bottom: 4), // Space between pills
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: colors.surfaceMuted.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(999),
+        // Subtle background tint (8% opacity is the "sweet spot")
+        color: textColor.withOpacity(0.08), 
+        // 500 radius ensures it's always a pill shape regardless of width
+        borderRadius: BorderRadius.circular(500), 
+        // Optional: Very faint border to define the shape on white backgrounds
+        border: Border.all(color: textColor.withOpacity(0.12), width: 0.5),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: textColor ?? colors.textSecondary,
+          color: textColor,
           fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w800, // Matches your premium w800 theme
+          letterSpacing: -0.2, // Tighter letters look more modern
         ),
       ),
     );

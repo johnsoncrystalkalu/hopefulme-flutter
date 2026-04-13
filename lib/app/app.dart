@@ -71,9 +71,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _isPresenceTrackingActive = false;
   bool _isPresencePingInFlight = false;
   bool _hasShownSoftUpdatePromptThisSession = false;
+  bool _isVersionCheckInFlight = false;
 
-  // FIX 1: Cooldown timestamp so version check doesn't fire on every resume.
+  // Keep the version check responsive without hitting the endpoint too often.
   DateTime? _lastVersionCheck;
+  static const Duration _versionCheckCooldown = Duration(minutes: 5);
 
   @override
   void initState() {
@@ -127,24 +129,25 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     // Check for app update after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkAppVersion());
+      unawaited(_checkAppVersion(force: true));
     });
   }
 
   // ── Version Check ────────────────────────────────────────────────────────
 
-  Future<void> _checkAppVersion() async {
-    // FIX 1: Only run the version check at most once per hour.
-    // Previously this fired on every AppLifecycleState.resumed, meaning a
-    // network request would go out every time the user alt-tabbed back.
+  Future<void> _checkAppVersion({bool force = false}) async {
+    if (_isVersionCheckInFlight) return;
+
     final now = DateTime.now();
-    if (_lastVersionCheck != null &&
-        now.difference(_lastVersionCheck!) < const Duration(hours: 1)) {
+    if (!force &&
+        _lastVersionCheck != null &&
+        now.difference(_lastVersionCheck!) < _versionCheckCooldown) {
       return;
     }
-    _lastVersionCheck = now;
+    _isVersionCheckInFlight = true;
 
     try {
+      _lastVersionCheck = now;
       final response = await http
           .get(Uri.parse('${_config.baseUrl}/api/app/version'))
           .timeout(const Duration(seconds: 8));
@@ -177,6 +180,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       if (kDebugMode) {
         debugPrint('Version check failed: $e');
       }
+    } finally {
+      _isVersionCheckInFlight = false;
     }
   }
 
@@ -325,6 +330,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   void _onAuthStateChanged() {
     if (_authController.isAuthenticated) {
       _syncOneSignalPlayerId();
+      unawaited(_checkAppVersion(force: true));
     } else {
       OneSignalService.instance.removeExternalUserId();
     }
@@ -335,9 +341,6 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     _lifecycleState = state;
     _syncPresenceTracking();
 
-    // FIX 1: Version check is now throttled inside _checkAppVersion itself
-    // (1-hour cooldown), so it is safe to call here on every resume without
-    // risk of hammering the network.
     if (state == AppLifecycleState.resumed) {
       unawaited(_checkAppVersion());
     }

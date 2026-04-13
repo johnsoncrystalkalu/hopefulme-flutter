@@ -1348,15 +1348,30 @@ class _HomeTopBar extends StatelessWidget {
               ),
               const SizedBox(width: 12),
             ],
-            Text(
-              AppConfig.appName,
-              style: TextStyle(
-                color: colors.brand,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.1,
-              ),
-            ),
+            RichText(
+  text: TextSpan(
+    children: [
+      TextSpan(
+        text: 'Hopeful',
+        style: TextStyle(
+          color: colors.brand,
+          fontSize: 27,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.1,
+        ),
+      ),
+      TextSpan(
+        text: 'Me',
+        style: TextStyle(
+          color: Colors.orange,
+          fontSize: 27,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.1,
+        ),
+      ),
+    ],
+  ),
+),
             const Spacer(),
             _TopBarIconButton(
               icon: HeroIcons.chatBubbleOvalLeftEllipsis,
@@ -2889,44 +2904,65 @@ class _ComposerCard extends StatelessWidget {
 
             const SizedBox(height: 16), // Increased spacing for a cleaner look
             // Bottom Row: Chips and Publish Button
-            Row(
-              children: [
-                _ComposerChip(
-                  icon: Icons.image_outlined,
-                  label: 'Photo',
-                  background: context.appColors.accentSoft,
-                  color: context.appColors.accentSoftText,
-                ),
-                const SizedBox(width: 8),
-                _ComposerChip(
-                  icon: Icons.sentiment_satisfied_alt_outlined,
-                  label: 'Feeling',
-                  background: context.appColors.warningSoft,
-                  color: context.appColors.warningText,
-                ),
+    Row(
+  children: [
+    // --- Photo Trigger ---
+    InkWell(
+      onTap: () => onCreateUpdate(),
+      borderRadius: BorderRadius.circular(12),
+      child: _ComposerChip(
+        icon: Icons.image_outlined,
+        label: 'Photo',
+        background: context.appColors.accentSoft.withOpacity(0.5), // Softened
+        color: context.appColors.accentSoftText,
+      ),
+    ),
+    
+    const SizedBox(width: 8),
 
-                const Spacer(), // This pushes the button to the far right
-                // The "Publish" Button (Inline)
-                SizedBox(
-                  height: 30, // Match the height of the chips for symmetry
-                  child: FilledButton.icon(
-                    onPressed: () => onCreateUpdate(),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(
-                        0xFF93A2F6,
-                      ), // Using that soft purple from your image
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    label: const Text('Post'),
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                    iconAlignment: IconAlignment.end, // Puts arrow on the right
-                  ),
-                ),
-              ],
+    // --- Feeling Trigger ---
+    InkWell(
+      onTap: () => onCreateUpdate(),
+      borderRadius: BorderRadius.circular(12),
+      child: _ComposerChip(
+        icon: Icons.sentiment_satisfied_alt_outlined,
+        label: 'Feeling',
+        background: context.appColors.warningSoft.withOpacity(0.5), // Softened
+        color: context.appColors.warningText,
+      ),
+    ),
+
+    const Spacer(), 
+
+    // --- The "Publish" Button ---
+    SizedBox(
+      height: 32, 
+      child: FilledButton(
+        onPressed: () => onCreateUpdate(),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF2A41D4), // Using your new deep brand color
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Post',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
+            SizedBox(width: 4),
+            Icon(Icons.arrow_forward_rounded, size: 14),
+          ],
+        ),
+      ),
+    ),
+  ],
+),  
           ],
         ),
       ),
@@ -3069,99 +3105,115 @@ class _BirthdayCelebrationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final previewUsers = users.take(5).toList();
-    return _SurfaceCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionHeader(
-              title: 'Today Birthday Celebrations',
-              accent: '🎂',
-              action: 'View all',
-              onActionTap: () => onViewAll(),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              users.length == 1
-                  ? 'Someone in the HopefulMe community is celebrating today.'
-                  : '${users.length} people in the HopefulMe community are celebrating today.',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: previewUsers
-                  .map(
-                    (user) => InkWell(
-                      onTap: () => onOpenProfile(user.username),
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        width: 150,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundImage: user.photoUrl.isNotEmpty
-                                  ? NetworkImage(
-                                      ImageUrlResolver.avatar(
-                                        user.photoUrl,
-                                        size: 72,
-                                      ),
-                                    )
-                                  : null,
-                              child: user.photoUrl.isEmpty
-                                  ? const Icon(Icons.person)
-                                  : null,
-                            ),
-                            const SizedBox(height: 10),
-                            VerifiedNameText(
-                              name: user.displayName,
-                              verified: user.isVerified,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.cityState.isNotEmpty
-                                  ? user.cityState
-                                  : '@${user.username}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: colors.textMuted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
+return _SurfaceCard(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Header remains consistent with your padding
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: _SectionHeader(
+          title: 'Today\'s Birthdays',
+          accent: '🎂',
+          action: 'View all',
+          onActionTap: () => onViewAll(),
         ),
       ),
-    );
+
+      // Community Text - Slightly tighter padding
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          users.length == 1
+              ? 'Someone in the HopefulMe community is celebrating today.'
+              : '${users.length} people are celebrating their big day!',
+          style: TextStyle(
+            color: colors.textSecondary.withOpacity(0.7),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+
+      const SizedBox(height: 16),
+
+      // Horizontal Scroll for a "Story" feel
+      SizedBox(
+        height: 130, // Fixed height for the scroll area
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: previewUsers.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final user = previewUsers[index];
+            return InkWell(
+              onTap: () => onOpenProfile(user.username),
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                children: [
+                  // Avatar with a "Celebration Ring"
+                  Container(
+                    padding: const EdgeInsets.all(2.5), // The "Ring" thickness
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFF4D6D), // Your Like Red
+                          context.appColors.brand, // Your Brand Blue
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundImage: user.photoUrl.isNotEmpty
+                            ? NetworkImage(ImageUrlResolver.avatar(user.photoUrl, size: 80))
+                            : null,
+                        child: user.photoUrl.isEmpty ? const Icon(Icons.person) : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Name - Using your established w800 weight
+                  VerifiedNameText(
+                    name: user.displayName.split(' ')[0], // Only first name for space
+                    verified: user.isVerified,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  
+                  // Subtext
+                  Text(
+                    user.cityState.isNotEmpty ? user.cityState : '@${user.username}',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: colors.textMuted.withOpacity(0.8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 12),
+    ],
+  ),
+);
   }
 }
 
