@@ -218,10 +218,10 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                   boxShadow: [
                                     BoxShadow(
                                       color: colors.shadow.withValues(
-                                        alpha: 0.35,
+                                        alpha: 0.08,
                                       ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),

@@ -1,6 +1,7 @@
 // ignore_for_file: unused_element, unused_element_parameter
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
@@ -873,6 +874,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openStorePage() => _openWebPage('Marketplace', '/store/home');
 
+  Future<void> _openAdvertisePage() =>
+      _openWebPage('Advert & Partnership', '/adverts');
+
   Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv');
 
   Future<void> _openOutreachPage() => _openWebPage('Outreach', '/outreach');
@@ -1015,6 +1019,7 @@ class _HomeScreenState extends State<HomeScreen>
         onLibraryTap: _openLibrary,
         onInspirationsTap: _openInspirations,
         onStoreTap: _openStorePage,
+        onAdvertiseTap: _openAdvertisePage,
         onTvTap: _openTvPage,
         onOutreachTap: _openOutreachPage,
         onAdminTap: _openAdminPage,
@@ -1176,8 +1181,7 @@ class _HomeScreenState extends State<HomeScreen>
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
                                           onOpenGroups: _openGroups,
-                                          onOpenGroupPreview:
-                                              _openGroupPreview,
+                                          onOpenGroupPreview: _openGroupPreview,
                                           updateRepository:
                                               widget.updateRepository,
                                           isLoading:
@@ -1418,8 +1422,7 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                      color: Colors.orange,
-                      // color: colors.brand,
+                      color: Color(0xFFe88a1b),
                       fontSize: 27,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -1.1,
@@ -1929,6 +1932,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onLibraryTap,
     required this.onInspirationsTap,
     required this.onStoreTap,
+    required this.onAdvertiseTap,
     required this.onTvTap,
     required this.onOutreachTap,
     required this.onAdminTap,
@@ -1948,6 +1952,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onLibraryTap;
   final Future<void> Function() onInspirationsTap;
   final Future<void> Function() onStoreTap;
+  final Future<void> Function() onAdvertiseTap;
   final Future<void> Function() onTvTap;
   final Future<void> Function() onOutreachTap;
   final Future<void> Function() onAdminTap;
@@ -1972,11 +1977,11 @@ class _HomeSidebar extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Text(
-                      'Navigation',
+                      'Menu',
                       style: TextStyle(
                         color: colors.sidebarText,
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
                     ),
@@ -2004,12 +2009,17 @@ class _HomeSidebar extends StatelessWidget {
                               color: colors.sidebarMuted,
                             ),
                             const SizedBox(width: 9),
-                            Text(
-                              'Search',
-                              style: TextStyle(
-                                color: colors.sidebarMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Text(
+                                'Search',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                                style: TextStyle(
+                                  color: colors.sidebarMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -2091,10 +2101,16 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Discover',
                     items: [
                       _SidebarItemData(
-                        HeroIcons.shoppingCart,
+                        HeroIcons.shoppingBag,
                         'Marketplace',
                         activeItemLabel == 'Marketplace',
                         onTap: onStoreTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.megaphone,
+                        'Advert & Partnership',
+                        activeItemLabel == 'Advert & Partnership',
+                        onTap: onAdvertiseTap,
                       ),
                       _SidebarItemData(
                         HeroIcons.tv,
@@ -2145,7 +2161,7 @@ class _SidebarSection extends StatelessWidget {
               style: const TextStyle(
                 color: Color(0xFF7A8FA8),
                 fontSize: 9,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
               ),
             ),
@@ -2188,7 +2204,7 @@ class _SidebarItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: item.onTap == null ? null : () => item.onTap!(),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             decoration: BoxDecoration(
               color: isActive
                   ? activeColor.withValues(alpha: 0.14)
@@ -2210,10 +2226,9 @@ class _SidebarItem extends StatelessWidget {
                 const SizedBox(width: 10),
                 HeroIcon(
                   item.icon,
-                  style:
-                      isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
+                  style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
                   color: isActive ? activeColor : inactiveColor,
-                  size: 16,
+                  size: 17,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2221,10 +2236,11 @@ class _SidebarItem extends StatelessWidget {
                     item.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                     style: TextStyle(
                       color: isActive ? Colors.white : textColor,
-                      fontSize: 12,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
                 ),
@@ -2468,11 +2484,9 @@ class _HomeContent extends StatelessWidget {
         FutureBuilder<GroupPage>(
           future: groupRepository.fetchGroups(page: 1),
           builder: (context, snapshot) {
-            final groups = snapshot.data?.items
-                    .where((group) => group.status == 'active')
-                    .take(2)
-                    .toList(growable: false) ??
-                const <AppGroup>[];
+            final groups = _buildHomeGroupsPreview(
+              snapshot.data?.items ?? const <AppGroup>[],
+            );
             if (groups.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -2614,6 +2628,39 @@ class _HomeContent extends StatelessWidget {
       ],
     );
   }
+}
+
+List<AppGroup> _buildHomeGroupsPreview(List<AppGroup> groups) {
+  final activeGroups = groups
+      .where((group) => group.status == 'active')
+      .toList(growable: false);
+  if (activeGroups.isEmpty) {
+    return const <AppGroup>[];
+  }
+
+  AppGroup? communityGroup;
+  for (final group in activeGroups) {
+    if (group.id == 1) {
+      communityGroup = group;
+      break;
+    }
+  }
+  final otherGroups = activeGroups.where((group) => group.id != 1).toList();
+  otherGroups.shuffle(Random());
+
+  final preview = <AppGroup>[];
+  if (communityGroup != null) {
+    preview.add(communityGroup);
+  }
+  if (otherGroups.isNotEmpty) {
+    preview.add(otherGroups.first);
+  }
+
+  if (preview.isEmpty) {
+    return otherGroups.take(2).toList(growable: false);
+  }
+
+  return preview.take(2).toList(growable: false);
 }
 
 class _HomeLoadingSkeleton extends StatelessWidget {
@@ -3076,7 +3123,7 @@ class _ComposerCard extends StatelessWidget {
 
                 // --- The "Publish" Button ---
                 SizedBox(
-                  height: 36,
+                  height: 28,
                   child: FilledButton(
                     onPressed: null,
                     style: FilledButton.styleFrom(
@@ -4067,7 +4114,7 @@ class _HomeGroupsPreviewCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     child: Text(
-                      'See All ↗',
+                      'See All',
                       style: TextStyle(
                         color: colors.brand,
                         fontSize: 11.5,
@@ -4133,7 +4180,11 @@ class _HomeGroupsPreviewCard extends StatelessWidget {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                '${group.membersCount} members',
+                                group.info.trim().isNotEmpty
+                                    ? group.info
+                                    : 'Join the conversation',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: colors.textMuted,
                                   fontSize: 10.5,

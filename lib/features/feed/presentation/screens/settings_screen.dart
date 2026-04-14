@@ -23,8 +23,8 @@ class SettingsScreen extends StatelessWidget {
   final ProfileRepository profileRepository;
   final ThemeController themeController;
 
-  static const _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.ahopefulme.app';
+  static const _appUrl =
+      'https://www.ahopefulme.com/app';
   static const _officialWebsiteUrl = 'https://www.ahopefulme.com';
 
   Future<void> _openExternalUrl(BuildContext context, String url) async {
@@ -41,11 +41,11 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _copyInviteLink(BuildContext context) async {
-    await Clipboard.setData(const ClipboardData(text: _playStoreUrl));
+    await Clipboard.setData(const ClipboardData(text: _appUrl));
     if (!context.mounted) {
       return;
     }
-    AppToast.success(context, 'Play Store link copied.');
+    AppToast.success(context, 'App link copied.');
   }
 
   @override
@@ -107,7 +107,7 @@ class SettingsScreen extends StatelessWidget {
           _SettingsTile(
             icon: Icons.share_outlined,
             title: 'Invite Friends',
-            subtitle: 'Copy the Play Store link and share HopefulMe.',
+            subtitle: 'Copy the App link and share HopefulMe.',
             onTap: () => _copyInviteLink(context),
           ),
           const SizedBox(height: 14),

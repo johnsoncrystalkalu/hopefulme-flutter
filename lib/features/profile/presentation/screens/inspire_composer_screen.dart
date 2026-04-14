@@ -109,85 +109,91 @@ class _InspireComposerScreenState extends State<InspireComposerScreen> {
               children: [
       // Hero Section
       Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colors.brand.withValues(alpha: 0.95),
-              colors.brand.withValues(alpha: 0.85),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  decoration: BoxDecoration(
+    gradient: LinearGradient(
+      colors: [
+        colors.brand.withValues(alpha: 0.95),
+        colors.brand.withValues(alpha: 0.85),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    borderRadius: BorderRadius.circular(28),
+  ),
+  child: Stack(
+    children: [
+      // Dotted pattern overlay
+      Positioned.fill(
+        child: CustomPaint(
+          painter: _DottedPatternPainter(
+            dotColor: Colors.white.withValues(alpha: 0.06),
+            dotSpacing: 20,
           ),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Stack(
-          children: [
-            // Dotted pattern overlay
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _DottedPatternPainter(
-                  dotColor: Colors.white.withValues(alpha: 0.06),
-                  dotSpacing: 20,
-                ),
-              ),
-            ),
-            // Decorative glow
-            Positioned(
-              top: 0,
-              right: -60,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      colors.brand.withValues(alpha: 0.2),
-                      colors.brand.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 40,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min, // Keep column tight
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('💙', style: TextStyle(fontSize: 48)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'A Gift of Hope',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Send some encouragement to ${widget.profile.displayName}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
-      const SizedBox(height: 24),
+
+      // Decorative glow
+      Positioned(
+        top: 0,
+        right: -60,
+        child: Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                colors.brand.withValues(alpha: 0.2),
+                colors.brand.withValues(alpha: 0),
+              ],
+            ),
+          ),
+        ),
+      ),
+
+      // Content (FIXED)
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 32,
+            vertical: 40,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center, // vertical center
+            crossAxisAlignment: CrossAxisAlignment.center, // horizontal center
+            children: [
+              const Text('💙', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 16),
+              const Text(
+                'A Gift of Hope',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Send some encouragement to ${widget.profile.displayName}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 24),
       // Main Form Card
       Container(
         decoration: BoxDecoration(

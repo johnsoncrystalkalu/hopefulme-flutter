@@ -623,105 +623,116 @@ class _FriendSuggestionCard extends StatelessWidget {
   final VoidCallback onHelloTap;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: onProfileTap,
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: colors.borderStrong),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              children: [
-                Container(
-                  width: 82,
-                  height: 82,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: colors.surface, width: 4),
-                    image: user.photoUrl.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(
-                              ImageUrlResolver.avatar(user.photoUrl, size: 120),
-                            ),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                    color: colors.avatarPlaceholder,
-                  ),
-                  child: user.photoUrl.isEmpty
-                      ? Icon(
-                          Icons.person,
-                          size: 34,
-                          color: colors.accentSoftText,
+Widget build(BuildContext context) {
+  final colors = context.appColors;
+
+  return InkWell(
+    onTap: onProfileTap,
+    borderRadius: BorderRadius.circular(30),
+    child: Container(
+      padding: const EdgeInsets.all(16), // ↓ reduced from 18
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: colors.borderStrong),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 78, // ↓ slightly smaller
+                height: 78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.surface, width: 3),
+                  image: user.photoUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(
+                            ImageUrlResolver.avatar(user.photoUrl, size: 120),
+                          ),
+                          fit: BoxFit.cover,
                         )
                       : null,
+                  color: colors.avatarPlaceholder,
                 ),
-                if (user.isOnline)
-                  Positioned(
-                    right: 4,
-                    bottom: 4,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: colors.success,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
+                child: user.photoUrl.isEmpty
+                    ? Icon(
+                        Icons.person,
+                        size: 32,
+                        color: colors.accentSoftText,
+                      )
+                    : null,
+              ),
+              if (user.isOnline)
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: colors.success,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              user.displayName.split(' ').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              user.cityState.isEmpty ? '@${user.username}' : user.cityState,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onHelloTap,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(40),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
                 ),
-                child: const Text('Connect'),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            user.displayName.split(' ').first,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 15, // ↓ slightly reduced
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            user.cityState.isEmpty ? '@${user.username}' : user.cityState,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+          ),
+
+          const Spacer(), // ✅ pushes button down properly
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: onHelloTap,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(36), // ↓ smaller button
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                'Connect',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _OnlinePanel extends StatelessWidget {

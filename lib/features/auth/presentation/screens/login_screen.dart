@@ -108,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 24),
                           child: Text(
-                            'HopefulMe.',
+                            'HopefulMe',
                             style: TextStyle(
                               color: colors.brand,
                               fontSize: 34,
@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Back to welcome',
+                                'Back',
                                 style: TextStyle(
                                   color: colors.textMuted,
                                   fontWeight: FontWeight.w700,
@@ -167,13 +167,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   'Welcome back!',
                                   style: TextStyle(
                                     color: colors.textPrimary,
-                                    fontSize: 34,
+                                    fontSize: 30,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Sign in to your account to continue.',
+                                  'Sign in to catch up with the community',
                                   style: TextStyle(
                                     color: colors.textMuted,
                                     fontSize: 15,

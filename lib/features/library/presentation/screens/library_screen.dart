@@ -166,7 +166,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   if (_featured.isNotEmpty && _selectedCategory == 'All') ...[
                     const SizedBox(height: 18),
                     Text(
-                      'Members Picks',
+                      'Top Picks',
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 16,

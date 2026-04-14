@@ -149,6 +149,14 @@ class ProfileSummary {
     required this.lastSeen,
     required this.isOnline,
     required this.activityLevel,
+    this.registeredDate = '',
+    this.idCard = '',
+    this.socialHandle = '',
+    this.subEmail = '',
+    this.invitedBy = '',
+    this.lwpStatus = '',
+    this.phoneCode = '',
+    this.friend = '',
   });
 
   final int id;
@@ -178,9 +186,25 @@ class ProfileSummary {
   final String lastSeen;
   final bool isOnline;
   final ProfileActivityLevel activityLevel;
+  final String registeredDate;
+  final String idCard;
+  final String socialHandle;
+  final String subEmail;
+  final String invitedBy;
+  final String lwpStatus;
+  final String phoneCode;
+  final String friend;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
   bool get isVerified => verified.toLowerCase() == 'yes';
+  String get formattedPhoneNumber {
+    final number = phoneNumber.trim();
+    if (number.isEmpty) {
+      return '';
+    }
+    final code = phoneCode.trim().isEmpty ? '234' : phoneCode.trim();
+    return '+$code$number';
+  }
 
   FeedUser toFeedUser() {
     return FeedUser(
@@ -237,6 +261,24 @@ class ProfileSummary {
       activityLevel: ProfileActivityLevel.fromJson(
         json['activity_level'] as Map<String, dynamic>? ?? <String, dynamic>{},
       ),
+      registeredDate:
+          json['registered_date']?.toString() ??
+          json['created_at']?.toString() ??
+          '',
+      idCard: json['card']?.toString() ?? '',
+      socialHandle:
+          json['socialmedia']?.toString() ??
+          json['social_handle']?.toString() ??
+          '',
+      subEmail: json['sub_email']?.toString() ?? '',
+      invitedBy:
+          (json['referrer'] as Map<String, dynamic>?)?['fullname']
+              ?.toString() ??
+          json['invited_by']?.toString() ??
+          '',
+      lwpStatus: json['lwp']?.toString() ?? '',
+      phoneCode: json['phone_code']?.toString() ?? '',
+      friend: json['friend']?.toString() ?? '',
     );
   }
 }

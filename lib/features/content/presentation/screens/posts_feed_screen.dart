@@ -381,7 +381,7 @@ class _PostsHeroHeader extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: Text(
-                        'Stay informed with the latest posts, events, news etc from the community.',
+                        'Stay up to date with the official posts from the community.',
                         style: TextStyle(
                           color: colors.textMuted,
                           fontSize: 13.5,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
@@ -424,6 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _ProfileBody(
                             selectedTab: _selectedTab,
                             dashboard: dashboard,
+                            currentUser: widget.currentUser,
                             isCurrentUser:
                                 widget.currentUser?.username ==
                                 dashboard.profile.username,
@@ -442,6 +445,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onOpenUpdate: _openUpdate,
                             onSeeAllUpdates: _openUpdatesFeed,
                           ),
+                          if (widget.currentUser?.isAdmin == true) ...[
+                            const SizedBox(height: 18),
+                            _AdminProfilePanel(profile: dashboard.profile),
+                          ],
                         ],
                       ),
                     ),
@@ -474,6 +481,29 @@ bool _isBirthdayToday(String birthday) {
 
   final now = DateTime.now();
   return now.day == day && now.month == month;
+}
+
+Future<void> _openActivityRankHelp(BuildContext context) {
+  final baseUrl = AppConfig.fromEnvironment().webBaseUrl;
+  final helpUrl = '$baseUrl/how-it-works#activityrank';
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (context) =>
+          WebPageScreen(title: 'How Activity Rank Works', url: helpUrl),
+    ),
+  );
+}
+
+Future<void> _openAdminEditUser(BuildContext context, String username) {
+  final baseUrl = AppConfig.fromEnvironment().webBaseUrl;
+  final normalizedUsername = username.trim().replaceFirst('@', '');
+  final url = '$baseUrl/admin/users/$normalizedUsername/edit';
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (context) =>
+          WebPageScreen(title: 'Admin User Settings', url: url),
+    ),
+  );
 }
 
 enum _ProfileTab { timeline, about, photos, articles }
@@ -1081,6 +1111,13 @@ class _MutualFollowersRow extends StatelessWidget {
     }
 
     final first = mutualFollowers.first;
+    final displayedFollowers = mutualFollowers.take(3).toList(growable: false);
+    final avatarStackWidth = 22 + ((displayedFollowers.length - 1) * 14);
+    final firstNameParts = first.displayName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
     final suffix = mutualFollowers.length > 1
         ? ' & ${mutualFollowers.length - 1} others'
         : '';
@@ -1088,11 +1125,11 @@ class _MutualFollowersRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 50,
+          width: avatarStackWidth.toDouble(),
           height: 22,
           child: Stack(
             children: [
-              for (var i = 0; i < mutualFollowers.length && i < 3; i++)
+              for (var i = 0; i < displayedFollowers.length; i++)
                 Positioned(
                   left: i * 14,
                   child: Container(
@@ -1104,10 +1141,10 @@ class _MutualFollowersRow extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: AppNetworkImage(
-                        imageUrl: mutualFollowers[i].photoUrl,
+                        imageUrl: displayedFollowers[i].photoUrl,
                         fit: BoxFit.cover,
                         backgroundColor: colors.avatarPlaceholder,
-                        placeholderLabel: mutualFollowers[i].displayName,
+                        placeholderLabel: displayedFollowers[i].displayName,
                       ),
                     ),
                   ),
@@ -1118,7 +1155,9 @@ class _MutualFollowersRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Followed by ${first.displayName}$suffix',
+            'Followed by ${firstNameParts.isNotEmpty ? firstNameParts.first : first.displayName}$suffix',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 11.5,
@@ -1223,14 +1262,34 @@ class _ActivityLevelCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Progress to next level is visible only to you.',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 10.5,
-                fontStyle: FontStyle.italic,
-                fontWeight: FontWeight.w500,
-              ),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                Text(
+                  'Progress to next level is visible only to you.',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 10.5,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _openActivityRankHelp(context),
+                  child: Text(
+                    'Learn more',
+                    style: TextStyle(
+                      color: colors.brand,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: colors.brand,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -1306,6 +1365,7 @@ class _ProfileBody extends StatelessWidget {
   const _ProfileBody({
     required this.selectedTab,
     required this.dashboard,
+    required this.currentUser,
     required this.isCurrentUser,
     required this.onSeeAllPhotos,
     required this.onSeeAllArticles,
@@ -1313,6 +1373,7 @@ class _ProfileBody extends StatelessWidget {
 
   final _ProfileTab selectedTab;
   final ProfileDashboard dashboard;
+  final User? currentUser;
   final bool isCurrentUser;
   final Future<void> Function() onSeeAllPhotos;
   final Future<void> Function() onSeeAllArticles;
@@ -1324,7 +1385,7 @@ class _ProfileBody extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildPrimaryContent()),
+        Expanded(child: _buildPrimaryContent(context)),
         if (isWide) ...[
           const SizedBox(width: 18),
           SizedBox(width: 300, child: _ProfileRail(profile: dashboard.profile)),
@@ -1333,29 +1394,25 @@ class _ProfileBody extends StatelessWidget {
     );
   }
 
-  Widget _buildPrimaryContent() {
-    switch (selectedTab) {
-      case _ProfileTab.timeline:
-        return _ProfileTimeline(
-          dashboard: dashboard,
-          isCurrentUser: isCurrentUser,
-        );
-      case _ProfileTab.about:
-        return _AboutTab(
-          profile: dashboard.profile,
-          isCurrentUser: isCurrentUser,
-        );
-      case _ProfileTab.photos:
-        return _PhotosPreviewTab(
-          items: _latestUpdatePhotos(dashboard),
-          onViewAll: onSeeAllPhotos,
-        );
-      case _ProfileTab.articles:
-        return _ArticlesTab(
-          items: dashboard.blogs.take(2).toList(),
-          onSeeAll: onSeeAllArticles,
-        );
-    }
+  Widget _buildPrimaryContent(BuildContext context) {
+    return switch (selectedTab) {
+      _ProfileTab.timeline => _ProfileTimeline(
+        dashboard: dashboard,
+        isCurrentUser: isCurrentUser,
+      ),
+      _ProfileTab.about => _AboutTab(
+        profile: dashboard.profile,
+        isCurrentUser: isCurrentUser,
+      ),
+      _ProfileTab.photos => _PhotosPreviewTab(
+        items: _latestUpdatePhotos(dashboard),
+        onViewAll: onSeeAllPhotos,
+      ),
+      _ProfileTab.articles => _ArticlesTab(
+        items: dashboard.blogs.take(2).toList(),
+        onSeeAll: onSeeAllArticles,
+      ),
+    };
   }
 }
 
@@ -1386,6 +1443,7 @@ class _ProfileTimeline extends StatelessWidget {
                   icon: Icons.email_outlined,
                   label: dashboard.profile.email,
                 ),
+
               if (dashboard.profile.role2.isNotEmpty)
                 _OverviewRow(
                   icon: Icons.person_outline,
@@ -1625,10 +1683,12 @@ class _AboutTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = <MapEntry<String, String>>[
       if (isCurrentUser) MapEntry('Email', profile.email),
-      MapEntry('Identity', profile.role2),
-      MapEntry('Role', profile.role1),
+
+      //MapEntry('Role', profile.role1),
+      MapEntry('Gender', profile.gender),
+  if (profile.birthday !='-') MapEntry('Birthday', profile.birthday.toString()),
       MapEntry('Location', profile.locationLabel),
-      MapEntry('Hobbies', profile.hobby),
+      // MapEntry('Hobbies', profile.hobby),
       if (isCurrentUser) MapEntry('Phone', profile.phoneNumber),
       // MapEntry(
       //   'Last seen',
@@ -1916,6 +1976,119 @@ class _ProfileRail extends StatelessWidget {
   }
 }
 
+class _AdminProfilePanel extends StatelessWidget {
+  const _AdminProfilePanel({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final details = <MapEntry<String, String>>[
+      MapEntry('User ID', '${profile.id}'),
+      MapEntry('Username', '@${profile.username}'),
+      MapEntry('Registered', profile.registeredDate),
+      MapEntry('Last Activity', profile.lastSeen),
+      MapEntry('ID Card', profile.idCard),
+      MapEntry('Social Handle', profile.socialHandle),
+      MapEntry('Primary Email', profile.email),
+      MapEntry('Sub Email', profile.subEmail),
+      MapEntry('Invited By', profile.invitedBy),
+      MapEntry('LWP Status', profile.lwpStatus),
+      MapEntry('Phone Number', profile.formattedPhoneNumber),
+      MapEntry('Friend', profile.friend),
+    ].where((entry) => entry.value.trim().isNotEmpty).toList();
+
+    return _PanelCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Admin Control Panel',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.brand.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Authorized',
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => _openAdminEditUser(context, profile.username),
+            icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+            label: const Text('Settings & Security'),
+          ),
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            ...details.map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        entry.key,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 6,
+                      child: Text(
+                        entry.value,
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 13,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _UpdateCard extends StatelessWidget {
   const _UpdateCard({
     required this.item,
@@ -2195,15 +2368,13 @@ class _LargeAvatar extends StatelessWidget {
                         color: context.appColors.surface,
                         width: 3,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: context.appColors.shadow.withValues(
-                            alpha: 0.18,
-                          ),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                   boxShadow: [
+                BoxShadow(
+                  color: context.appColors.shadow.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
                     ),
                     child: const Icon(
                       Icons.photo_camera_outlined,

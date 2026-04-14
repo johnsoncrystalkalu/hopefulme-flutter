@@ -1,0 +1,1066 @@
+HOPEFULME FLUTTER APP DOCUMENTATION
+===================================
+
+Last updated: 2026-04-14
+Project path: C:\Users\Johnson Crystal Kalu\Desktop\flutter\projects\hopefulme-flutter
+App name: HopefulMe
+Current app version: 10.0.2+52
+
+
+1. PROJECT OVERVIEW
+===================
+
+HopefulMe is a feature-based Flutter mobile application that connects to the HopefulMe backend API and web platform. The app combines authentication, social feed features, messaging, profiles, groups, notifications, library content, inspirational content, search, and deep-link driven navigation.
+
+The project is structured for modular growth:
+
+- app-level setup lives in lib/app
+- reusable platform and shared code lives in lib/core
+- product modules live in lib/features
+- static assets live in assets
+- platform runners live in android, ios, web, windows, linux, and macos
+
+At a high level, the app works like this:
+
+1. Flutter starts in lib/main.dart.
+2. HopefulMeApp bootstraps global services and repositories.
+3. The app restores theme and auth session.
+4. If the user is authenticated, the app shows the main HomeScreen shell.
+5. If the user is not authenticated, the app shows the welcome/auth flow.
+6. While running, the app handles:
+   - version checks
+   - OneSignal push notifications
+   - app deep links
+   - user presence pinging
+   - cached API-backed content
+
+
+2. TECHNOLOGY STACK
+===================
+
+Core framework:
+- Flutter
+- Dart SDK ^3.11.4
+
+Main packages in use:
+- http: REST API calls
+- shared_preferences: local lightweight persistence
+- app_links: deep link handling
+- onesignal_flutter: push notifications
+- webview_flutter: in-app web pages
+- url_launcher: launching external URLs
+- package_info_plus: app version detection
+- image_picker: media selection
+- image_cropper: media cropping
+- gallery_saver_plus: saving images/media
+- syncfusion_flutter_pdfviewer: PDF viewing
+- shimmer: loading skeletons
+- heroicons and phosphor_flutter: icons
+- emoji_picker_flutter: emoji input support
+
+Current asset registration:
+- assets/images/
+
+
+3. TOP-LEVEL FOLDER STRUCTURE
+=============================
+
+Root folders:
+
+- android/                Android native runner and config
+- ios/                    iOS native runner and config
+- web/                    Web platform shell
+- windows/                Windows desktop shell
+- linux/                  Linux desktop shell
+- macos/                  macOS desktop shell
+- assets/                 App assets, currently image assets
+- lib/                    Main Flutter application source code
+- test/                   Flutter tests
+- build/                  Generated build output
+
+Important root files:
+
+- pubspec.yaml            Dependencies, app version, assets, launcher icon config
+- pubspec.lock            Locked dependency versions
+- analysis_options.yaml   Linting rules
+- README.md               Currently still generic and not project-specific
+- build_verbose.log       Build log output
+
+
+4. LIB FOLDER ARCHITECTURE
+==========================
+
+The lib folder uses a mixed architecture:
+
+- app/ for app-wide setup and theme
+- core/ for reusable shared infrastructure
+- features/ for domain/product modules
+
+This is a strong structure for a growing team because it avoids putting all files into a single flat presentation layer.
+
+lib/
+|- main.dart
+|- app/
+|  |- app.dart
+|  |- theme/
+|     |- app_theme.dart
+|     |- theme_controller.dart
+|- core/
+|  |- config/
+|  |- navigation/
+|  |- network/
+|  |- presentation/
+|  |- services/
+|  |- storage/
+|  |- utils/
+|  |- widgets/
+|- features/
+|  |- auth/
+|  |- community/
+|  |- content/
+|  |- feed/
+|  |- groups/
+|  |- library/
+|  |- messages/
+|  |- notifications/
+|  |- profile/
+|  |- search/
+|  |- updates/
+
+
+5. APPLICATION STARTUP FLOW
+===========================
+
+5.1 Entry point
+
+File:
+- lib/main.dart
+
+Responsibilities:
+- ensures Flutter bindings are initialized
+- runs HopefulMeApp
+
+5.2 Root app
+
+File:
+- lib/app/app.dart
+
+HopefulMeApp is the real application bootstrapper. It is a StatefulWidget because it owns app-wide services, listeners, lifecycle hooks, timers, and repository instances.
+
+Main responsibilities of HopefulMeApp:
+
+- create and hold the Navigator key
+- restore theme choice
+- load environment configuration
+- create TokenStorage and PageCache
+- create ApiClient
+- create AuthController
+- create feature repositories
+- initialize deep links
+- initialize OneSignal
+- run app version checks
+- keep online presence updated
+- decide whether to show loading, auth, or home UI
+
+Important global objects created here:
+
+- ThemeController
+- AuthController
+- FeedRepository
+- ContentRepository
+- ProfileRepository
+- NotificationRepository
+- MessageRepository
+- GroupRepository
+- UpdateRepository
+- SearchRepository
+- LibraryRepository
+
+Why this matters:
+- the app is using manual dependency wiring instead of Provider, Riverpod, Bloc, or GetX
+- dependencies are passed down through constructors
+- this makes dependency flow explicit, but it also means app.dart and large screens can become heavy if not kept disciplined
+
+
+6. APP CONFIGURATION
+====================
+
+File:
+- lib/core/config/app_config.dart
+
+Responsibilities:
+- defines app name
+- defines request timeout
+- stores OneSignal app ID
+- resolves API base URL
+- derives webBaseUrl from baseUrl
+
+Default API base URL:
+- https://ahopefulme.com/api
+
+Environment override:
+- API_BASE_URL via --dart-define
+
+Important note for developers:
+- the app is prepared to run against a different backend by using API_BASE_URL
+- this should be used for staging, local backend, or QA environments
+
+Example:
+- flutter run --dart-define=API_BASE_URL=https://staging.example.com/api
+
+
+7. THEME SYSTEM
+===============
+
+Files:
+- lib/app/theme/app_theme.dart
+- lib/app/theme/theme_controller.dart
+
+ThemeController responsibilities:
+- stores current ThemeMode
+- restores theme from SharedPreferences
+- persists theme updates
+- exposes helper text for the current theme label
+
+Current behavior:
+- defaults to light mode if nothing is stored
+- toggles between light and dark
+- not much global theme state exists beyond ThemeMode
+
+Team note:
+- if theming grows further, app_theme.dart should remain the single source of design tokens, colors, type scales, surfaces, and component styling
+
+
+8. AUTHENTICATION AND SESSION MANAGEMENT
+========================================
+
+Files:
+- lib/features/auth/data/auth_repository.dart
+- lib/features/auth/presentation/controllers/auth_controller.dart
+- lib/features/auth/models/
+- lib/features/auth/presentation/screens/
+- lib/core/storage/token_storage.dart
+
+8.1 AuthRepository
+
+AuthRepository wraps the lower-level ApiClient and exposes auth-specific operations:
+
+- login
+- register
+- forgot password request
+- reset password
+- fetch current user
+- check username availability
+- fetch registration roles
+- ping presence
+- create web session bridge links
+- logout
+- register OneSignal player ID
+- local session helpers
+
+8.2 AuthController
+
+AuthController is a ChangeNotifier that manages auth state for the UI.
+
+State it owns:
+- isLoading
+- isBootstrapping
+- isAuthenticated
+- errorMessage
+- currentUser
+
+Important flow:
+
+1. restoreSession() checks if a token exists.
+2. If a cached user exists, it uses it immediately.
+3. It then refreshes the session in the background.
+4. If unauthorized, it clears local session state.
+5. UI rebuilds based on notifier changes.
+
+Why this is useful:
+- boot is faster because cached user data can render before a fresh auth/me call returns
+- the app remains resilient when the network is temporarily unavailable
+
+8.3 Local storage used for auth
+
+The project stores:
+- auth token
+- cached user object
+- theme mode
+- page cache entries
+
+This makes the app partly offline-tolerant for already visited pages.
+
+
+9. NETWORK LAYER
+================
+
+Files:
+- lib/core/network/api_client.dart
+- lib/core/network/api_exception.dart
+- lib/core/network/image_url_resolver.dart
+
+9.1 ApiClient responsibilities
+
+ApiClient is the shared HTTP gateway for the application.
+
+Supported request types:
+- GET
+- POST
+- PATCH
+- PUT
+- DELETE
+- multipart POST
+- multipart PUT via POST + _method=PUT
+
+Key behaviors:
+- injects Authorization header when token exists
+- sets Accept and Content-Type headers
+- enforces request timeout
+- normalizes base URL and request paths
+- decodes JSON safely
+- handles common HTTP errors with user-friendly messages
+- throws ApiException for UI-friendly error handling
+
+9.2 Error handling approach
+
+The network layer does a good amount of user-facing safety work:
+
+- timeout errors are translated into readable messages
+- transport errors are translated into readable messages
+- non-JSON error responses are handled
+- validation errors are extracted from the API error payload
+- common status codes have friendly fallback messages
+
+This means repositories and screens can stay cleaner because the low-level formatting of failures is already handled centrally.
+
+
+10. CACHING AND LIGHTWEIGHT PERSISTENCE
+=======================================
+
+Files:
+- lib/core/storage/page_cache.dart
+- lib/core/storage/token_storage.dart
+
+10.1 PageCache
+
+PageCache is a simple SharedPreferences-backed JSON cache.
+
+Pattern used by many repositories:
+
+1. try live API request
+2. save result to cache
+3. if request fails, read cached result
+4. if cache exists, return cached model
+5. otherwise rethrow error
+
+Benefits:
+- app can still display previously fetched data during network issues
+- repeated entry to common screens can feel faster
+
+Tradeoff:
+- there is no visible cache expiration strategy in the shared cache helper
+- teams should be aware that stale data can appear if backend changes often
+
+
+11. NAVIGATION STRATEGY
+=======================
+
+Files:
+- lib/core/navigation/app_deep_link_navigator.dart
+- lib/core/navigation/app_route_observer.dart
+- lib/core/presentation/screens/web_page_screen.dart
+
+Navigation style:
+- manual Navigator.push with MaterialPageRoute
+- named routes only for a small subset of entry screens
+- deep links resolved manually through AppDeepLinkNavigator
+
+11.1 AppDeepLinkNavigator
+
+This class is one of the most important architectural pieces in the app.
+
+It maps incoming URI paths to native screens such as:
+
+- user profiles
+- updates feed
+- update detail
+- posts feed
+- post detail
+- blogs feed
+- blog detail
+- library list and details
+- messages list and threads
+- groups list and group thread
+- birthdays
+- search
+- inspiration inbox and detail
+
+Fallback behavior:
+- if a deep link is valid but not mapped to a native screen, it opens a WebPageScreen with the corresponding web URL
+
+Why this is important:
+- the app is not only screen-driven
+- it is also URL-driven
+- this is critical for notifications, shared links, and cross-platform consistency with the web product
+
+
+12. PUSH NOTIFICATIONS
+======================
+
+File:
+- lib/core/services/onesignal_service.dart
+
+Responsibilities:
+- initialize OneSignal
+- request notification permissions
+- listen for foreground notifications
+- handle notification click events
+- sync OneSignal player identity
+- manage external user ID
+
+Important app.dart integration:
+
+- after OneSignal initializes, the app registers subscription observers
+- if the user is logged in, the app syncs the player ID to the backend
+- notification taps can open native screens or web pages depending on payload
+
+Special behavior:
+- chat notifications may be suppressed if the user is already viewing the same active conversation
+
+Team note:
+- this service acts as the boundary between push payloads and app navigation
+- backend payload changes should be coordinated with app.dart notification tap handling and AppDeepLinkNavigator
+
+
+13. APP LIFECYCLE BEHAVIOR
+==========================
+
+HopefulMeApp observes Flutter lifecycle changes and reacts in several important ways.
+
+13.1 Presence tracking
+
+When the user is authenticated and the app is foregrounded:
+- a timer pings the backend every 90 seconds
+- this likely supports online presence or "active now" style behavior
+
+13.2 Version check
+
+The app checks:
+- after first frame
+- when auth state changes into authenticated
+- when the app resumes
+
+Version endpoint:
+- GET {baseUrl}/api/app/version
+
+Possible outcomes:
+- force update dialog
+- soft update prompt shown once per session
+- no prompt if app is current
+
+13.3 Deep link queueing
+
+The app keeps pending deep links and drains them when:
+- the navigator context is ready
+- auth state allows the route to be opened
+
+This prevents startup race conditions between app initialization and navigation.
+
+
+14. HOME SHELL AND MAIN USER EXPERIENCE
+=======================================
+
+Main file:
+- lib/features/feed/presentation/screens/home_screen.dart
+
+HomeScreen is the post-login shell and one of the largest and most central screens in the codebase.
+
+It receives a large number of dependencies:
+- AuthController
+- ThemeController
+- FeedRepository
+- ContentRepository
+- NotificationRepository
+- MessageRepository
+- GroupRepository
+- ProfileRepository
+- SearchRepository
+- UpdateRepository
+- LibraryRepository
+
+What HomeScreen appears to handle:
+- dashboard loading
+- unread top bar counts
+- home feed updates and pagination
+- profile shortcuts
+- groups preview
+- messages navigation
+- notifications navigation
+- search and content shortcuts
+- shell preferences such as in-app notifications toggle
+- polling while visible
+
+Architecture takeaway:
+- HomeScreen currently acts as a "super screen" or shell controller
+- it centralizes a lot of product behavior
+- this is functional, but it is also one of the main areas that may need future decomposition as the team grows
+
+Recommended mental model:
+- treat HomeScreen as the signed-in shell
+- feature-specific business logic should still stay in repositories, dedicated widgets, and feature screens where possible
+
+
+15. FEATURE MODULE BREAKDOWN
+============================
+
+The project follows a consistent feature-first structure.
+
+Most feature folders use:
+- data/
+- models/
+- presentation/
+
+This is helpful because each feature owns:
+- API access
+- model parsing
+- screens/widgets/controllers for UI
+
+15.1 auth/
+
+Purpose:
+- onboarding and authentication
+
+Contains:
+- auth repository
+- auth session and user models
+- auth controller
+- welcome, login, register, forgot password, and reset password screens
+- auth presentation widgets
+
+When to add code here:
+- sign-in flow
+- sign-up flow
+- session management UI
+- password recovery UI
+
+15.2 community/
+
+Purpose:
+- community-specific social discovery experiences
+
+Observed presentation examples:
+- meet new friends screen
+- most active user widgets
+
+When to add code here:
+- friend discovery
+- community spotlight
+- leaderboard/community engagement UI
+
+15.3 content/
+
+Purpose:
+- post, blog, inspiration detail and interactions
+
+Contains:
+- ContentRepository
+- content detail models
+- content navigation helpers
+- post/blog/inspiration feed and detail screens
+
+Capabilities observed:
+- fetch post
+- fetch blog
+- fetch inspiration detail
+- fetch inspiration inbox
+- add comments
+- add comment replies
+- create blog
+- update blog
+- delete blog
+
+When to add code here:
+- post/blog detail interactions
+- comments and replies
+- inspiration features
+- content create/edit flows related to blogs
+
+15.4 feed/
+
+Purpose:
+- dashboard and broad content aggregation
+
+Contains:
+- FeedRepository
+- feed models such as dashboard and entries
+- HomeScreen
+- settings screen
+- birthdays screen
+- feed widgets and special cards
+
+Capabilities observed:
+- fetch dashboard
+- fetch posts page
+- fetch updates page
+- fetch blogs page
+- fetch birthday/community data
+- fetch friend of the day
+- fetch most active users
+- fetch leaderboard
+
+When to add code here:
+- signed-in landing page
+- cross-feature feed composition
+- top-level discovery cards
+
+15.5 groups/
+
+Purpose:
+- group chat and group interactions
+
+Contains:
+- group repository
+- group models
+- groups list screen
+- group thread screen
+
+When to add code here:
+- group thread behavior
+- group list/join/leave member UX
+- group unread count handling
+
+15.6 library/
+
+Purpose:
+- document/book/library browsing
+
+Contains:
+- LibraryRepository
+- library models
+- library list and detail screens
+
+Capabilities observed:
+- paginated library browsing
+- category filtering
+- item detail fetch
+
+When to add code here:
+- library discovery
+- file/book detail pages
+- PDF/document improvements
+
+15.7 messages/
+
+Purpose:
+- direct messaging
+
+Contains:
+- MessageRepository
+- conversation and thread models
+- conversation list screen
+- message thread screen
+
+Capabilities observed:
+- fetch conversations
+- fetch message thread
+- send text or photo messages
+- set typing state
+- delete message
+
+When to add code here:
+- one-to-one chat
+- attachments
+- typing and read/unread behavior
+
+15.8 notifications/
+
+Purpose:
+- in-app notifications center
+
+Contains:
+- notification repository
+- notification models
+- notifications screen
+- notification navigation helpers
+
+When to add code here:
+- notification list UX
+- notification detail routing
+- notification read/unread handling
+
+15.9 profile/
+
+Purpose:
+- user profile and profile editing
+
+Contains:
+- ProfileRepository
+- profile dashboard models
+- profile navigation helpers
+- profile, edit profile, media update screens
+
+Capabilities observed:
+- fetch profile
+- follow/unfollow
+- followers/following pagination
+- user updates/blogs/photos
+- send inspirations
+- upload/remove profile photo
+- upload/remove cover photo
+- update profile
+- fetch edit options
+- report user
+
+When to add code here:
+- profile presentation
+- edit profile forms
+- media/profile identity UX
+- reporting and social relationship actions
+
+15.10 search/
+
+Purpose:
+- universal search experience
+
+Contains:
+- search repository
+- search result model
+- search screen
+
+When to add code here:
+- global content or user search
+- search filters
+- query-based navigation
+
+15.11 updates/
+
+Purpose:
+- social updates/activity posts
+
+Contains:
+- update repository
+- update detail model
+- updates feed screen
+- update detail screen
+- update submission and interactive update widgets
+
+When to add code here:
+- update feed
+- update detail
+- update submission
+- reactions, comments, and update interactions
+
+
+16. CORE SHARED LAYERS
+======================
+
+16.1 core/config/
+
+Shared environment and runtime app configuration.
+
+16.2 core/navigation/
+
+Shared route observer and deep link resolution.
+
+16.3 core/network/
+
+HTTP client, API exception handling, and image URL helper utilities.
+
+16.4 core/presentation/
+
+Shared screens used across features, such as generic web page display.
+
+16.5 core/services/
+
+Platform or external integration services, currently OneSignal.
+
+16.6 core/storage/
+
+Local persistence helpers including token and page caching.
+
+16.7 core/utils/
+
+Pure helper utilities such as:
+- app error text handling
+- JSON parsing helpers
+- time formatting
+
+16.8 core/widgets/
+
+Reusable UI components used across multiple features, including:
+- avatar rendering
+- network image widgets
+- app bars
+- send action button
+- status state displays
+- toasts
+- rich text rendering
+- shimmer loaders
+- verified name text
+
+Team rule of thumb:
+- if a widget is generic and reused in multiple features, it belongs in core/widgets
+- if it is specific to one feature or business context, it should stay inside that feature's presentation/widgets folder
+
+
+17. DATA FLOW PATTERN
+=====================
+
+The project generally follows this flow:
+
+UI Screen/Widget
+-> Controller or screen state logic
+-> Feature Repository
+-> AuthRepository or ApiClient
+-> Backend API
+-> JSON model parsing
+-> UI rebuild
+
+Common implementation pattern:
+
+1. Screen requests data from repository.
+2. Repository calls AuthRepository or ApiClient.
+3. Response is converted into strongly typed models.
+4. Repository may cache the response.
+5. Screen renders typed data.
+
+This is a simple and understandable architecture for teams that prefer explicit code over heavy state-management frameworks.
+
+
+18. STATE MANAGEMENT APPROACH
+=============================
+
+The app does not appear to use Provider, Riverpod, Bloc, Cubit, Redux, or GetX as its main state layer.
+
+Instead it uses:
+- StatefulWidget state
+- ChangeNotifier
+- AnimatedBuilder
+- constructor dependency injection
+- Future-based screen loading
+- ValueNotifier for some isolated UI state
+
+Strengths of this approach:
+- easy to trace
+- fewer abstractions
+- straightforward for small to medium teams
+
+Tradeoffs:
+- some screens can grow very large
+- dependency passing can become verbose
+- global coordination becomes harder as the app grows
+
+Current practical advice:
+- keep app-wide state in well-defined controllers/services
+- keep feature logic in repositories
+- avoid putting API logic directly in widgets
+- consider introducing a stronger state pattern only if team size, complexity, or testing burden increases
+
+
+19. ASSETS
+==========
+
+Registered assets:
+- assets/images/app-icon.png
+- assets/images/hopefulme-logo.png
+- assets/images/logo-banner-light.png
+
+Current pubspec registration:
+- assets/images/
+
+Launcher icon config:
+- flutter_launcher_icons is configured in pubspec.yaml
+- source icon: assets/images/app-icon.png
+
+
+20. PLATFORM SUPPORT
+====================
+
+The repository includes platform folders for:
+- Android
+- iOS
+- Web
+- Windows
+- Linux
+- macOS
+
+However, developers should verify product support expectations before assuming all platforms are production-ready. The presence of generated platform folders does not automatically mean every feature has been validated on every platform.
+
+Areas that may need platform-specific verification:
+- push notifications
+- media picking/cropping
+- external links
+- file/PDF viewing
+- deep links
+
+
+21. TESTING STATUS
+==================
+
+Current observed test folder content:
+- test/widget_test.dart
+
+This suggests the project currently has minimal automated test coverage.
+
+Team implication:
+- most confidence currently comes from manual testing
+- regression risk is higher when editing central files like app.dart and home_screen.dart
+
+Recommended next testing priorities:
+
+1. AuthController unit tests
+2. ApiClient response and error handling tests
+3. Repository parsing tests for key features
+4. Widget tests for auth boot routing
+5. Widget tests for deep link routing where practical
+
+
+22. CODING CONVENTIONS ALREADY VISIBLE IN THE PROJECT
+=====================================================
+
+Patterns already used:
+- feature-first folder organization
+- repository classes for data access
+- models separated from repositories
+- presentation separated into screens/widgets/controllers
+- shared reusable UI in core/widgets
+- local persistence through SharedPreferences
+- constructor-based dependency passing
+
+These patterns should be preserved for consistency unless the team intentionally refactors the architecture.
+
+
+23. HOW TO ADD A NEW FEATURE CORRECTLY
+======================================
+
+Recommended structure:
+
+lib/features/new_feature/
+|- data/
+|  |- new_feature_repository.dart
+|- models/
+|  |- new_feature_model.dart
+|- presentation/
+|  |- screens/
+|  |- widgets/
+|  |- controllers/   (only if needed)
+
+Recommended process:
+
+1. Add API methods inside a repository, not directly inside the screen.
+2. Add JSON parsing models in models/.
+3. Build screen and widgets in presentation/.
+4. If the feature needs app-wide entry access, wire the repository in app.dart.
+5. If the feature must open from links or notifications, update AppDeepLinkNavigator and any notification payload handling.
+6. If the feature needs shared reusable UI, move only the generic pieces into core/widgets.
+
+
+24. HOW TO TRACE A BUG IN THIS PROJECT
+======================================
+
+If the bug is auth-related:
+- start at auth_controller.dart
+- then auth_repository.dart
+- then api_client.dart
+
+If the bug is home-shell related:
+- start at home_screen.dart
+- then inspect the repository feeding that section
+
+If the bug is deep-link related:
+- start at app.dart deep link setup
+- then app_deep_link_navigator.dart
+
+If the bug is notification-related:
+- start at onesignal_service.dart
+- then app.dart notification tap handler
+
+If the bug is incorrect data rendering:
+- inspect feature models first
+- then repository parsing
+- then widget rendering
+
+
+25. IMPORTANT FILES NEW DEVELOPERS SHOULD READ FIRST
+====================================================
+
+Suggested reading order for onboarding:
+
+1. lib/main.dart
+2. lib/app/app.dart
+3. lib/core/config/app_config.dart
+4. lib/core/network/api_client.dart
+5. lib/features/auth/presentation/controllers/auth_controller.dart
+6. lib/features/auth/data/auth_repository.dart
+7. lib/core/navigation/app_deep_link_navigator.dart
+8. lib/features/feed/presentation/screens/home_screen.dart
+9. one repository and one screen from the feature you plan to work on
+
+
+26. CURRENT ARCHITECTURAL STRENGTHS
+===================================
+
+- clear feature-first code organization
+- explicit dependency wiring
+- repositories separate API concerns from UI
+- useful lightweight caching strategy
+- deep links are treated as first-class navigation inputs
+- shared widgets are grouped sensibly under core
+- auth bootstrapping is resilient because of cached session recovery
+
+
+27. CURRENT ARCHITECTURAL RISKS OR GROWTH AREAS
+===============================================
+
+- app.dart is a heavy composition root and may grow further
+- home_screen.dart is very large and acts as a shell plus feature coordinator
+- there is minimal automated test coverage
+- cache invalidation strategy is simple and may allow stale data
+- manual dependency passing may become noisy as more features are added
+
+These are not failures. They are the main areas the team should keep an eye on as the codebase grows.
+
+
+28. RECOMMENDED TEAM GUIDELINES
+===============================
+
+For consistency, the team should try to follow these rules:
+
+- keep API calls inside repositories
+- keep model parsing out of UI widgets
+- keep feature-specific widgets inside the owning feature
+- keep cross-feature reusable widgets in core/widgets
+- update deep-link handling whenever a new URL-addressable screen is introduced
+- update notification routing whenever backend notification payloads change
+- prefer extending existing repositories over duplicating network calls in screens
+- keep app.dart focused on composition and global lifecycle logic
+- split oversized screens into smaller widgets before they become unmaintainable
+
+
+29. QUICK REFERENCE SUMMARY
+===========================
+
+If you remember only a few things about this project, remember these:
+
+- lib/app/app.dart is the application composition root
+- lib/core contains shared infrastructure and reusable components
+- lib/features contains product modules grouped by business domain
+- repositories are the main data access layer
+- AuthController controls login/session UI state
+- HomeScreen is the main authenticated shell
+- AppDeepLinkNavigator is the central deep-link routing layer
+- SharedPreferences is used for token, user cache, theme, and page cache
+- OneSignal powers notification integration
+
+
+30. FINAL ONBOARDING NOTE
+=========================
+
+This codebase is already organized around a solid feature-first structure that is understandable for a team. The most important thing for new contributors is to respect the existing boundaries:
+
+- app/ for app-wide composition
+- core/ for shared building blocks
+- features/ for business modules
+
+If the team keeps that separation clear, the project can continue growing without becoming difficult to navigate.

@@ -272,7 +272,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'A quick start, then we will finish your profile in simple steps.',
+                              'We’re so excited to have you! Just a few quick steps to get you started',
                               style: TextStyle(
                                 color: colors.textMuted,
                                 fontSize: 15,

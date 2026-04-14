@@ -619,11 +619,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               label: detail.label.trim(),
               textColor: const Color(0xFF2A41D4), // Using your new Brand Blue
             ),
-          if (detail.tag.trim().isNotEmpty)
-            _ContentPill(
-              label: detail.tag.trim(),
-              textColor: const Color(0xFF7C3AED), // Deep Purple
-            ),
+          // if (detail.tag.trim().isNotEmpty)
+          //   _ContentPill(
+          //     label: detail.tag.trim(),
+          //     textColor: const Color(0xFF7C3AED), // Deep Purple
+          //   ),
         ],
       ),
     );

@@ -65,6 +65,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   List<String> _countryOptions = const <String>[];
   List<String> _stateOptions = const <String>[];
   bool _loadingStates = false;
+  bool _hasLoadedStatesForSelectedCountry = false;
 
   bool get _showLegacyOnboardingNote => false;
 
@@ -164,8 +165,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _selectedCountry = '';
       }
 
-      if (_selectedCountry.isNotEmpty) {
-        await _loadStates(_selectedCountry, preserveSelection: true);
+      if (_selectedState.isNotEmpty) {
+        _stateOptions = <String>[_selectedState];
       }
     } catch (error) {
       _error = error;
@@ -188,6 +189,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _selectedState = '';
       }
       _stateOptions = const <String>[];
+      _hasLoadedStatesForSelectedCountry = false;
     });
 
     try {
@@ -197,6 +199,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       setState(() {
         _stateOptions = _uniqueOptions(states);
+        _hasLoadedStatesForSelectedCountry = true;
         if (_selectedState.isNotEmpty &&
             !_stateOptions.contains(_selectedState)) {
           _selectedState = '';
@@ -214,6 +217,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadStatesOnDemand() async {
+    if (_selectedCountry.isEmpty ||
+        _loadingStates ||
+        _hasLoadedStatesForSelectedCountry) {
+      return;
+    }
+
+    await _loadStates(_selectedCountry, preserveSelection: true);
   }
 
   Future<void> _save() async {
@@ -449,39 +462,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                               ),
                               _LabeledField(
-  label: 'Gender',
-  child: Row(
-    children: [
-      Expanded(
-        child: _ChoiceChip(
-          label: 'Male',
-          selected: _gender == 'male',
-          onTap: () => setState(() => _gender = 'male'),
-        ),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: _ChoiceChip(
-          label: 'Female',
-          selected: _gender == 'female',
-          onTap: () => setState(() => _gender = 'female'),
-        ),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: _ChoiceChip(
-          label: 'Other',
-          selected: _gender == 'other',
-          onTap: () => setState(() => _gender = 'other'),
-        ),
-      ),
-    ],
-  ),
-),
+                                label: 'Gender',
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _ChoiceChip(
+                                        label: 'Male',
+                                        selected: _gender == 'male',
+                                        onTap: () =>
+                                            setState(() => _gender = 'male'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _ChoiceChip(
+                                        label: 'Female',
+                                        selected: _gender == 'female',
+                                        onTap: () =>
+                                            setState(() => _gender = 'female'),
+                                      ),
+                                    ),
+                                   
+                                  ],
+                                ),
+                              ),
                               _LabeledField(
                                 label: 'Email',
-                                hint:
-                                    'Visible only to you. We use this for login and account-related messages.',
+                                hint: 'Visible only to you.',
                                 child: TextFormField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
@@ -496,7 +503,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   },
                                 ),
                               ),
-                             
+
                               _LabeledField(
                                 label: 'Role / Title',
                                 child: DropdownButtonFormField<String>(
@@ -566,8 +573,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   textCapitalization:
                                       TextCapitalization.sentences,
                                   decoration: const InputDecoration(
-                                    hintText:
-                                        '',
+                                    hintText: '',
                                   ),
                                 ),
                               ),
@@ -606,8 +612,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       setState(() {
                                         _selectedCountry = value;
                                         _selectedState = '';
+                                        _stateOptions = const <String>[];
+                                        _hasLoadedStatesForSelectedCountry =
+                                            false;
                                       });
-                                      await _loadStates(value);
                                     },
                                   ),
                                 );
@@ -629,6 +637,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           ? 'Select country first'
                                           : 'Select state...',
                                     ),
+                                    onTap: _loadStatesOnDemand,
                                     items: _stateOptions
                                         .map(
                                           (state) => DropdownMenuItem<String>(

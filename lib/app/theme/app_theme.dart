@@ -122,9 +122,9 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     heroEnd: AppColors.brand,
     accent: AppColors.accent,
 
-    scaffold: Color(0xFFfafbfb),       // Twitter true white
+    scaffold: Color(0xFFf9fafc),       // Twitter true white
     surface: Color(0xFFFFFFFF),        // Flush — no separation needed
-    surfaceMuted: Color(0xFFfafbfb),   // Faint brand-blue input bg
+    surfaceMuted: Color(0xFFf9fafc),   // Faint brand-blue input bg
     surfaceRaised: Color(0xFFEEF1FF),  // Brand-tinted raised panels
 
     border: Color(0xFFEEF0F8),         // Brand-tinted hairline
