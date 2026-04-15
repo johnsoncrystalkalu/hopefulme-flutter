@@ -1414,7 +1414,7 @@ class _HomeTopBar extends StatelessWidget {
                     text: 'Hopeful',
                     style: TextStyle(
                       color: colors.brand,
-                      fontSize: 27,
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -1.1,
                     ),
@@ -1422,8 +1422,8 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                      color: Color(0xFFe88a1b),
-                      fontSize: 27,
+                      color: Color(0xFFe08016),
+                      fontSize: 26,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -1.1,
                     ),

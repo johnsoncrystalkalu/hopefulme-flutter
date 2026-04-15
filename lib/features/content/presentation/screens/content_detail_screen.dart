@@ -1076,7 +1076,8 @@ class _PostVideoEmbed extends StatefulWidget {
 class _PostVideoEmbedState extends State<_PostVideoEmbed> {
   WebViewController? _controller;
   String? _resolvedUrl;
-  int _progress = 0;
+  WebViewWidget? _webView;
+  final ValueNotifier<int> _progress = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -1092,16 +1093,21 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
         ..setNavigationDelegate(
           NavigationDelegate(
             onProgress: (progress) {
+              if (!mounted || _progress.value == progress) {
+                return;
+              }
+              _progress.value = progress;
+            },
+            onPageFinished: (_) {
               if (!mounted) {
                 return;
               }
-              setState(() {
-                _progress = progress;
-              });
+              _progress.value = 100;
             },
           ),
         )
         ..loadRequest(Uri.parse(_resolvedUrl!));
+      _webView = WebViewWidget(controller: _controller!);
     }
   }
 
@@ -1159,6 +1165,12 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
   }
 
   @override
@@ -1241,14 +1253,21 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
         aspectRatio: 16 / 9,
         child: Stack(
           children: [
-            WebViewWidget(controller: _controller!),
-            if (_progress < 100)
-              const Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: LinearProgressIndicator(minHeight: 2),
+            if (_webView != null) RepaintBoundary(child: _webView!),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _progress,
+                builder: (context, progress, _) {
+                  if (progress >= 100) {
+                    return const SizedBox.shrink();
+                  }
+                  return const LinearProgressIndicator(minHeight: 2);
+                },
               ),
+            ),
           ],
         ),
       ),
