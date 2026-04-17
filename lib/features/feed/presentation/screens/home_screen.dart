@@ -1,6 +1,7 @@
 // ignore_for_file: unused_element, unused_element_parameter
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
@@ -2766,17 +2767,19 @@ List<AppGroup> _buildHomeGroupsPreview(List<AppGroup> groups) {
   }
   final otherGroups = activeGroups
       .where((group) => group.id != 1)
-      .toList(growable: false);
+      .toList(growable: true);
 
   final preview = <AppGroup>[];
   if (communityGroup != null) {
     preview.add(communityGroup);
   }
   if (otherGroups.isNotEmpty) {
+    otherGroups.shuffle(Random());
     preview.add(otherGroups.first);
   }
 
   if (preview.isEmpty) {
+    otherGroups.shuffle(Random());
     return otherGroups.take(2).toList(growable: false);
   }
 
