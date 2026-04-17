@@ -1,8 +1,12 @@
+import 'dart:async';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 class WebPageScreen extends StatefulWidget {
   const WebPageScreen({required this.title, required this.url, super.key});
@@ -29,7 +33,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
     super.initState();
     if (kIsWeb) return;
 
-    _controller = WebViewController()
+    final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -56,9 +60,139 @@ class _WebPageScreenState extends State<WebPageScreen> {
       )
       ..loadRequest(Uri.parse(widget.url));
 
+    if (controller.platform is AndroidWebViewController) {
+      final androidController = controller.platform as AndroidWebViewController;
+      unawaited(
+        androidController.setOnShowFileSelector(_selectFilesForWebInput),
+      );
+    }
+
+    _controller = controller;
+
     // Created once, never rebuilt — this is the key to eliminating jank.
     _webView = WebViewWidget(controller: _controller);
   }
+
+  Future<List<String>> _selectFilesForWebInput(
+    FileSelectorParams params,
+  ) async {
+    final allowMultiple = params.mode == FileSelectorMode.openMultiple;
+    final fileType = _pickFileTypeFromAcceptTypes(params.acceptTypes);
+    final allowedExtensions = fileType == FileType.custom
+        ? _extractExtensions(params.acceptTypes)
+        : null;
+
+    final selected = await FilePicker.platform.pickFiles(
+      allowMultiple: allowMultiple,
+      type: fileType,
+      allowedExtensions: allowedExtensions == null || allowedExtensions.isEmpty
+          ? null
+          : allowedExtensions,
+      withData: false,
+    );
+
+    if (selected == null) {
+      return const <String>[];
+    }
+
+    return selected.paths
+        .whereType<String>()
+        .where((path) => path.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  FileType _pickFileTypeFromAcceptTypes(List<String> acceptTypes) {
+    final normalized = acceptTypes
+        .map((type) => type.trim().toLowerCase())
+        .where((type) => type.isNotEmpty && type != '*/*')
+        .toList(growable: false);
+
+    if (normalized.isEmpty) {
+      return FileType.any;
+    }
+
+    final onlyImages = normalized.every(
+      (type) => type.startsWith('image/') || _looksLikeImageExtension(type),
+    );
+    if (onlyImages) {
+      return FileType.image;
+    }
+
+    final onlyVideos = normalized.every(
+      (type) => type.startsWith('video/') || _looksLikeVideoExtension(type),
+    );
+    if (onlyVideos) {
+      return FileType.video;
+    }
+
+    final onlyAudio = normalized.every(
+      (type) => type.startsWith('audio/') || _looksLikeAudioExtension(type),
+    );
+    if (onlyAudio) {
+      return FileType.audio;
+    }
+
+    final customExtensions = _extractExtensions(normalized);
+    if (customExtensions.isNotEmpty) {
+      return FileType.custom;
+    }
+
+    return FileType.any;
+  }
+
+  List<String> _extractExtensions(List<String> acceptTypes) {
+    final extensions = <String>{};
+    for (final raw in acceptTypes) {
+      final value = raw.trim().toLowerCase();
+      if (value.isEmpty || value == '*/*') {
+        continue;
+      }
+
+      if (value.startsWith('.')) {
+        extensions.add(value.substring(1));
+        continue;
+      }
+
+      if (!value.contains('/')) {
+        extensions.add(value.replaceFirst('.', ''));
+      }
+    }
+    return extensions.toList(growable: false);
+  }
+
+  bool _looksLikeImageExtension(String value) =>
+      value == '.jpg' ||
+      value == '.jpeg' ||
+      value == '.png' ||
+      value == '.gif' ||
+      value == '.webp' ||
+      value == 'jpg' ||
+      value == 'jpeg' ||
+      value == 'png' ||
+      value == 'gif' ||
+      value == 'webp';
+
+  bool _looksLikeVideoExtension(String value) =>
+      value == '.mp4' ||
+      value == '.mov' ||
+      value == '.avi' ||
+      value == '.mkv' ||
+      value == '.webm' ||
+      value == 'mp4' ||
+      value == 'mov' ||
+      value == 'avi' ||
+      value == 'mkv' ||
+      value == 'webm';
+
+  bool _looksLikeAudioExtension(String value) =>
+      value == '.mp3' ||
+      value == '.wav' ||
+      value == '.m4a' ||
+      value == '.ogg' ||
+      value == 'mp3' ||
+      value == 'wav' ||
+      value == 'm4a' ||
+      value == 'ogg';
 
   bool _isMainFrameError(WebResourceError error) {
     final isMainFrame = error.isForMainFrame;
@@ -197,7 +331,8 @@ class _WebPageScreenState extends State<WebPageScreen> {
                 builder: (context, message, _) {
                   return _WebPageErrorState(
                     title: widget.title,
-                    message: message ?? 'This page could not be loaded right now.',
+                    message:
+                        message ?? 'This page could not be loaded right now.',
                     onRetry: _reload,
                     onOpenInBrowser: _openInBrowser,
                   );

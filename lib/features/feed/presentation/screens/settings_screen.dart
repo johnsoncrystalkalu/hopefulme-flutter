@@ -54,6 +54,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -96,7 +97,12 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.logout_rounded,
             title: 'Log Out',
             subtitle: 'Sign out of your HopefulMe account.',
-            onTap: () => unawaited(onLogout()),
+            onTap: () async {
+              await onLogout();
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Appearance'),
@@ -151,6 +157,19 @@ class SettingsScreen extends StatelessWidget {
                 builder: (context) => const WebPageScreen(
                   title: 'Contact',
                   url: 'https://www.ahopefulme.com/contact',
+                ),
+              ),
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.help_outline_rounded,
+            title: 'How It Works',
+            subtitle: 'Learn how HopefulMe works.',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => WebPageScreen(
+                  title: 'How It Works',
+                  url: '$webBaseUrl/how-it-works',
                 ),
               ),
             ),
@@ -343,7 +362,7 @@ class _SettingsFooter extends StatelessWidget {
       builder: (context, snapshot) {
         final version = snapshot.data == null
             ? ''
-            : 'v${snapshot.data!.version} (${snapshot.data!.buildNumber})';
+            : 'v${snapshot.data!.version}';
 
         return Column(
           children: [
@@ -356,14 +375,15 @@ class _SettingsFooter extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              version.isEmpty ? 'Version' : version,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            if (version.isNotEmpty)
+              Text(
+                version,
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
           ],
         );
       },

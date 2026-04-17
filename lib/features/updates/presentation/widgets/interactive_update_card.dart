@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -250,6 +252,29 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     await FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
   }
 
+  Future<void> _shareUpdate() async {
+    final baseUrl = AppConfig.fromEnvironment().webBaseUrl;
+    final normalizedBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final username = widget.ownerUsername?.trim() ?? '';
+    final url = username.isNotEmpty
+        ? '$normalizedBase/social/${widget.updateId}@$username'
+        : '$normalizedBase/social/${widget.updateId}';
+    final headline = widget.title.trim().isEmpty
+        ? 'HopefulMe update'
+        : widget.title.trim();
+
+    try {
+      await Share.share('$headline\n$url', subject: 'HopefulMe Update');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isDeleted) {
@@ -296,10 +321,14 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             case 'delete':
               await _deleteUpdate();
               break;
+            case 'share':
+              await _shareUpdate();
+              break;
           }
         },
         itemBuilder: (context) => [
           const PopupMenuItem(value: 'view', child: Text('View Post')),
+          const PopupMenuItem(value: 'share', child: Text('Share To...')),
           if (_canEdit)
             const PopupMenuItem(value: 'edit', child: Text('Edit Update')),
           if (_isOwner)
@@ -334,6 +363,18 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             ),
           ),
           const Spacer(),
+          InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: _shareUpdate,
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(
+                Icons.near_me_outlined,
+                size: 19,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
+          ),
         ],
       ),
     );

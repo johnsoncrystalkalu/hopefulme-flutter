@@ -1041,6 +1041,20 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                           },
                                           onDelete: () =>
                                               _deleteMessage(message),
+                                          onCopy: () async {
+                                            await Clipboard.setData(
+                                              ClipboardData(
+                                                text: message.message,
+                                              ),
+                                            );
+                                            if (!context.mounted) {
+                                              return;
+                                            }
+                                            AppToast.info(
+                                              context,
+                                              'Text copied',
+                                            );
+                                          },
                                           onLinkTap: _handleLinkTap,
                                           onOpenFullImage: (url, bytes) =>
                                               _openFullImage(
@@ -1524,6 +1538,7 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.onReply,
     required this.onEdit,
     required this.onDelete,
+    required this.onCopy,
     required this.onLinkTap,
     required this.onOpenFullImage, // 👈
     required this.onMentionTap, // 👈
@@ -1540,6 +1555,7 @@ class _GroupMessageBubble extends StatelessWidget {
   final VoidCallback onReply;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final Future<void> Function() onCopy;
   final Future<void> Function(String url) onLinkTap;
   final void Function(String? url, Uint8List? bytes) onOpenFullImage; // 👈
   final Future<void> Function(String username) onMentionTap; // 👈
@@ -1554,6 +1570,80 @@ class _GroupMessageBubble extends StatelessWidget {
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
       decorationColor: color,
+    );
+  }
+
+  Future<String?> _showBubbleActions(BuildContext context) {
+    final canCopy = message.message.trim().isNotEmpty;
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: false,
+      builder: (sheetContext) {
+        final colors = sheetContext.appColors;
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: colors.borderStrong),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.shadow.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -12,
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _GroupBubbleActionButton(
+                      icon: Icons.reply_rounded,
+                      label: 'Reply',
+                      color: colors.brand,
+                      onTap: () => Navigator.of(sheetContext).pop('reply'),
+                    ),
+                    if (canCopy) ...[
+                      const SizedBox(width: 10),
+                      _GroupBubbleActionButton(
+                        icon: Icons.content_copy_rounded,
+                        label: 'Copy',
+                        color: colors.textSecondary,
+                        onTap: () => Navigator.of(sheetContext).pop('copy'),
+                      ),
+                    ],
+                    if (canEdit) ...[
+                      const SizedBox(width: 10),
+                      _GroupBubbleActionButton(
+                        icon: Icons.edit_rounded,
+                        label: 'Edit',
+                        color: colors.textSecondary,
+                        onTap: () => Navigator.of(sheetContext).pop('edit'),
+                      ),
+                    ],
+                    if (canDelete) ...[
+                      const SizedBox(width: 10),
+                      _GroupBubbleActionButton(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: colors.dangerText,
+                        onTap: () => Navigator.of(sheetContext).pop('delete'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1616,71 +1706,11 @@ class _GroupMessageBubble extends StatelessWidget {
                     ),
                   ),
                 GestureDetector(
-                  onLongPressStart: (details) async {
+                  onLongPressStart: (_) async {
                     HapticFeedback.mediumImpact();
-                    final RenderBox overlay =
-                        Overlay.of(context).context.findRenderObject()
-                            as RenderBox;
-                    final value = await showMenu<String>(
-                      context: context,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      position: RelativeRect.fromRect(
-                        details.globalPosition & const Size(40, 40),
-                        Offset.zero & overlay.size,
-                      ),
-                      items: [
-                        PopupMenuItem(
-                          value: 'reply',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.reply_rounded,
-                                size: 20,
-                                color: colors.brand,
-                              ),
-                              const SizedBox(width: 12),
-                              const Text('Reply'),
-                            ],
-                          ),
-                        ),
-                        if (canEdit)
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.edit_rounded,
-                                  size: 20,
-                                  color: colors.textSecondary,
-                                ),
-                                const SizedBox(width: 12),
-                                const Text('Edit'),
-                              ],
-                            ),
-                          ),
-                        if (canDelete)
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 20,
-                                  color: colors.dangerText,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Delete',
-                                  style: TextStyle(color: colors.dangerText),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    );
+                    final value = await _showBubbleActions(context);
                     if (value == 'reply') onReply();
+                    if (value == 'copy') await onCopy();
                     if (value == 'edit') onEdit();
                     if (value == 'delete') onDelete();
                   },
@@ -1853,6 +1883,52 @@ class _MessageDeliveryStatus extends StatelessWidget {
             child: Icon(Icons.done_rounded, size: 14, color: iconColor),
           ),
       ],
+    );
+  }
+}
+
+class _GroupBubbleActionButton extends StatelessWidget {
+  const _GroupBubbleActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

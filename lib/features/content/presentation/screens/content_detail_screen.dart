@@ -963,6 +963,12 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     label:
                                         '${_formatCompactCount(detail.views)} views',
                                   ),
+                                  if (widget.kind == 'post')
+                                    _MetaChip(
+                                      icon: Icons.share_outlined,
+                                      label: 'Share',
+                                      onTap: () => _sharePost(detail),
+                                    ),
                                 ],
                               ),
                             ],
@@ -1463,15 +1469,16 @@ class _ContentReplyTile extends StatelessWidget {
 }
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.icon, required this.label});
+  const _MetaChip({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: colors.surfaceMuted,
@@ -1492,6 +1499,14 @@ class _MetaChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) {
+      return chip;
+    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: chip,
     );
   }
 }

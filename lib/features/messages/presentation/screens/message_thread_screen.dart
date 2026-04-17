@@ -602,6 +602,75 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     }
   }
 
+  Future<String?> _showBubbleActions({required bool isMine}) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: false,
+      builder: (sheetContext) {
+        final colors = sheetContext.appColors;
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: colors.borderStrong),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.shadow.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -12,
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _BubbleActionButton(
+                      icon: Icons.reply_rounded,
+                      label: 'Reply',
+                      color: colors.brand,
+                      onTap: () => Navigator.of(sheetContext).pop('reply'),
+                    ),
+                    const SizedBox(width: 10),
+                    _BubbleActionButton(
+                      icon: Icons.content_copy_rounded,
+                      label: 'Copy',
+                      color: colors.textSecondary,
+                      onTap: () => Navigator.of(sheetContext).pop('copy'),
+                    ),
+                    if (isMine) ...[
+                      const SizedBox(width: 10),
+                      _BubbleActionButton(
+                        icon: Icons.edit_rounded,
+                        label: 'Edit',
+                        color: colors.textSecondary,
+                        onTap: () => Navigator.of(sheetContext).pop('edit'),
+                      ),
+                      const SizedBox(width: 10),
+                      _BubbleActionButton(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: colors.dangerText,
+                        onTap: () => Navigator.of(sheetContext).pop('delete'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handleLinkTap(String url) async {
     String processedUrl = url.trim();
     if (!processedUrl.startsWith('http://') &&
@@ -765,103 +834,12 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                       children: [
                                         Flexible(
                                           child: GestureDetector(
-                                            onLongPressStart: (details) async {
+                                            onLongPressStart: (_) async {
                                               HapticFeedback.mediumImpact();
-                                              final RenderBox overlay =
-                                                  Overlay.of(context).context
-                                                          .findRenderObject()
-                                                      as RenderBox;
-                                              final value = await showMenu<String>(
-                                                context: context,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                                position: RelativeRect.fromRect(
-                                                  details.globalPosition &
-                                                      const Size(40, 40),
-                                                  Offset.zero & overlay.size,
-                                                ),
-                                                items: [
-                                                  PopupMenuItem(
-                                                    value: 'reply',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.reply_rounded,
-                                                          size: 20,
-                                                          color: colors.brand,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        const Text('Reply'),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  PopupMenuItem(
-                                                    value: 'copy',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons
-                                                              .content_copy_rounded,
-                                                          size: 20,
-                                                          color: colors
-                                                              .textSecondary,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        const Text('Copy Text'),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  if (isMine)
-                                                    PopupMenuItem(
-                                                      value: 'edit',
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(
-                                                            Icons.edit_rounded,
-                                                            size: 20,
-                                                            color: colors
-                                                                .textSecondary,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 12,
-                                                          ),
-                                                          const Text('Edit'),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  if (isMine)
-                                                    PopupMenuItem(
-                                                      value: 'delete',
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(
-                                                            Icons
-                                                                .delete_outline_rounded,
-                                                            size: 20,
-                                                            color: colors
-                                                                .dangerText,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 12,
-                                                          ),
-                                                          Text(
-                                                            'Delete',
-                                                            style: TextStyle(
-                                                              color: colors
-                                                                  .dangerText,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
-                                              );
+                                              final value =
+                                                  await _showBubbleActions(
+                                                    isMine: isMine,
+                                                  );
 
                                               if (value == 'reply') {
                                                 setState(() {
@@ -1275,6 +1253,52 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                       ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BubbleActionButton extends StatelessWidget {
+  const _BubbleActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

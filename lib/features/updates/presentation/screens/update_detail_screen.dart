@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
@@ -290,8 +291,11 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _shareUpdate(UpdateDetail detail) async {
-    final baseUrl = 'https://ahopefulme.com';
-    final url = '$baseUrl/social/${detail.id}@${detail.user.username}';
+    final baseUrl = AppConfig.fromEnvironment().webBaseUrl;
+    final normalizedBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final url = '$normalizedBase/social/${detail.id}@${detail.user.username}';
     try {
       await Share.share(
         '${detail.user.displayName} shared an update on HopefulMe:\n$url',
@@ -770,6 +774,39 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                           color: Color(0xFF3D5AFE),
                                           fontWeight: FontWeight.w700,
                                         ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  FilledButton.tonalIcon(
+                                    onPressed: () => _shareUpdate(detail),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: isDark
+                                          ? Colors.transparent
+                                          : colors.surfaceMuted,
+                                      elevation: 0,
+                                      shadowColor: Colors.transparent,
+                                      surfaceTintColor: Colors.transparent,
+                                      side: isDark
+                                          ? const BorderSide(
+                                              color: Color(0x5594A3B8),
+                                            )
+                                          : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.near_me_outlined,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                    label: const Text(
+                                      //'Share',
+                                       '',
+                                      style: TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),

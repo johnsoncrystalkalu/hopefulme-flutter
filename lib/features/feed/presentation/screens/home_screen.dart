@@ -867,7 +867,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openBlogsFeed() async {
-    _setActiveSidebarItem('Blog & Articles');
+    _setActiveSidebarItem('Blog');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => BlogsFeedScreen(
@@ -884,7 +884,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openInspirations() async {
-    _setActiveSidebarItem('Inspirations');
+    _setActiveSidebarItem('Inspiration Inbox');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => InspirationInboxScreen(
@@ -1037,7 +1037,7 @@ class _HomeScreenState extends State<HomeScreen>
     return message;
   }
 
-  Future<void> _handleLogout() async {
+  Future<bool> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1057,10 +1057,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (confirm != true || !mounted) {
-      return;
+      return false;
     }
 
     await widget.authController.logout();
+    return !widget.authController.isAuthenticated;
   }
 
   void _setActiveSidebarItem(String label) {
@@ -2039,7 +2040,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onOutreachTap;
   final Future<void> Function() onAdminTap;
   final Future<void> Function() onMeetNewFriendsTap;
-  final Future<void> Function() onLogoutTap;
+  final Future<bool> Function() onLogoutTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2149,21 +2150,21 @@ class _HomeSidebar extends StatelessWidget {
                     items: [
                       _SidebarItemData(
                         HeroIcons.pencilSquare,
-                        'Blog & Articles',
-                        activeItemLabel == 'Blog & Articles',
+                        'Blog',
+                        activeItemLabel == 'Blog',
                         onTap: onBlogsTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.inboxStack,
+                        'Inspiration Inbox',
+                        activeItemLabel == 'Inspiration Inbox',
+                        onTap: onInspirationsTap,
                       ),
                       _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
                         activeItemLabel == 'Library',
                         onTap: onLibraryTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.sparkles,
-                        'Inspirations',
-                        activeItemLabel == 'Inspirations',
-                        onTap: onInspirationsTap,
                       ),
                     ],
                   ),
@@ -2351,7 +2352,7 @@ class _SidebarFooter extends StatelessWidget {
 
   final User? user;
   final Future<void> Function() onProfileTap;
-  final Future<void> Function() onLogoutTap;
+  final Future<bool> Function() onLogoutTap;
 
   @override
   Widget build(BuildContext context) {
