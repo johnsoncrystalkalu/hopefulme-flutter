@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
@@ -124,5 +125,31 @@ class GroupRepository {
 
   Future<void> deleteMessage(int groupId, int messageId) async {
     await _authRepository.delete('groups/$groupId/messages/$messageId');
+  }
+
+  Future<GroupMessage> editMessage(
+    int groupId,
+    int messageId, {
+    required String message,
+  }) async {
+    final payload = {'message': message.trim()};
+    Map<String, dynamic> response;
+    try {
+      response = await _authRepository.put(
+        'groups/$groupId/messages/$messageId',
+        body: payload,
+      );
+    } on ApiException catch (error) {
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        rethrow;
+      }
+      response = await _authRepository.patch(
+        'groups/$groupId/messages/$messageId',
+        body: payload,
+      );
+    }
+    return GroupMessage.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
   }
 }

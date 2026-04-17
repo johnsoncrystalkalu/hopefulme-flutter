@@ -268,6 +268,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             builder: (context) => EditProfileMediaScreen(
               username: widget.username,
               repository: widget.repository,
+              showOnboardingActions: true,
             ),
           ),
         );

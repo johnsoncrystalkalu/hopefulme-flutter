@@ -1,4 +1,5 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -77,5 +78,27 @@ class MessageRepository {
 
   Future<void> deleteMessage(int messageId) async {
     await _authRepository.delete('messages/item/$messageId');
+  }
+
+  Future<ChatMessage> editMessage(int messageId, {required String message}) async {
+    final payload = {'message': message.trim()};
+    Map<String, dynamic> response;
+    try {
+      response = await _authRepository.put(
+        'messages/item/$messageId',
+        body: payload,
+      );
+    } on ApiException catch (error) {
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        rethrow;
+      }
+      response = await _authRepository.patch(
+        'messages/item/$messageId',
+        body: payload,
+      );
+    }
+    return ChatMessage.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
   }
 }

@@ -7,6 +7,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
 
@@ -14,11 +15,13 @@ class EditProfileMediaScreen extends StatefulWidget {
   const EditProfileMediaScreen({
     required this.username,
     required this.repository,
+    this.showOnboardingActions = false,
     super.key,
   });
 
   final String username;
   final ProfileRepository repository;
+  final bool showOnboardingActions;
 
   @override
   State<EditProfileMediaScreen> createState() => _EditProfileMediaScreenState();
@@ -321,6 +324,15 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
     }
   }
 
+  Future<void> _goToHome() async {
+    if (_isUploadingPhoto || _isUploadingCover) {
+      return;
+    }
+    await Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(HomeScreen.routeName, (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -408,6 +420,23 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                     LinearProgressIndicator(
                       backgroundColor: colors.border,
                       color: colors.accent,
+                    ),
+                  if (widget.showOnboardingActions)
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed:
+                                (_isUploadingPhoto || _isUploadingCover)
+                                ? null
+                                : _goToHome,
+                            child: const Text('Skip for now & Go to Home'),
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),

@@ -66,6 +66,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
   Object? _error;
+  ChatMessage? _editingMessage;
 
   String get _draftKey => 'message_draft_${widget.username}';
 
@@ -192,91 +193,163 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    if ((text.isEmpty && !hasPhoto) || _isSending) return;
+    if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) return;
 
-    final localPhotoBytes = _selectedPhotoBytes;
-    final selectedPhoto = _selectedPhoto;
-    final optimisticId = _optimisticId--;
-    final optimisticMessage = ChatMessage(
-      id: optimisticId,
-      conversationId: _conversation?.id ?? 0,
-      senderId: widget.currentUser?.id ?? 0,
-      recipientId: _conversation?.otherUser.id ?? 0,
-      message: text,
-      photoUrl: '',
-      replyId: _replyingTo?.id ?? 0,
-      status: 'sending',
-      createdAt: DateTime.now().toIso8601String(),
-      sender:
-          _conversation?.latestMessage?.sender ??
-          widget.currentUser?.toConversationUser(),
-      recipient: _conversation?.otherUser,
-      replyTo: _replyingTo == null
-          ? null
-          : ChatMessageReply(
-              id: _replyingTo!.id,
-              message: _replyingTo!.message,
-              sender: _displaySenderForMessage(_replyingTo!),
-            ),
-      localImageBytes: localPhotoBytes,
-    );
-
-    setState(() {
-      _isSending = true;
-      _error = null;
-      _messages = [..._messages, optimisticMessage];
-      _selectedPhoto = null;
-      _selectedPhotoBytes = null;
-      _showEmojiPicker = false;
-      _replyingTo = null;
-      _typingSent = false;
-    });
-    _typingDebounce?.cancel();
-    _controller.clear();
-    unawaited(_clearDraft());
-    unawaited(_sendTypingStatus(false));
-    _scrollToBottomAnimated();
-
-    try {
-      final sent = await widget.repository.sendMessage(
-        widget.username,
+    if (_editingMessage != null) {
+      final editingMessage = _editingMessage!;
+      final originalText = editingMessage.message;
+      final updated = ChatMessage(
+        id: editingMessage.id,
+        conversationId: editingMessage.conversationId,
+        senderId: editingMessage.senderId,
+        recipientId: editingMessage.recipientId,
         message: text,
-        replyId: optimisticMessage.replyId == 0
-            ? null
-            : optimisticMessage.replyId,
-        photo: selectedPhoto,
+        photoUrl: editingMessage.photoUrl,
+        replyId: editingMessage.replyId,
+        status: 'sending',
+        createdAt: editingMessage.createdAt,
+        sender: editingMessage.sender,
+        recipient: editingMessage.recipient,
+        replyTo: editingMessage.replyTo,
+        localImageBytes: editingMessage.localImageBytes,
       );
-      if (!mounted) return;
       setState(() {
-        _hasThreadChanges = true;
-        _messages = _messages
-            .map((item) => item.id == optimisticId ? sent : item)
-            .toList();
+        _isSending = true;
+        _error = null;
+        _messages = _messages.map((m) => m.id == editingMessage.id ? updated : m).toList();
+        _showEmojiPicker = false;
+        _typingSent = false;
       });
-      _scrollToBottomAnimated();
-      unawaited(_loadThread(silent: true));
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error;
-        _messages = _messages.where((item) => item.id != optimisticId).toList();
-        if (selectedPhoto != null && _selectedPhoto == null) {
-          _selectedPhoto = selectedPhoto;
-          _selectedPhotoBytes = localPhotoBytes;
-        }
-        if (text.isNotEmpty && _controller.text.trim().isEmpty) {
-          _controller.text = text;
-        }
-      });
-      AppToast.error(
-        context,
-        _error?.toString() ?? 'Unable to send message right now.',
-      );
-    } finally {
-      if (mounted) {
+      _typingDebounce?.cancel();
+      _controller.clear();
+      unawaited(_sendTypingStatus(false));
+
+      try {
+        final edited = await widget.repository.editMessage(editingMessage.id, message: text);
+        if (!mounted) return;
         setState(() {
-          _isSending = false;
+          _hasThreadChanges = true;
+          _messages = _messages.map((m) => m.id == editingMessage.id ? edited : m).toList();
+          _editingMessage = null;
         });
+      } catch (error) {
+        if (!mounted) return;
+        final reverted = ChatMessage(
+          id: editingMessage.id,
+          conversationId: editingMessage.conversationId,
+          senderId: editingMessage.senderId,
+          recipientId: editingMessage.recipientId,
+          message: originalText,
+          photoUrl: editingMessage.photoUrl,
+          replyId: editingMessage.replyId,
+          status: 'sent',
+          createdAt: editingMessage.createdAt,
+          sender: editingMessage.sender,
+          recipient: editingMessage.recipient,
+          replyTo: editingMessage.replyTo,
+          localImageBytes: editingMessage.localImageBytes,
+        );
+        setState(() {
+          _error = error;
+          _messages = _messages.map((m) => m.id == editingMessage.id ? reverted : m).toList();
+          _controller.text = text;
+        });
+        AppToast.error(
+          context,
+          _error?.toString() ?? 'Unable to edit message.',
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSending = false;
+          });
+        }
+      }
+    } else {
+      final localPhotoBytes = _selectedPhotoBytes;
+      final selectedPhoto = _selectedPhoto;
+      final optimisticId = _optimisticId--;
+      final optimisticMessage = ChatMessage(
+        id: optimisticId,
+        conversationId: _conversation?.id ?? 0,
+        senderId: widget.currentUser?.id ?? 0,
+        recipientId: _conversation?.otherUser.id ?? 0,
+        message: text,
+        photoUrl: '',
+        replyId: _replyingTo?.id ?? 0,
+        status: 'sending',
+        createdAt: DateTime.now().toIso8601String(),
+        sender:
+            _conversation?.latestMessage?.sender ??
+            widget.currentUser?.toConversationUser(),
+        recipient: _conversation?.otherUser,
+        replyTo: _replyingTo == null
+            ? null
+            : ChatMessageReply(
+                id: _replyingTo!.id,
+                message: _replyingTo!.message,
+                sender: _displaySenderForMessage(_replyingTo!),
+              ),
+        localImageBytes: localPhotoBytes,
+      );
+
+      setState(() {
+        _isSending = true;
+        _error = null;
+        _messages = [..._messages, optimisticMessage];
+        _selectedPhoto = null;
+        _selectedPhotoBytes = null;
+        _showEmojiPicker = false;
+        _replyingTo = null;
+        _typingSent = false;
+      });
+      _typingDebounce?.cancel();
+      _controller.clear();
+      unawaited(_clearDraft());
+      unawaited(_sendTypingStatus(false));
+      _scrollToBottomAnimated();
+
+      try {
+        final sent = await widget.repository.sendMessage(
+          widget.username,
+          message: text,
+          replyId: optimisticMessage.replyId == 0
+              ? null
+              : optimisticMessage.replyId,
+          photo: selectedPhoto,
+        );
+        if (!mounted) return;
+        setState(() {
+          _hasThreadChanges = true;
+          _messages = _messages
+              .map((item) => item.id == optimisticId ? sent : item)
+              .toList();
+        });
+        _scrollToBottomAnimated();
+        unawaited(_loadThread(silent: true));
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _error = error;
+          _messages = _messages.where((item) => item.id != optimisticId).toList();
+          if (selectedPhoto != null && _selectedPhoto == null) {
+            _selectedPhoto = selectedPhoto;
+            _selectedPhotoBytes = localPhotoBytes;
+          }
+          if (text.isNotEmpty && _controller.text.trim().isEmpty) {
+            _controller.text = text;
+          }
+        });
+        AppToast.error(
+          context,
+          _error?.toString() ?? 'Unable to send message right now.',
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSending = false;
+          });
+        }
       }
     }
   }
@@ -694,6 +767,24 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                                   ),
                                                   if (isMine)
                                                     PopupMenuItem(
+                                                      value: 'edit',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                            Icons.edit_rounded,
+                                                            size: 20,
+                                                            color: colors
+                                                                .textSecondary,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 12,
+                                                          ),
+                                                          const Text('Edit'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  if (isMine)
+                                                    PopupMenuItem(
                                                       value: 'delete',
                                                       child: Row(
                                                         children: [
@@ -736,6 +827,18 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                                     'Text copied',
                                                   );
                                                 }
+                                              } else if (value == 'edit') {
+                                                setState(() {
+                                                  _editingMessage = item;
+                                                  _controller.text = item.message;
+                                                  _controller.selection = TextSelection.collapsed(
+                                                    offset: item.message.length,
+                                                  );
+                                                  _replyingTo = null;
+                                                  _showEmojiPicker = false;
+                                                  _selectedPhoto = null;
+                                                  _selectedPhotoBytes = null;
+                                                });
                                               } else if (value == 'delete') {
                                                 await _deleteMessage(item);
                                               }
@@ -947,6 +1050,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                   child: _ThreadTypingIndicator(name: typingUserName),
                 ),
               ),
+            if (_editingMessage != null)
+              _EditingBanner(
+                message: _editingMessage!,
+                onCancel: () => setState(() => _editingMessage = null),
+              ),
             SafeArea(
               top: false,
               child: Container(
@@ -1014,14 +1122,16 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                             size: 18,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _ThreadComposerIconButton(
-                          onPressed: _openImagePicker,
-                          icon: const Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 18,
+                        if (_editingMessage == null) ...[
+                          const SizedBox(width: 8),
+                          _ThreadComposerIconButton(
+                            onPressed: _openImagePicker,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 18,
+                            ),
                           ),
-                        ),
+                        ],
                         const SizedBox(width: 10),
                         Expanded(
                           child: ConstrainedBox(
@@ -1472,6 +1582,59 @@ class _ThreadComposerIconButton extends StatelessWidget {
             child: icon,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditingBanner extends StatelessWidget {
+  const _EditingBanner({
+    required this.message,
+    required this.onCancel,
+  });
+
+  final ChatMessage message;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
+        border: Border(
+          top: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Editing message',
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(onPressed: onCancel, icon: const Icon(Icons.close)),
+        ],
       ),
     );
   }

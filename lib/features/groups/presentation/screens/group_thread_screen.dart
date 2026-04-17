@@ -69,6 +69,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   Timer? _typingDebounce;
   bool _isRestoringDraft = false;
   Object? _error;
+  GroupMessage? _editingMessage;
 
   String get _draftKey => 'group_draft_${widget.groupId}';
 
@@ -221,7 +222,99 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    if ((text.isEmpty && !hasPhoto) || _isSending) return;
+    if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) {
+      return;
+    }
+
+    if (_editingMessage != null) {
+      if (text.isEmpty) {
+        return;
+      }
+      final editingMessage = _editingMessage!;
+      final originalText = editingMessage.message;
+      final optimisticEdited = GroupMessage(
+        id: editingMessage.id,
+        groupId: editingMessage.groupId,
+        userId: editingMessage.userId,
+        message: text,
+        photoUrl: editingMessage.photoUrl,
+        status: 'sending',
+        replyId: editingMessage.replyId,
+        createdAt: editingMessage.createdAt,
+        time: editingMessage.time,
+        sender: editingMessage.sender,
+        replyTo: editingMessage.replyTo,
+        localImageBytes: editingMessage.localImageBytes,
+      );
+
+      setState(() {
+        _error = null;
+        _isSending = true;
+        _messages = _messages
+            .map((m) => m.id == editingMessage.id ? optimisticEdited : m)
+            .toList();
+        _showEmojiPicker = false;
+        _typingSent = false;
+      });
+      _typingDebounce?.cancel();
+      _controller.clear();
+      unawaited(_sendTypingStatus(false));
+
+      try {
+        final edited = await widget.repository.editMessage(
+          widget.groupId,
+          editingMessage.id,
+          message: text,
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _hasThreadChanges = true;
+          _messages = _messages
+              .map((m) => m.id == editingMessage.id ? edited : m)
+              .toList();
+          _editingMessage = null;
+        });
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        final reverted = GroupMessage(
+          id: editingMessage.id,
+          groupId: editingMessage.groupId,
+          userId: editingMessage.userId,
+          message: originalText,
+          photoUrl: editingMessage.photoUrl,
+          status: editingMessage.status,
+          replyId: editingMessage.replyId,
+          createdAt: editingMessage.createdAt,
+          time: editingMessage.time,
+          sender: editingMessage.sender,
+          replyTo: editingMessage.replyTo,
+          localImageBytes: editingMessage.localImageBytes,
+        );
+        setState(() {
+          _error = error.toString();
+          _messages =
+              _messages.map((m) => m.id == editingMessage.id ? reverted : m).toList();
+          _controller.text = text;
+          _controller.selection =
+              TextSelection.collapsed(offset: _controller.text.length);
+        });
+        AppToast.error(
+          context,
+          _error?.toString() ?? 'Unable to edit group message.',
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSending = false;
+          });
+        }
+      }
+      return;
+    }
 
     final selectedPhoto = _selectedPhoto;
     final localPhotoBytes = _selectedPhotoBytes;
@@ -416,6 +509,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         _hasThreadChanges = true;
         _messages =
             _messages.where((item) => item.id != message.id).toList();
+        if (_editingMessage?.id == message.id) {
+          _editingMessage = null;
+        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -915,6 +1011,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                                 _GroupMessageBubble(
                                                   message: message,
                                                   isMine: isMine,
+                                                  canEdit: isMine,
                                                   canDelete: isMine ||
                                                       group.isOwner,
                                                   showAvatar: !isMine &&
@@ -934,6 +1031,21 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                                   onReply: () {
                                                     setState(() {
                                                       _replyingTo = message;
+                                                      _editingMessage = null;
+                                                    });
+                                                  },
+                                                  onEdit: () {
+                                                    setState(() {
+                                                      _editingMessage = message;
+                                                      _controller.text = message.message;
+                                                      _controller.selection =
+                                                          TextSelection.collapsed(
+                                                        offset: message.message.length,
+                                                      );
+                                                      _replyingTo = null;
+                                                      _showEmojiPicker = false;
+                                                      _selectedPhoto = null;
+                                                      _selectedPhotoBytes = null;
                                                     });
                                                   },
                                                   onDelete: () =>
@@ -987,6 +1099,15 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                             onClear: () {
                               setState(() {
                                 _replyingTo = null;
+                              });
+                            },
+                          ),
+                        if (_editingMessage != null)
+                          _GroupEditingBanner(
+                            message: _editingMessage!,
+                            onCancel: () {
+                              setState(() {
+                                _editingMessage = null;
                               });
                             },
                           ),
@@ -1064,14 +1185,16 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                         size: 20,
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    _ComposerIconButton(
-                                      onPressed: _openImagePicker,
-                                      icon: const Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        size: 20,
+                                    if (_editingMessage == null) ...[
+                                      const SizedBox(width: 4),
+                                      _ComposerIconButton(
+                                        onPressed: _openImagePicker,
+                                        icon: const Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          size: 20,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: TextField(
@@ -1299,6 +1422,62 @@ class _ReplyPreview extends StatelessWidget {
   }
 }
 
+class _GroupEditingBanner extends StatelessWidget {
+  const _GroupEditingBanner({
+    required this.message,
+    required this.onCancel,
+  });
+
+  final GroupMessage message;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
+        border: Border(
+          top: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Editing message',
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(onPressed: onCancel, icon: const Icon(Icons.close)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatDateDivider extends StatelessWidget {
   const _ChatDateDivider({required this.label});
 
@@ -1367,12 +1546,14 @@ class _GroupMessageBubble extends StatelessWidget {
   const _GroupMessageBubble({
     required this.message,
     required this.isMine,
+    required this.canEdit,
     required this.canDelete,
     required this.showAvatar,
     required this.showSenderName,
     required this.compactTopSpacing,
     required this.onProfileTap,
     required this.onReply,
+    required this.onEdit,
     required this.onDelete,
     required this.onLinkTap,
     required this.onOpenFullImage, // 👈
@@ -1381,12 +1562,14 @@ class _GroupMessageBubble extends StatelessWidget {
 
   final GroupMessage message;
   final bool isMine;
+  final bool canEdit;
   final bool canDelete;
   final bool showAvatar;
   final bool showSenderName;
   final bool compactTopSpacing;
   final VoidCallback? onProfileTap;
   final VoidCallback onReply;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final Future<void> Function(String url) onLinkTap;
   final void Function(String? url, Uint8List? bytes) onOpenFullImage; // 👈
@@ -1490,6 +1673,18 @@ class _GroupMessageBubble extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (canEdit)
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_rounded,
+                                    size: 20, color: colors.textSecondary),
+                                const SizedBox(width: 12),
+                                const Text('Edit'),
+                              ],
+                            ),
+                          ),
                         if (canDelete)
                           PopupMenuItem(
                             value: 'delete',
@@ -1507,6 +1702,7 @@ class _GroupMessageBubble extends StatelessWidget {
                       ],
                     );
                     if (value == 'reply') onReply();
+                    if (value == 'edit') onEdit();
                     if (value == 'delete') onDelete();
                   },
                   child: Container(

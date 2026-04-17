@@ -1,7 +1,6 @@
 // ignore_for_file: unused_element, unused_element_parameter
 
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
@@ -118,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen>
     const _TopBarSnapshot(),
   );
   late Future<FeedDashboard> _dashboardFuture;
+  late Future<List<AppGroup>> _homeGroupsPreviewFuture;
   late final String _webBaseUrl;
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
@@ -139,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _homeScrollController.addListener(_handleHomeScroll);
     _dashboardFuture = _createDashboardFuture();
+    _homeGroupsPreviewFuture = _createHomeGroupsPreviewFuture();
     _webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
     _loadShellPreferences();
     _refreshTopbarData();
@@ -246,6 +247,15 @@ class _HomeScreenState extends State<HomeScreen>
     final future = widget.feedRepository.fetchDashboard();
     future.then(_seedHomeUpdatesFromDashboard).catchError((_) {});
     return future;
+  }
+
+  Future<List<AppGroup>> _createHomeGroupsPreviewFuture() async {
+    try {
+      final page = await widget.groupRepository.fetchGroups(page: 1);
+      return _buildHomeGroupsPreview(page.items);
+    } catch (_) {
+      return const <AppGroup>[];
+    }
   }
 
   Future<void> _refreshDashboard() async {
@@ -492,6 +502,7 @@ class _HomeScreenState extends State<HomeScreen>
       _hasMoreHomeUpdates = true;
       _isLoadingMoreHomeUpdates = false;
       _dashboardFuture = _createDashboardFuture();
+      _homeGroupsPreviewFuture = _createHomeGroupsPreviewFuture();
     });
   }
 
@@ -881,6 +892,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openOutreachPage() => _openWebPage('Outreach', '/outreach');
 
+  Future<void> _openOtherMenusPage() =>
+      _openWebPage('More Menus', '/more-menu');
+
   Future<void> _openAdminPage() => _openWebPage('Admin', '/admin');
 
   Future<void> _openPrivacyPolicyPage() =>
@@ -1019,6 +1033,7 @@ class _HomeScreenState extends State<HomeScreen>
         onLibraryTap: _openLibrary,
         onInspirationsTap: _openInspirations,
         onStoreTap: _openStorePage,
+        onOtherMenusTap: _openOtherMenusPage,
         onAdvertiseTap: _openAdvertisePage,
         onTvTap: _openTvPage,
         onOutreachTap: _openOutreachPage,
@@ -1107,8 +1122,8 @@ class _HomeScreenState extends State<HomeScreen>
                                                     _isLoadingMoreHomeUpdates,
                                                 feedRepository:
                                                     widget.feedRepository,
-                                                groupRepository:
-                                                    widget.groupRepository,
+                                                homeGroupsPreviewFuture:
+                                                    _homeGroupsPreviewFuture,
                                                 onOpenEditMedia: _openEditMedia,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
@@ -1164,8 +1179,8 @@ class _HomeScreenState extends State<HomeScreen>
                                           isLoadingMoreUpdates:
                                               _isLoadingMoreHomeUpdates,
                                           feedRepository: widget.feedRepository,
-                                          groupRepository:
-                                              widget.groupRepository,
+                                          homeGroupsPreviewFuture:
+                                              _homeGroupsPreviewFuture,
                                           onOpenEditMedia: _openEditMedia,
                                           onCreateUpdate: _openCreateUpdate,
                                           onMeetNewFriendsTap:
@@ -1247,6 +1262,9 @@ class _HomeScreenState extends State<HomeScreen>
             setState(() {
               _selectedBottomNav = index;
             });
+            if (index == 0) {
+              _goHome();
+            }
             if (index == 1) {
               _openSearch();
             }
@@ -1932,6 +1950,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onLibraryTap,
     required this.onInspirationsTap,
     required this.onStoreTap,
+    required this.onOtherMenusTap,
     required this.onAdvertiseTap,
     required this.onTvTap,
     required this.onOutreachTap,
@@ -1952,6 +1971,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onLibraryTap;
   final Future<void> Function() onInspirationsTap;
   final Future<void> Function() onStoreTap;
+  final Future<void> Function() onOtherMenusTap;
   final Future<void> Function() onAdvertiseTap;
   final Future<void> Function() onTvTap;
   final Future<void> Function() onOutreachTap;
@@ -2063,7 +2083,7 @@ class _HomeSidebar extends StatelessWidget {
                     ],
                   ),
                   _SidebarSection(
-                    title: 'Content',
+                    title: 'Content and Resources',
                     items: [
                       _SidebarItemData(
                         HeroIcons.pencilSquare,
@@ -2072,28 +2092,16 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onBlogsTap,
                       ),
                       _SidebarItemData(
-                        HeroIcons.sparkles,
-                        'Inspirations',
-                        activeItemLabel == 'Inspirations',
-                        onTap: onInspirationsTap,
-                      ),
-                    ],
-                  ),
-                  _SidebarSection(
-                    title: 'Resources',
-                    items: [
-                      _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
                         activeItemLabel == 'Library',
                         onTap: onLibraryTap,
                       ),
-                      if (showAdminPanel)
-                        _SidebarItemData(
-                          HeroIcons.shieldCheck,
-                          'Admin',
-                          activeItemLabel == 'Admin',
-                          onTap: onAdminTap,
+                      _SidebarItemData(
+                        HeroIcons.sparkles,
+                        'Inspirations',
+                        activeItemLabel == 'Inspirations',
+                        onTap: onInspirationsTap,
                         ),
                     ],
                   ),
@@ -2107,22 +2115,28 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onStoreTap,
                       ),
                       _SidebarItemData(
-                        HeroIcons.megaphone,
-                        'Advert & Partnership',
-                        activeItemLabel == 'Advert & Partnership',
-                        onTap: onAdvertiseTap,
-                      ),
-                      _SidebarItemData(
                         HeroIcons.tv,
                         'HopefulMe TV',
                         activeItemLabel == 'HopefulMe TV',
                         onTap: onTvTap,
                       ),
                       _SidebarItemData(
+                        HeroIcons.megaphone,
+                        'Advert & Partnership',
+                        activeItemLabel == 'Advert & Partnership',
+                        onTap: onAdvertiseTap,
+                      ),
+                      _SidebarItemData(
                         HeroIcons.heart,
                         'Outreaches',
                         activeItemLabel == 'Outreach',
                         onTap: onOutreachTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.newspaper,
+                        'More Menus',
+                        activeItemLabel == 'More Menus',
+                        onTap: onOtherMenusTap,
                       ),
                     ],
                   ),
@@ -2384,7 +2398,7 @@ class _HomeContent extends StatelessWidget {
     required this.homeUpdates,
     required this.isLoadingMoreUpdates,
     required this.feedRepository,
-    required this.groupRepository,
+    required this.homeGroupsPreviewFuture,
     required this.onOpenEditMedia,
     required this.onCreateUpdate,
     required this.onMeetNewFriendsTap,
@@ -2409,7 +2423,7 @@ class _HomeContent extends StatelessWidget {
   final List<FeedEntry> homeUpdates;
   final bool isLoadingMoreUpdates;
   final FeedRepository feedRepository;
-  final GroupRepository groupRepository;
+  final Future<List<AppGroup>> homeGroupsPreviewFuture;
   final Future<void> Function() onOpenEditMedia;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function() onMeetNewFriendsTap;
@@ -2481,12 +2495,10 @@ class _HomeContent extends StatelessWidget {
         ),
       );
       widgets.add(
-        FutureBuilder<GroupPage>(
-          future: groupRepository.fetchGroups(page: 1),
+        FutureBuilder<List<AppGroup>>(
+          future: homeGroupsPreviewFuture,
           builder: (context, snapshot) {
-            final groups = _buildHomeGroupsPreview(
-              snapshot.data?.items ?? const <AppGroup>[],
-            );
+            final groups = snapshot.data ?? const <AppGroup>[];
             if (groups.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -2645,8 +2657,9 @@ List<AppGroup> _buildHomeGroupsPreview(List<AppGroup> groups) {
       break;
     }
   }
-  final otherGroups = activeGroups.where((group) => group.id != 1).toList();
-  otherGroups.shuffle(Random());
+  final otherGroups = activeGroups
+      .where((group) => group.id != 1)
+      .toList(growable: false);
 
   final preview = <AppGroup>[];
   if (communityGroup != null) {
