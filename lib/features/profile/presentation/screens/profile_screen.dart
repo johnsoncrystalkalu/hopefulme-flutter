@@ -915,8 +915,8 @@ class _ProfileHeaderCard extends StatelessWidget {
                                 // If not following: solid brand background with white text
                                 highlighted: true,
                                 highlightColor: isFollowing
-                                    ? context.appColors.brand.withOpacity(
-                                        0.12,
+                                    ? context.appColors.brand.withValues(
+                                        alpha: 0.12,
                                       ) // Subtle tint
                                     : context.appColors.brand, // Solid punch
                                 textColor: isFollowing
@@ -1686,7 +1686,8 @@ class _AboutTab extends StatelessWidget {
 
       //MapEntry('Role', profile.role1),
       MapEntry('Gender', profile.gender),
-  if (profile.birthday !='-') MapEntry('Birthday', profile.birthday.toString()),
+      if (profile.birthday != '-')
+        MapEntry('Birthday', profile.birthday.toString()),
       MapEntry('Location', profile.locationLabel),
       // MapEntry('Hobbies', profile.hobby),
       if (isCurrentUser) MapEntry('Phone', profile.phoneNumber),
@@ -2368,13 +2369,15 @@ class _LargeAvatar extends StatelessWidget {
                         color: context.appColors.surface,
                         width: 3,
                       ),
-                   boxShadow: [
-                BoxShadow(
-                  color: context.appColors.shadow.withValues(alpha: 0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.appColors.shadow.withValues(
+                            alpha: 0.12,
+                          ),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       Icons.photo_camera_outlined,

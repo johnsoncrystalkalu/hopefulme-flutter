@@ -3,7 +3,7 @@ import 'package:hopefulme_flutter/app/app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('shows login screen when there is no saved session', (
+  testWidgets('shows auth welcome screen when there is no saved session', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -11,7 +11,6 @@ void main() {
     await tester.pumpWidget(const HopefulMeApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome back!'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Welcome to\nHopefulMe.'), findsOneWidget);
   });
 }

@@ -483,7 +483,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                             setState(() => _gender = 'female'),
                                       ),
                                     ),
-                                   
                                   ],
                                 ),
                               ),
@@ -610,6 +609,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       if (value == null) {
                                         return;
                                       }
+                                      if (value == _selectedCountry) {
+                                        return;
+                                      }
                                       setState(() {
                                         _selectedCountry = value;
                                         _selectedState = '';
@@ -617,6 +619,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                         _hasLoadedStatesForSelectedCountry =
                                             false;
                                       });
+                                      await _loadStates(value);
                                     },
                                   ),
                                 );
@@ -698,7 +701,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               builder: (context, constraints) {
                                 final isWide = constraints.maxWidth >= 620;
                                 final dayField = _LabeledField(
-                                  label: 'Birth Day',
+                                  label:
+                                      'Birth Day (Lets celebrate with you! 🎉)',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
                                     initialValue: _selectedBirthDay.isNotEmpty
@@ -774,8 +778,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 minLines: 2,
                                 maxLines: 4,
                                 decoration: const InputDecoration(
-                                  hintText:
-                                      'A short line that reflects your mindset or story',
+                                  hintText: 'Any quote or favourite saying',
                                 ),
                               ),
                             ),
@@ -1003,28 +1006,6 @@ class _LabeledField extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colors.textSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

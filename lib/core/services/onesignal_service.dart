@@ -25,22 +25,16 @@ class OneSignalService {
 
     await OneSignal.Notifications.requestPermission(true);
 
-  OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-  final data = event.notification.additionalData;
-  final type = data?['type']?.toString();
-  final senderUsername = data?['sender_username']?.toString();
+    OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+      final data = event.notification.additionalData;
+      if (ActiveChat.matchesIncomingMessage(data)) {
+        event.preventDefault();
+        return;
+      }
 
-  // Suppress chat notification if user is already in that conversation
-  if (type == 'message' &&
-      senderUsername != null &&
-      senderUsername == ActiveChat.currentUsername) {
-    event.preventDefault(); // don't show
-    return;
-  }
-
-  event.preventDefault();
-  event.notification.display();
-});
+      event.preventDefault();
+      event.notification.display();
+    });
 
     OneSignal.Notifications.addClickListener((event) {
       final data = event.notification.additionalData;
@@ -52,18 +46,20 @@ class OneSignalService {
     _isInitialized = true;
   }
 
-Future<void> _handleNotificationData(Map<String, dynamic> data) async {
-  if (_navigatorKey?.currentContext == null) {
-    return;
+  Future<void> _handleNotificationData(Map<String, dynamic> data) async {
+    if (_navigatorKey?.currentContext == null) {
+      return;
+    }
+
+    final handler = _onNotificationOpened;
+    if (handler != null) {
+      await handler(data);
+    }
   }
 
-  final handler = _onNotificationOpened;
-  if (handler != null) {
-    await handler(data);
-  }
-}
-
-  void addSubscriptionObserver(void Function(OSPushSubscriptionChangedState) onChanged) {
+  void addSubscriptionObserver(
+    void Function(OSPushSubscriptionChangedState) onChanged,
+  ) {
     OneSignal.User.pushSubscription.addObserver(onChanged);
   }
 
@@ -103,9 +99,46 @@ Future<void> _handleNotificationData(Map<String, dynamic> data) async {
 
     return trimmed.startsWith('user_') ? trimmed : 'user_$trimmed';
   }
-  
 }
 
 class ActiveChat {
   static String? currentUsername;
+  static int? currentConversationId;
+
+  static bool matchesIncomingMessage(Map<String, dynamic>? data) {
+    if (data == null) {
+      return false;
+    }
+
+    final type = data['type']?.toString().trim().toLowerCase() ?? '';
+    if (type != 'message') {
+      return false;
+    }
+
+    final incomingConversationId = int.tryParse(
+      data['conversation_id']?.toString() ?? '',
+    );
+    if (currentConversationId != null &&
+        incomingConversationId != null &&
+        currentConversationId == incomingConversationId) {
+      return true;
+    }
+
+    final incomingSender = data['sender_username']
+        ?.toString()
+        .trim()
+        .toLowerCase()
+        .replaceFirst('@', '');
+    if (incomingSender == null || incomingSender.isEmpty) {
+      return false;
+    }
+
+    final activeUsername = currentUsername?.trim().toLowerCase().replaceFirst(
+      '@',
+      '',
+    );
+    return activeUsername != null &&
+        activeUsername.isNotEmpty &&
+        incomingSender == activeUsername;
+  }
 }

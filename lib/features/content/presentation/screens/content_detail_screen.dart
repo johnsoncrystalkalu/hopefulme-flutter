@@ -24,6 +24,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -384,6 +385,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     AppToast.info(context, 'Post link copied to clipboard');
   }
 
+  Future<void> _sharePost(ContentDetail detail) async {
+    final slug = _slugifyTitle(detail.title);
+    final url = slug.isEmpty
+        ? 'https://ahopefulme.com/posts/${detail.id}'
+        : 'https://ahopefulme.com/posts/${detail.id}-$slug';
+    try {
+      await Share.share('${detail.title}\n$url', subject: 'HopefulMe Post');
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) {
+        return;
+      }
+      AppToast.info(context, 'Post link copied to clipboard');
+    }
+  }
+
   String _postMetaLine(ContentDetail detail) {
     final parts = <String>[
       if (detail.category.trim().isNotEmpty) detail.category.trim(),
@@ -684,16 +701,23 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz),
                 onSelected: (value) async {
-                  if (value != 'copy_link') {
-                    return;
-                  }
                   final detail = await _future;
                   if (!mounted) {
                     return;
                   }
-                  await _copyPostLink(detail);
+                  if (value == 'share') {
+                    await _sharePost(detail);
+                    return;
+                  }
+                  if (value == 'copy_link') {
+                    await _copyPostLink(detail);
+                  }
                 },
                 itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'share',
+                    child: Text('Share To...'),
+                  ),
                   PopupMenuItem<String>(
                     value: 'copy_link',
                     child: Text('Copy post link'),
@@ -1526,11 +1550,14 @@ class _ContentPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         // Subtle background tint (8% opacity is the "sweet spot")
-        color: textColor.withOpacity(0.08),
+        color: textColor.withValues(alpha: 0.08),
         // 500 radius ensures it's always a pill shape regardless of width
         borderRadius: BorderRadius.circular(500),
         // Optional: Very faint border to define the shape on white backgrounds
-        border: Border.all(color: textColor.withOpacity(0.12), width: 0.5),
+        border: Border.all(
+          color: textColor.withValues(alpha: 0.12),
+          width: 0.5,
+        ),
       ),
       child: Text(
         label,

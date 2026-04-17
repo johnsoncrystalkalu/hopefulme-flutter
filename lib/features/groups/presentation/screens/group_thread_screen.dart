@@ -104,8 +104,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     if (!mounted || savedDraft.isEmpty) return;
     _isRestoringDraft = true;
     _controller.text = savedDraft;
-    _controller.selection =
-        TextSelection.collapsed(offset: _controller.text.length);
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
     _isRestoringDraft = false;
   }
 
@@ -135,8 +136,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       List<GroupMessage> messages = <GroupMessage>[];
       var hasMore = false;
       if (group.isMember) {
-        final page =
-            await widget.repository.fetchMessages(widget.groupId);
+        final page = await widget.repository.fetchMessages(widget.groupId);
         messages = page.messages;
         hasMore = page.hasMore;
         _lastReadMessageId = page.lastReadMessageId;
@@ -187,8 +187,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       }
       if (response.messages.isEmpty) return;
       setState(() {
-        _messages =
-            _dedupeMessages([..._messages, ...response.messages]);
+        _messages = _dedupeMessages([..._messages, ...response.messages]);
       });
       _scrollToBottom();
     } catch (_) {}
@@ -296,11 +295,13 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         );
         setState(() {
           _error = error.toString();
-          _messages =
-              _messages.map((m) => m.id == editingMessage.id ? reverted : m).toList();
+          _messages = _messages
+              .map((m) => m.id == editingMessage.id ? reverted : m)
+              .toList();
           _controller.text = text;
-          _controller.selection =
-              TextSelection.collapsed(offset: _controller.text.length);
+          _controller.selection = TextSelection.collapsed(
+            offset: _controller.text.length,
+          );
         });
         AppToast.error(
           context,
@@ -385,8 +386,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
-        _messages =
-            _messages.where((item) => item.id != optimisticId).toList();
+        _messages = _messages.where((item) => item.id != optimisticId).toList();
         if (selectedPhoto != null && _selectedPhoto == null) {
           _selectedPhoto = selectedPhoto;
           _selectedPhotoBytes = localPhotoBytes;
@@ -507,8 +507,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       if (!mounted) return;
       setState(() {
         _hasThreadChanges = true;
-        _messages =
-            _messages.where((item) => item.id != message.id).toList();
+        _messages = _messages.where((item) => item.id != message.id).toList();
         if (_editingMessage?.id == message.id) {
           _editingMessage = null;
         }
@@ -525,7 +524,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     final firstId = _messages.first.id;
     final previousOffset = _scrollController.hasClients
         ? _scrollController.position.maxScrollExtent -
-            _scrollController.position.pixels
+              _scrollController.position.pixels
         : 0.0;
 
     setState(() {
@@ -539,8 +538,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _messages =
-            _dedupeMessages([...response.messages, ..._messages]);
+        _messages = _dedupeMessages([...response.messages, ..._messages]);
         _hasMore = response.hasMore;
         _lastReadMessageId = response.lastReadMessageId;
         _group = response.group ?? _group;
@@ -563,7 +561,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
   void _handleScroll() {
     if (!_scrollController.hasClients || _isLoading) return;
-    final distanceFromBottom = _scrollController.position.maxScrollExtent -
+    final distanceFromBottom =
+        _scrollController.position.maxScrollExtent -
         _scrollController.position.pixels;
     final shouldShowJump = distanceFromBottom > 240;
     if (shouldShowJump != _showJumpToBottom) {
@@ -694,8 +693,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                       radius: 24,
                       backgroundImage: group.photoUrl.isNotEmpty
                           ? NetworkImage(
-                              ImageUrlResolver.avatar(
-                                  group.photoUrl, size: 72),
+                              ImageUrlResolver.avatar(group.photoUrl, size: 72),
                             )
                           : null,
                       child: group.photoUrl.isEmpty
@@ -743,7 +741,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.surfaceMuted,
                       borderRadius: BorderRadius.circular(999),
@@ -781,8 +781,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                 ] else
                   Text(
                     'No group description yet.',
-                    style:
-                        TextStyle(color: colors.textMuted, fontSize: 13),
+                    style: TextStyle(color: colors.textMuted, fontSize: 13),
                   ),
               ],
             ),
@@ -846,7 +845,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     final group = _group;
     final firstUnreadIndex = _firstUnreadIndex();
     final typingUserName = group?.typingUserName.trim() ?? '';
-    final isSomeoneElseTyping = group != null &&
+    final isSomeoneElseTyping =
+        group != null &&
         typingUserName.isNotEmpty &&
         group.typingUserId != widget.currentUser?.id;
 
@@ -872,8 +872,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                       radius: 18,
                       backgroundImage: group.photoUrl.isNotEmpty
                           ? NetworkImage(
-                              ImageUrlResolver.avatar(group.photoUrl,
-                                  size: 56),
+                              ImageUrlResolver.avatar(group.photoUrl, size: 56),
                             )
                           : null,
                     ),
@@ -919,371 +918,349 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && group == null
-                ? AppStatusState(
-                    title: 'Unable to open group',
-                    message: _initialLoadErrorMessage(_error!),
-                    actionLabel: 'Try again',
-                    onAction: _loadInitial,
-                  )
-                : Column(
-                    children: [
-                      if (_error != null && group != null)
-                        Container(
-                          width: double.infinity,
-                          color: colors.dangerSoft,
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            _error!.toString(),
-                            style: TextStyle(color: colors.dangerText),
-                          ),
-                        ),
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: group == null
-                                  ? const SizedBox.shrink()
-                                  : !group.isMember
-                                      ? _LockedGroupState(
-                                          group: group,
-                                          isJoining: _isJoining,
-                                          onJoin: _joinGroup,
-                                        )
-                                      : ListView.builder(
-                                          controller: _scrollController,
-                                          padding:
-                                              const EdgeInsets.fromLTRB(
-                                                  16, 16, 16, 20),
-                                          itemCount: _messages.length +
-                                              (_isLoadingMore ? 1 : 0),
-                                          itemBuilder: (context, index) {
-                                            if (_isLoadingMore &&
-                                                index == 0) {
-                                              return const Padding(
-                                                padding: EdgeInsets.only(
-                                                    bottom: 16),
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                ),
-                                              );
-                                            }
-
-                                            final message = _messages[
-                                                _isLoadingMore
-                                                    ? index - 1
-                                                    : index];
-                                            final messageIndex =
-                                                _isLoadingMore
-                                                    ? index - 1
-                                                    : index;
-                                            final isMine =
-                                                widget.currentUser?.id ==
-                                                    message.userId;
-                                            final previousMessage =
-                                                messageIndex > 0
-                                                    ? _messages[
-                                                        messageIndex - 1]
-                                                    : null;
-                                            final groupedWithPrevious =
-                                                previousMessage != null &&
-                                                    previousMessage
-                                                            .userId ==
-                                                        message.userId &&
-                                                    !_shouldShowDateDivider(
-                                                        messageIndex);
-
-                                            return Column(
-                                              children: [
-                                                if (_shouldShowDateDivider(
-                                                    messageIndex))
-                                                  _ChatDateDivider(
-                                                    label:
-                                                        _formatDateDivider(
-                                                            message
-                                                                .createdAt),
-                                                  ),
-                                                if (firstUnreadIndex !=
-                                                        null &&
-                                                    messageIndex ==
-                                                        firstUnreadIndex)
-                                                  const _ChatUnreadDivider(),
-                                                _GroupMessageBubble(
-                                                  message: message,
-                                                  isMine: isMine,
-                                                  canEdit: isMine,
-                                                  canDelete: isMine ||
-                                                      group.isOwner,
-                                                  showAvatar: !isMine &&
-                                                      !groupedWithPrevious,
-                                                  showSenderName: !isMine &&
-                                                      !groupedWithPrevious,
-                                                  compactTopSpacing:
-                                                      groupedWithPrevious,
-                                                  onProfileTap: message
-                                                              .sender ==
-                                                          null
-                                                      ? null
-                                                      : () => _openProfile(
-                                                            message.sender!
-                                                                .username,
-                                                          ),
-                                                  onReply: () {
-                                                    setState(() {
-                                                      _replyingTo = message;
-                                                      _editingMessage = null;
-                                                    });
-                                                  },
-                                                  onEdit: () {
-                                                    setState(() {
-                                                      _editingMessage = message;
-                                                      _controller.text = message.message;
-                                                      _controller.selection =
-                                                          TextSelection.collapsed(
-                                                        offset: message.message.length,
-                                                      );
-                                                      _replyingTo = null;
-                                                      _showEmojiPicker = false;
-                                                      _selectedPhoto = null;
-                                                      _selectedPhotoBytes = null;
-                                                    });
-                                                  },
-                                                  onDelete: () =>
-                                                      _deleteMessage(message),
-                                                  onLinkTap: _handleLinkTap,
-                                                  onOpenFullImage: (url,
-                                                          bytes) =>
-                                                      _openFullImage(
-                                                    context,
-                                                    url: url,
-                                                    bytes: bytes,
-                                                  ), // 👈
-                                                  onMentionTap:
-                                                      _openProfile, // 👈
-                                                ),
-                                              ],
-                                            );
-                                          },
+            ? AppStatusState(
+                title: 'Unable to open group',
+                message: _initialLoadErrorMessage(_error!),
+                actionLabel: 'Try again',
+                onAction: _loadInitial,
+              )
+            : Column(
+                children: [
+                  if (_error != null && group != null)
+                    Container(
+                      width: double.infinity,
+                      color: colors.dangerSoft,
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!.toString(),
+                        style: TextStyle(color: colors.dangerText),
+                      ),
+                    ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: group == null
+                              ? const SizedBox.shrink()
+                              : !group.isMember
+                              ? _LockedGroupState(
+                                  group: group,
+                                  isJoining: _isJoining,
+                                  onJoin: _joinGroup,
+                                )
+                              : ListView.builder(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    20,
+                                  ),
+                                  itemCount:
+                                      _messages.length +
+                                      (_isLoadingMore ? 1 : 0),
+                                  itemBuilder: (context, index) {
+                                    if (_isLoadingMore && index == 0) {
+                                      return const Padding(
+                                        padding: EdgeInsets.only(bottom: 16),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
                                         ),
+                                      );
+                                    }
+
+                                    final message =
+                                        _messages[_isLoadingMore
+                                            ? index - 1
+                                            : index];
+                                    final messageIndex = _isLoadingMore
+                                        ? index - 1
+                                        : index;
+                                    final isMine =
+                                        widget.currentUser?.id ==
+                                        message.userId;
+                                    final previousMessage = messageIndex > 0
+                                        ? _messages[messageIndex - 1]
+                                        : null;
+                                    final groupedWithPrevious =
+                                        previousMessage != null &&
+                                        previousMessage.userId ==
+                                            message.userId &&
+                                        !_shouldShowDateDivider(messageIndex);
+
+                                    return Column(
+                                      children: [
+                                        if (_shouldShowDateDivider(
+                                          messageIndex,
+                                        ))
+                                          _ChatDateDivider(
+                                            label: _formatDateDivider(
+                                              message.createdAt,
+                                            ),
+                                          ),
+                                        if (firstUnreadIndex != null &&
+                                            messageIndex == firstUnreadIndex)
+                                          const _ChatUnreadDivider(),
+                                        _GroupMessageBubble(
+                                          message: message,
+                                          isMine: isMine,
+                                          canEdit: isMine,
+                                          canDelete: isMine || group.isOwner,
+                                          showAvatar:
+                                              !isMine && !groupedWithPrevious,
+                                          showSenderName:
+                                              !isMine && !groupedWithPrevious,
+                                          compactTopSpacing:
+                                              groupedWithPrevious,
+                                          onProfileTap: message.sender == null
+                                              ? null
+                                              : () => _openProfile(
+                                                  message.sender!.username,
+                                                ),
+                                          onReply: () {
+                                            setState(() {
+                                              _replyingTo = message;
+                                              _editingMessage = null;
+                                            });
+                                          },
+                                          onEdit: () {
+                                            setState(() {
+                                              _editingMessage = message;
+                                              _controller.text =
+                                                  message.message;
+                                              _controller.selection =
+                                                  TextSelection.collapsed(
+                                                    offset:
+                                                        message.message.length,
+                                                  );
+                                              _replyingTo = null;
+                                              _showEmojiPicker = false;
+                                              _selectedPhoto = null;
+                                              _selectedPhotoBytes = null;
+                                            });
+                                          },
+                                          onDelete: () =>
+                                              _deleteMessage(message),
+                                          onLinkTap: _handleLinkTap,
+                                          onOpenFullImage: (url, bytes) =>
+                                              _openFullImage(
+                                                context,
+                                                url: url,
+                                                bytes: bytes,
+                                              ), // 👈
+                                          onMentionTap: _openProfile, // 👈
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                        ),
+                        if (_showJumpToBottom)
+                          Positioned(
+                            right: 18,
+                            bottom: 16,
+                            child: FloatingActionButton.small(
+                              heroTag: 'group_jump_bottom',
+                              backgroundColor: colors.surface,
+                              foregroundColor: colors.textPrimary,
+                              onPressed: () => _scrollToBottom(),
+                              child: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                              ),
                             ),
-                            if (_showJumpToBottom)
-                              Positioned(
-                                right: 18,
-                                bottom: 16,
-                                child: FloatingActionButton.small(
-                                  heroTag: 'group_jump_bottom',
-                                  backgroundColor: colors.surface,
-                                  foregroundColor: colors.textPrimary,
-                                  onPressed: () => _scrollToBottom(),
-                                  child: const Icon(
-                                      Icons.keyboard_arrow_down_rounded),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (group != null && group.isMember) ...[
+                    if (isSomeoneElseTyping)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _TypingIndicator(name: typingUserName),
+                        ),
+                      ),
+                    if (_replyingTo != null)
+                      _ReplyPreview(
+                        message: _replyingTo!,
+                        onClear: () {
+                          setState(() {
+                            _replyingTo = null;
+                          });
+                        },
+                      ),
+                    if (_editingMessage != null)
+                      _GroupEditingBanner(
+                        message: _editingMessage!,
+                        onCancel: () {
+                          setState(() {
+                            _editingMessage = null;
+                          });
+                        },
+                      ),
+                    SafeArea(
+                      top: false,
+                      child: Container(
+                        color: colors.surface,
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_selectedPhotoBytes != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: colors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: colors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: SizedBox(
+                                        width: 56,
+                                        height: 56,
+                                        child: Image.memory(
+                                          _selectedPhotoBytes!,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedPhoto?.name ??
+                                            'Selected image',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedPhoto = null;
+                                          _selectedPhotoBytes = null;
+                                        });
+                                      },
+                                      icon: const Icon(Icons.close),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Row(
+                              children: [
+                                _ComposerIconButton(
+                                  onPressed: _toggleEmojiPicker,
+                                  icon: Icon(
+                                    _showEmojiPicker
+                                        ? Icons.keyboard_rounded
+                                        : Icons.emoji_emotions_outlined,
+                                    size: 20,
+                                  ),
+                                ),
+                                if (_editingMessage == null) ...[
+                                  const SizedBox(width: 4),
+                                  _ComposerIconButton(
+                                    onPressed: _openImagePicker,
+                                    icon: const Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _controller,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                    onSubmitted: (_) => _sendMessage(),
+                                    onTap: () {
+                                      if (_showEmojiPicker) {
+                                        setState(() {
+                                          _showEmojiPicker = false;
+                                        });
+                                      }
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Message ...',
+                                      filled: true,
+                                      fillColor: colors.surfaceMuted,
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                AppSendActionButton(
+                                  onPressed: _sendMessage,
+                                  isBusy: _isSending,
+                                ),
+                              ],
+                            ),
+                            if (_showEmojiPicker)
+                              SizedBox(
+                                height: 320,
+                                child: EmojiPicker(
+                                  textEditingController: _controller,
+                                  onBackspacePressed: () {},
+                                  config: Config(
+                                    height: 320,
+                                    checkPlatformCompatibility: true,
+                                    emojiViewConfig: EmojiViewConfig(
+                                      emojiSizeMax: 26,
+                                      backgroundColor: colors.surfaceMuted,
+                                    ),
+                                    categoryViewConfig: CategoryViewConfig(
+                                      backgroundColor: colors.surface,
+                                      indicatorColor: colors.brand,
+                                      iconColor: colors.textMuted,
+                                      iconColorSelected: colors.brand,
+                                      backspaceColor: colors.brand,
+                                      dividerColor: colors.border,
+                                    ),
+                                    bottomActionBarConfig:
+                                        const BottomActionBarConfig(
+                                          enabled: false,
+                                        ),
+                                    searchViewConfig: SearchViewConfig(
+                                      backgroundColor: colors.surfaceMuted,
+                                      buttonIconColor: colors.textMuted,
+                                      inputTextStyle: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 14,
+                                      ),
+                                      hintTextStyle: TextStyle(
+                                        color: colors.textMuted,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                           ],
                         ),
                       ),
-                      if (group != null && group.isMember) ...[
-                        if (isSomeoneElseTyping)
-                          Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: _TypingIndicator(
-                                  name: typingUserName),
-                            ),
-                          ),
-                        if (_replyingTo != null)
-                          _ReplyPreview(
-                            message: _replyingTo!,
-                            onClear: () {
-                              setState(() {
-                                _replyingTo = null;
-                              });
-                            },
-                          ),
-                        if (_editingMessage != null)
-                          _GroupEditingBanner(
-                            message: _editingMessage!,
-                            onCancel: () {
-                              setState(() {
-                                _editingMessage = null;
-                              });
-                            },
-                          ),
-                        SafeArea(
-                          top: false,
-                          child: Container(
-                            color: colors.surface,
-                            padding: const EdgeInsets.fromLTRB(
-                                14, 10, 14, 14),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_selectedPhotoBytes != null)
-                                  Container(
-                                    margin: const EdgeInsets.only(
-                                        bottom: 10),
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: colors.surfaceMuted,
-                                      borderRadius:
-                                          BorderRadius.circular(16),
-                                      border: Border.all(
-                                          color: colors.border),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          child: SizedBox(
-                                            width: 56,
-                                            height: 56,
-                                            child: Image.memory(
-                                              _selectedPhotoBytes!,
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            _selectedPhoto?.name ??
-                                                'Selected image',
-                                            maxLines: 2,
-                                            overflow:
-                                                TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: colors.textPrimary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              _selectedPhoto = null;
-                                              _selectedPhotoBytes = null;
-                                            });
-                                          },
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                Row(
-                                  children: [
-                                    _ComposerIconButton(
-                                      onPressed: _toggleEmojiPicker,
-                                      icon: Icon(
-                                        _showEmojiPicker
-                                            ? Icons.keyboard_rounded
-                                            : Icons
-                                                .emoji_emotions_outlined,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    if (_editingMessage == null) ...[
-                                      const SizedBox(width: 4),
-                                      _ComposerIconButton(
-                                        onPressed: _openImagePicker,
-                                        icon: const Icon(
-                                          Icons.add_photo_alternate_outlined,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    ],
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _controller,
-                                        minLines: 1,
-                                        maxLines: 5,
-                                        onSubmitted: (_) => _sendMessage(),
-                                        onTap: () {
-                                          if (_showEmojiPicker) {
-                                            setState(() {
-                                              _showEmojiPicker = false;
-                                            });
-                                          }
-                                        },
-                                        decoration: InputDecoration(
-                                          hintText: 'Message ...',
-                                          filled: true,
-                                          fillColor: colors.surfaceMuted,
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 12,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            borderSide: BorderSide.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    AppSendActionButton(
-                                      onPressed: _sendMessage,
-                                      isBusy: _isSending,
-                                    ),
-                                  ],
-                                ),
-                                if (_showEmojiPicker)
-                                  SizedBox(
-                                    height: 320,
-                                    child: EmojiPicker(
-                                      textEditingController: _controller,
-                                      onBackspacePressed: () {},
-                                      config: Config(
-                                        height: 320,
-                                        checkPlatformCompatibility: true,
-                                        emojiViewConfig: EmojiViewConfig(
-                                          emojiSizeMax: 26,
-                                          backgroundColor:
-                                              colors.surfaceMuted,
-                                        ),
-                                        categoryViewConfig:
-                                            CategoryViewConfig(
-                                          backgroundColor: colors.surface,
-                                          indicatorColor: colors.brand,
-                                          iconColor: colors.textMuted,
-                                          iconColorSelected: colors.brand,
-                                          backspaceColor: colors.brand,
-                                          dividerColor: colors.border,
-                                        ),
-                                        bottomActionBarConfig:
-                                            const BottomActionBarConfig(
-                                          enabled: false,
-                                        ),
-                                        searchViewConfig: SearchViewConfig(
-                                          backgroundColor:
-                                              colors.surfaceMuted,
-                                          buttonIconColor: colors.textMuted,
-                                          inputTextStyle: TextStyle(
-                                            color: colors.textPrimary,
-                                            fontSize: 14,
-                                          ),
-                                          hintTextStyle: TextStyle(
-                                            color: colors.textMuted,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
+                ],
+              ),
       ),
     );
   }
@@ -1409,8 +1386,7 @@ class _ReplyPreview extends StatelessWidget {
                   message.message,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: colors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -1423,10 +1399,7 @@ class _ReplyPreview extends StatelessWidget {
 }
 
 class _GroupEditingBanner extends StatelessWidget {
-  const _GroupEditingBanner({
-    required this.message,
-    required this.onCancel,
-  });
+  const _GroupEditingBanner({required this.message, required this.onCancel});
 
   final GroupMessage message;
   final VoidCallback onCancel;
@@ -1463,10 +1436,7 @@ class _GroupEditingBanner extends StatelessWidget {
                   message.message,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -1492,8 +1462,7 @@ class _ChatDateDivider extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 14),
       child: Center(
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: colors.surfaceRaised,
             borderRadius: BorderRadius.circular(999),
@@ -1557,7 +1526,7 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.onDelete,
     required this.onLinkTap,
     required this.onOpenFullImage, // 👈
-    required this.onMentionTap,   // 👈
+    required this.onMentionTap, // 👈
   });
 
   final GroupMessage message;
@@ -1573,7 +1542,7 @@ class _GroupMessageBubble extends StatelessWidget {
   final VoidCallback onDelete;
   final Future<void> Function(String url) onLinkTap;
   final void Function(String? url, Uint8List? bytes) onOpenFullImage; // 👈
-  final Future<void> Function(String username) onMentionTap;          // 👈
+  final Future<void> Function(String username) onMentionTap; // 👈
 
   // ✅ unified style for links, mentions, hashtags on bubbles
   TextStyle _interactiveStyleForBubble(AppThemeColors colors, bool isMine) {
@@ -1595,8 +1564,9 @@ class _GroupMessageBubble extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: compactTopSpacing ? 6 : 12),
       child: Row(
-        mainAxisAlignment:
-            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine) ...[
@@ -1606,15 +1576,14 @@ class _GroupMessageBubble extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 child: CircleAvatar(
                   radius: 14,
-                  backgroundImage:
-                      message.sender?.photoUrl.isNotEmpty == true
-                          ? NetworkImage(
-                              ImageUrlResolver.avatar(
-                                message.sender!.photoUrl,
-                                size: 42,
-                              ),
-                            )
-                          : null,
+                  backgroundImage: message.sender?.photoUrl.isNotEmpty == true
+                      ? NetworkImage(
+                          ImageUrlResolver.avatar(
+                            message.sender!.photoUrl,
+                            size: 42,
+                          ),
+                        )
+                      : null,
                   child: message.sender?.photoUrl.isEmpty ?? true
                       ? const Icon(Icons.person, size: 14)
                       : null,
@@ -1666,8 +1635,11 @@ class _GroupMessageBubble extends StatelessWidget {
                           value: 'reply',
                           child: Row(
                             children: [
-                              Icon(Icons.reply_rounded,
-                                  size: 20, color: colors.brand),
+                              Icon(
+                                Icons.reply_rounded,
+                                size: 20,
+                                color: colors.brand,
+                              ),
                               const SizedBox(width: 12),
                               const Text('Reply'),
                             ],
@@ -1678,8 +1650,11 @@ class _GroupMessageBubble extends StatelessWidget {
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_rounded,
-                                    size: 20, color: colors.textSecondary),
+                                Icon(
+                                  Icons.edit_rounded,
+                                  size: 20,
+                                  color: colors.textSecondary,
+                                ),
                                 const SizedBox(width: 12),
                                 const Text('Edit'),
                               ],
@@ -1690,12 +1665,16 @@ class _GroupMessageBubble extends StatelessWidget {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline_rounded,
-                                    size: 20, color: colors.dangerText),
+                                Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 20,
+                                  color: colors.dangerText,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('Delete',
-                                    style: TextStyle(
-                                        color: colors.dangerText)),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: colors.dangerText),
+                                ),
                               ],
                             ),
                           ),
@@ -1708,13 +1687,13 @@ class _GroupMessageBubble extends StatelessWidget {
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 320),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: isMine ? colors.brand : colors.surface,
                       borderRadius: BorderRadius.circular(18),
-                      border: isMine
-                          ? null
-                          : Border.all(color: colors.border),
+                      border: isMine ? null : Border.all(color: colors.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1726,13 +1705,12 @@ class _GroupMessageBubble extends StatelessWidget {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: isMine
-                                  ? Colors.white.withOpacity(0.16)
+                                  ? Colors.white.withValues(alpha: 0.16)
                                   : colors.surfaceMuted,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   message.replyTo?.sender?.displayName ??
@@ -1765,16 +1743,15 @@ class _GroupMessageBubble extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: GestureDetector(
-                              onTap: () => onOpenFullImage(
-                                  message.photoUrl, null),
+                              onTap: () =>
+                                  onOpenFullImage(message.photoUrl, null),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
                                 child: Image.network(
                                   message.photoUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder:
-                                      (context, error, stackTrace) =>
-                                          const SizedBox.shrink(),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox.shrink(),
                                 ),
                               ),
                             ),
@@ -1785,7 +1762,9 @@ class _GroupMessageBubble extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: GestureDetector(
                               onTap: () => onOpenFullImage(
-                                  null, message.localImageBytes),
+                                null,
+                                message.localImageBytes,
+                              ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
                                 child: Image.memory(
@@ -1799,19 +1778,23 @@ class _GroupMessageBubble extends StatelessWidget {
                           RichDisplayText(
                             text: message.message,
                             style: TextStyle(
-                              color: isMine
-                                  ? Colors.white
-                                  : colors.textPrimary,
+                              color: isMine ? Colors.white : colors.textPrimary,
                               fontSize: 14,
                               height: 1.45,
                             ),
                             // ✅ all three use the same visible style
                             linkStyle: _interactiveStyleForBubble(
-                                colors, isMine),
+                              colors,
+                              isMine,
+                            ),
                             mentionStyle: _interactiveStyleForBubble(
-                                colors, isMine),
+                              colors,
+                              isMine,
+                            ),
                             hashtagStyle: _interactiveStyleForBubble(
-                                colors, isMine),
+                              colors,
+                              isMine,
+                            ),
                             onMentionTap: onMentionTap,
                             onLinkTap: onLinkTap,
                           ),
@@ -1830,8 +1813,7 @@ class _GroupMessageBubble extends StatelessWidget {
                             ),
                             if (isMine) ...[
                               const SizedBox(width: 6),
-                              _MessageDeliveryStatus(
-                                  status: message.status),
+                              _MessageDeliveryStatus(status: message.status),
                             ],
                           ],
                         ),
@@ -1859,7 +1841,7 @@ class _MessageDeliveryStatus extends StatelessWidget {
     final isRead = normalized == 'read' || normalized == 'seen';
     final iconColor = isRead
         ? const Color(0xFFBFE0FF)
-        : Colors.white.withOpacity(0.82);
+        : Colors.white.withValues(alpha: 0.82);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1924,18 +1906,14 @@ class _TypingIndicatorState extends State<_TypingIndicator>
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: List.generate(3, (index) {
-                final phase =
-                    (_controller.value - (index * 0.16)) % 1.0;
+                final phase = (_controller.value - (index * 0.16)) % 1.0;
                 final wave =
-                    (math.sin((phase * math.pi * 2) - (math.pi / 2)) +
-                            1) /
-                        2;
+                    (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) / 2;
                 final opacity = 0.25 + (wave * 0.75);
                 final yOffset = 1.5 - (wave * 1.5);
 
                 return Padding(
-                  padding:
-                      EdgeInsets.only(right: index == 2 ? 0 : 3),
+                  padding: EdgeInsets.only(right: index == 2 ? 0 : 3),
                   child: Transform.translate(
                     offset: Offset(0, yOffset),
                     child: Opacity(
@@ -1961,8 +1939,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
 }
 
 class _ComposerIconButton extends StatelessWidget {
-  const _ComposerIconButton(
-      {required this.onPressed, required this.icon});
+  const _ComposerIconButton({required this.onPressed, required this.icon});
 
   final VoidCallback onPressed;
   final Widget icon;

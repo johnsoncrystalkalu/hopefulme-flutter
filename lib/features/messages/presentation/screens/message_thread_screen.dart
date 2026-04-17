@@ -11,6 +11,7 @@ import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
@@ -78,7 +79,21 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   }
 
   String _displaySenderNameForMessage(ChatMessage message) {
-    return _displaySenderForMessage(message)?.displayName ?? widget.title;
+    return _displaySenderForMessage(message)?.displayName ??
+        _threadTitleFallback;
+  }
+
+  String get _threadTitleFallback {
+    final seededTitle = widget.title.trim();
+    final normalizedSeed = seededTitle.toLowerCase().replaceFirst('@', '');
+    final normalizedUsername = widget.username
+        .trim()
+        .toLowerCase()
+        .replaceFirst('@', '');
+    if (seededTitle.isEmpty || normalizedSeed == normalizedUsername) {
+      return 'Conversation';
+    }
+    return seededTitle;
   }
 
   TextStyle _interactiveStyleForBubble(AppThemeColors colors, bool isMine) {
@@ -96,7 +111,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   @override
   void initState() {
     super.initState();
-    ActiveChat.currentUsername = widget.username;
+    ActiveChat.currentUsername = widget.username
+        .trim()
+        .toLowerCase()
+        .replaceFirst('@', '');
+    ActiveChat.currentConversationId = null;
     _controller.addListener(_handleComposerChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
@@ -109,6 +128,14 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
 
   @override
   void dispose() {
+    final normalizedUsername = widget.username
+        .trim()
+        .toLowerCase()
+        .replaceFirst('@', '');
+    if (ActiveChat.currentUsername == normalizedUsername) {
+      ActiveChat.currentUsername = null;
+      ActiveChat.currentConversationId = null;
+    }
     _pollTimer?.cancel();
     _typingDebounce?.cancel();
     if (_typingSent) {
@@ -166,6 +193,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         _conversation = thread.conversation;
         _messages = mergedMessages;
       });
+      ActiveChat.currentConversationId = thread.conversation.id;
       if (shouldStickToBottom) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
@@ -193,7 +221,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) return;
+    if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) {
+      return;
+    }
 
     if (_editingMessage != null) {
       final editingMessage = _editingMessage!;
@@ -216,7 +246,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       setState(() {
         _isSending = true;
         _error = null;
-        _messages = _messages.map((m) => m.id == editingMessage.id ? updated : m).toList();
+        _messages = _messages
+            .map((m) => m.id == editingMessage.id ? updated : m)
+            .toList();
         _showEmojiPicker = false;
         _typingSent = false;
       });
@@ -225,11 +257,16 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       unawaited(_sendTypingStatus(false));
 
       try {
-        final edited = await widget.repository.editMessage(editingMessage.id, message: text);
+        final edited = await widget.repository.editMessage(
+          editingMessage.id,
+          message: text,
+        );
         if (!mounted) return;
         setState(() {
           _hasThreadChanges = true;
-          _messages = _messages.map((m) => m.id == editingMessage.id ? edited : m).toList();
+          _messages = _messages
+              .map((m) => m.id == editingMessage.id ? edited : m)
+              .toList();
           _editingMessage = null;
         });
       } catch (error) {
@@ -251,7 +288,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         );
         setState(() {
           _error = error;
-          _messages = _messages.map((m) => m.id == editingMessage.id ? reverted : m).toList();
+          _messages = _messages
+              .map((m) => m.id == editingMessage.id ? reverted : m)
+              .toList();
           _controller.text = text;
         });
         AppToast.error(
@@ -331,7 +370,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         if (!mounted) return;
         setState(() {
           _error = error;
-          _messages = _messages.where((item) => item.id != optimisticId).toList();
+          _messages = _messages
+              .where((item) => item.id != optimisticId)
+              .toList();
           if (selectedPhoto != null && _selectedPhoto == null) {
             _selectedPhoto = selectedPhoto;
             _selectedPhotoBytes = localPhotoBytes;
@@ -401,8 +442,21 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   }
 
   // ✅ open image fullscreen with pinch-to-zoom
-  void _openFullImage(BuildContext context, {String? url, Uint8List? bytes}) {
-    Navigator.of(context).push(
+  Future<void> _openFullImage(
+    BuildContext context, {
+    String? url,
+    Uint8List? bytes,
+  }) async {
+    final resolvedUrl = url?.trim() ?? '';
+    if (resolvedUrl.isNotEmpty) {
+      await FullscreenNetworkImageScreen.show(context, imageUrl: resolvedUrl);
+      return;
+    }
+    if (bytes == null) {
+      return;
+    }
+
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           backgroundColor: Colors.black,
@@ -412,9 +466,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
           ),
           body: Center(
             child: InteractiveViewer(
-              child: bytes != null
-                  ? Image.memory(bytes, fit: BoxFit.contain)
-                  : Image.network(url!, fit: BoxFit.contain),
+              child: Image.memory(bytes, fit: BoxFit.contain),
             ),
           ),
         ),
@@ -618,7 +670,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         VerifiedNameText(
-                          name: otherUser?.displayName ?? widget.title,
+                          name: otherUser?.displayName ?? _threadTitleFallback,
                           verified: otherUser?.isVerified ?? false,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -830,10 +882,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                               } else if (value == 'edit') {
                                                 setState(() {
                                                   _editingMessage = item;
-                                                  _controller.text = item.message;
-                                                  _controller.selection = TextSelection.collapsed(
-                                                    offset: item.message.length,
-                                                  );
+                                                  _controller.text =
+                                                      item.message;
+                                                  _controller.selection =
+                                                      TextSelection.collapsed(
+                                                        offset:
+                                                            item.message.length,
+                                                      );
                                                   _replyingTo = null;
                                                   _showEmojiPicker = false;
                                                   _selectedPhoto = null;
@@ -1588,10 +1643,7 @@ class _ThreadComposerIconButton extends StatelessWidget {
 }
 
 class _EditingBanner extends StatelessWidget {
-  const _EditingBanner({
-    required this.message,
-    required this.onCancel,
-  });
+  const _EditingBanner({required this.message, required this.onCancel});
 
   final ChatMessage message;
   final VoidCallback onCancel;

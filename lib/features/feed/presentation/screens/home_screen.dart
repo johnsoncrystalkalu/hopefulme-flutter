@@ -124,10 +124,13 @@ class _HomeScreenState extends State<HomeScreen>
   bool _inAppNotificationsEnabled = true;
   List<FeedEntry> _homeUpdates = const <FeedEntry>[];
   bool _isLoadingMoreHomeUpdates = false;
+  bool _hasLoadMoreHomeUpdatesError = false;
   bool _hasMoreHomeUpdates = true;
   int _homeUpdatesPage = 1;
   bool _homePaginationInFlight = false;
   bool _isTopbarRefreshInFlight = false;
+  int? _highlightedUpdateId;
+  Timer? _highlightedUpdateTimer;
   String _activeSidebarItemLabel = 'Home';
   AppLifecycleState? _appLifecycleState;
   ModalRoute<dynamic>? _subscribedRoute;
@@ -171,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen>
       appRouteObserver.unsubscribe(this);
     }
     _stopTopbarPolling();
+    _highlightedUpdateTimer?.cancel();
     _pollingTimer?.cancel();
     _homeScrollController.dispose();
     _topBarSnapshot.dispose();
@@ -263,6 +267,7 @@ class _HomeScreenState extends State<HomeScreen>
       _homeUpdates = const <FeedEntry>[];
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
+      _hasLoadMoreHomeUpdatesError = false;
       _isLoadingMoreHomeUpdates = false;
       _dashboardFuture = _createDashboardFuture();
     });
@@ -278,6 +283,7 @@ class _HomeScreenState extends State<HomeScreen>
       _homeUpdates = updates;
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
+      _hasLoadMoreHomeUpdatesError = false;
       _isLoadingMoreHomeUpdates = false;
       return;
     }
@@ -290,7 +296,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _handleHomeScroll() {
-    if (!_homeScrollController.hasClients || _homePaginationInFlight) {
+    if (!_homeScrollController.hasClients ||
+        _homePaginationInFlight ||
+        _hasLoadMoreHomeUpdatesError) {
       return;
     }
     final position = _homeScrollController.position;
@@ -311,11 +319,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     setState(() {
       _isLoadingMoreHomeUpdates = true;
+      _hasLoadMoreHomeUpdatesError = false;
     });
 
     var nextHomeUpdatesPage = _homeUpdatesPage;
     var nextHasMoreHomeUpdates = _hasMoreHomeUpdates;
     var nextHomeUpdates = _homeUpdates;
+    var nextHasLoadMoreError = false;
 
     try {
       final nextPage = _homeUpdatesPage + 1;
@@ -328,16 +338,55 @@ class _HomeScreenState extends State<HomeScreen>
       nextHasMoreHomeUpdates = page.hasMore;
       nextHomeUpdates = _mergeFeedEntries(_homeUpdates, page.items);
     } catch (_) {
-      nextHasMoreHomeUpdates = false;
+      nextHasLoadMoreError = true;
     } finally {
       if (mounted) {
         setState(() {
           _homeUpdatesPage = nextHomeUpdatesPage;
           _hasMoreHomeUpdates = nextHasMoreHomeUpdates;
+          _hasLoadMoreHomeUpdatesError = nextHasLoadMoreError;
           _homeUpdates = nextHomeUpdates;
           _isLoadingMoreHomeUpdates = false;
         });
       }
+    }
+  }
+
+  Future<void> _retryLoadMoreHomeUpdates() => _loadMoreHomeUpdates();
+
+  void _highlightPostedUpdate(int updateId) {
+    _highlightedUpdateTimer?.cancel();
+    setState(() {
+      _highlightedUpdateId = updateId;
+    });
+    _highlightedUpdateTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (_highlightedUpdateId == updateId) {
+          _highlightedUpdateId = null;
+        }
+      });
+    });
+  }
+
+  Future<void> _openUpdateDetailById(int updateId) async {
+    final result = await Navigator.of(context).push<UpdateDetailResult>(
+      MaterialPageRoute<UpdateDetailResult>(
+        builder: (context) => UpdateDetailScreen(
+          updateId: updateId,
+          currentUser: widget.authController.currentUser,
+          repository: widget.updateRepository,
+          contentRepository: widget.contentRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
+        ),
+      ),
+    );
+    if (result?.shouldRefresh == true) {
+      await _refreshDashboard();
     }
   }
 
@@ -500,6 +549,7 @@ class _HomeScreenState extends State<HomeScreen>
       _homeUpdates = const <FeedEntry>[];
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
+      _hasLoadMoreHomeUpdatesError = false;
       _isLoadingMoreHomeUpdates = false;
       _dashboardFuture = _createDashboardFuture();
       _homeGroupsPreviewFuture = _createHomeGroupsPreviewFuture();
@@ -612,6 +662,7 @@ class _HomeScreenState extends State<HomeScreen>
           username: username,
           profileRepository: widget.profileRepository,
           themeController: widget.themeController,
+          onLogout: _handleLogout,
         ),
       ),
     );
@@ -949,17 +1000,26 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) {
         return;
       }
-
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => UpdateDetailScreen(
-            updateId: createdUpdate.id,
-            currentUser: widget.authController.currentUser,
-            repository: widget.updateRepository,
-            contentRepository: widget.contentRepository,
-            profileRepository: widget.profileRepository,
-            messageRepository: widget.messageRepository,
-            searchRepository: widget.searchRepository,
+      _highlightPostedUpdate(createdUpdate.id);
+      if (_homeScrollController.hasClients) {
+        unawaited(
+          _homeScrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOut,
+          ),
+        );
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Update posted'),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              unawaited(_openUpdateDetailById(createdUpdate.id));
+            },
           ),
         ),
       );
@@ -1072,9 +1132,6 @@ class _HomeScreenState extends State<HomeScreen>
                           : () {
                               _scaffoldKey.currentState?.openDrawer();
                             },
-                      onLogout: widget.authController.isLoading
-                          ? null
-                          : _handleLogout,
                     ),
                   ),
                 ),
@@ -1090,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen>
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          cacheExtent: 400,
+                          cacheExtent: 280,
                           slivers: [
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(
@@ -1120,10 +1177,16 @@ class _HomeScreenState extends State<HomeScreen>
                                                 homeUpdates: _homeUpdates,
                                                 isLoadingMoreUpdates:
                                                     _isLoadingMoreHomeUpdates,
+                                                hasLoadMoreUpdatesError:
+                                                    _hasLoadMoreHomeUpdatesError,
                                                 feedRepository:
                                                     widget.feedRepository,
                                                 homeGroupsPreviewFuture:
                                                     _homeGroupsPreviewFuture,
+                                                highlightedUpdateId:
+                                                    _highlightedUpdateId,
+                                                onRetryLoadMore:
+                                                    _retryLoadMoreHomeUpdates,
                                                 onOpenEditMedia: _openEditMedia,
                                                 onCreateUpdate:
                                                     _openCreateUpdate,
@@ -1178,9 +1241,15 @@ class _HomeScreenState extends State<HomeScreen>
                                           homeUpdates: _homeUpdates,
                                           isLoadingMoreUpdates:
                                               _isLoadingMoreHomeUpdates,
+                                          hasLoadMoreUpdatesError:
+                                              _hasLoadMoreHomeUpdatesError,
                                           feedRepository: widget.feedRepository,
                                           homeGroupsPreviewFuture:
                                               _homeGroupsPreviewFuture,
+                                          highlightedUpdateId:
+                                              _highlightedUpdateId,
+                                          onRetryLoadMore:
+                                              _retryLoadMoreHomeUpdates,
                                           onOpenEditMedia: _openEditMedia,
                                           onCreateUpdate: _openCreateUpdate,
                                           onMeetNewFriendsTap:
@@ -1388,7 +1457,6 @@ class _HomeTopBar extends StatelessWidget {
     required this.onProfileTap,
     required this.onSettingsTap,
     required this.onMenuTap,
-    required this.onLogout,
   });
 
   final User? user;
@@ -1401,8 +1469,6 @@ class _HomeTopBar extends StatelessWidget {
   final Future<void> Function() onProfileTap;
   final Future<void> Function() onSettingsTap;
   final VoidCallback? onMenuTap;
-  final Future<void> Function()? onLogout;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -1477,9 +1543,6 @@ class _HomeTopBar extends StatelessWidget {
                 if (value == 'home') {
                   await onHomeTap();
                 }
-                if (value == 'logout' && onLogout != null) {
-                  await onLogout!();
-                }
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
@@ -1496,7 +1559,6 @@ class _HomeTopBar extends StatelessWidget {
                 ),
                 const PopupMenuItem(value: 'settings', child: Text('Settings')),
                 // const PopupMenuItem(value: 'home', child: Text('Go Home')),
-                const PopupMenuItem(value: 'logout', child: Text('Log Out')),
               ],
               child: AppAvatar(
                 imageUrl: user?.photoUrl ?? '',
@@ -1997,7 +2059,7 @@ class _HomeSidebar extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Text(
-                      'Menu',
+                      'Main Menu',
                       style: TextStyle(
                         color: colors.sidebarText,
                         fontSize: 15,
@@ -2102,7 +2164,7 @@ class _HomeSidebar extends StatelessWidget {
                         'Inspirations',
                         activeItemLabel == 'Inspirations',
                         onTap: onInspirationsTap,
-                        ),
+                      ),
                     ],
                   ),
                   _SidebarSection(
@@ -2138,6 +2200,13 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'More Menus',
                         onTap: onOtherMenusTap,
                       ),
+                      if (showAdminPanel)
+                        _SidebarItemData(
+                          HeroIcons.shieldCheck,
+                          'Admin',
+                          activeItemLabel == 'Admin',
+                          onTap: onAdminTap,
+                        ),
                     ],
                   ),
                 ],
@@ -2397,8 +2466,11 @@ class _HomeContent extends StatelessWidget {
     required this.dashboard,
     required this.homeUpdates,
     required this.isLoadingMoreUpdates,
+    required this.hasLoadMoreUpdatesError,
     required this.feedRepository,
     required this.homeGroupsPreviewFuture,
+    required this.highlightedUpdateId,
+    required this.onRetryLoadMore,
     required this.onOpenEditMedia,
     required this.onCreateUpdate,
     required this.onMeetNewFriendsTap,
@@ -2422,8 +2494,11 @@ class _HomeContent extends StatelessWidget {
   final FeedDashboard? dashboard;
   final List<FeedEntry> homeUpdates;
   final bool isLoadingMoreUpdates;
+  final bool hasLoadMoreUpdatesError;
   final FeedRepository feedRepository;
   final Future<List<AppGroup>> homeGroupsPreviewFuture;
+  final int? highlightedUpdateId;
+  final Future<void> Function() onRetryLoadMore;
   final Future<void> Function() onOpenEditMedia;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function() onMeetNewFriendsTap;
@@ -2467,22 +2542,30 @@ class _HomeContent extends StatelessWidget {
         );
       }
       widgets.addAll(
-        postsBlock.map(
-          (entry) => Padding(
+        postsBlock.map((entry) {
+          final isHighlighted =
+              entry.type == 'update' && entry.id == highlightedUpdateId;
+          return Padding(
+            key: ValueKey('home-feed-${entry.type}-${entry.id}'),
             padding: const EdgeInsets.only(bottom: 16),
-            child: _FeedEntryCard(
-              entry: entry,
-              currentUser: user,
-              onOpenProfile: onOpenProfile,
-              onOpenUpdate: onOpenUpdate,
-              onOpenPost: onOpenPost,
-              onOpenBlog: onOpenBlog,
-              onOpenHashtag: onOpenHashtag,
-              onOpenLink: onOpenLink,
-              updateRepository: updateRepository,
+            child: RepaintBoundary(
+              child: _HighlightFrame(
+                isHighlighted: isHighlighted,
+                child: _FeedEntryCard(
+                  entry: entry,
+                  currentUser: user,
+                  onOpenProfile: onOpenProfile,
+                  onOpenUpdate: onOpenUpdate,
+                  onOpenPost: onOpenPost,
+                  onOpenBlog: onOpenBlog,
+                  onOpenHashtag: onOpenHashtag,
+                  onOpenLink: onOpenLink,
+                  updateRepository: updateRepository,
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       );
       widgets.add(
         Padding(
@@ -2527,22 +2610,30 @@ class _HomeContent extends StatelessWidget {
 
     if (homeUpdates.isNotEmpty) {
       widgets.addAll(
-        homeUpdates.map(
-          (entry) => Padding(
+        homeUpdates.map((entry) {
+          final isHighlighted =
+              entry.type == 'update' && entry.id == highlightedUpdateId;
+          return Padding(
+            key: ValueKey('home-update-${entry.type}-${entry.id}'),
             padding: const EdgeInsets.only(bottom: 16),
-            child: _FeedEntryCard(
-              entry: entry,
-              currentUser: user,
-              onOpenProfile: onOpenProfile,
-              onOpenUpdate: onOpenUpdate,
-              onOpenPost: onOpenPost,
-              onOpenBlog: onOpenBlog,
-              onOpenHashtag: onOpenHashtag,
-              onOpenLink: onOpenLink,
-              updateRepository: updateRepository,
+            child: RepaintBoundary(
+              child: _HighlightFrame(
+                isHighlighted: isHighlighted,
+                child: _FeedEntryCard(
+                  entry: entry,
+                  currentUser: user,
+                  onOpenProfile: onOpenProfile,
+                  onOpenUpdate: onOpenUpdate,
+                  onOpenPost: onOpenPost,
+                  onOpenBlog: onOpenBlog,
+                  onOpenHashtag: onOpenHashtag,
+                  onOpenLink: onOpenLink,
+                  updateRepository: updateRepository,
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       );
       widgets.add(const SizedBox(height: 28));
     }
@@ -2552,6 +2643,21 @@ class _HomeContent extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(bottom: 28),
           child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (hasLoadMoreUpdatesError) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Center(
+            child: TextButton.icon(
+              onPressed: onRetryLoadMore,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tap to retry loading more'),
+            ),
+          ),
         ),
       );
     }
@@ -3651,6 +3757,45 @@ class _FeedEntryCard extends StatelessWidget {
       onOpenHashtag: onOpenHashtag,
       onOpenLink: onOpenLink,
       updateRepository: updateRepository,
+    );
+  }
+}
+
+class _HighlightFrame extends StatelessWidget {
+  const _HighlightFrame({required this.isHighlighted, required this.child});
+
+  final bool isHighlighted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final decoration = BoxDecoration(
+      color: isHighlighted
+          ? colors.brand.withValues(alpha: 0.08)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(
+        color: isHighlighted
+            ? colors.brand.withValues(alpha: 0.35)
+            : Colors.transparent,
+      ),
+    );
+
+    if (!isHighlighted) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: decoration,
+        child: child,
+      );
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(4),
+      decoration: decoration,
+      child: child,
     );
   }
 }

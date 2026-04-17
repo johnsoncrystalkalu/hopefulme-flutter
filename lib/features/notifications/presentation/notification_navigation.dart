@@ -137,7 +137,7 @@ class NotificationNavigator {
             updateRepository: updateRepository,
             currentUser: currentUser,
             username: username,
-            title: username,
+            title: 'Conversation',
           ),
         ),
       );

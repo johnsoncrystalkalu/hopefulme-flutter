@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -16,6 +18,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/profile_navigati
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -50,8 +53,11 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   final List<FeedEntry> _items = <FeedEntry>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _hasLoadMoreError = false;
   bool _hasMore = true;
   int _page = 1;
+  int? _highlightedUpdateId;
+  Timer? _highlightedUpdateTimer;
   String? _error;
   FeedNotice? _feedNotice;
 
@@ -64,6 +70,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
 
   @override
   void dispose() {
+    _highlightedUpdateTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -74,6 +81,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       _error = null;
       _page = 1;
       _hasMore = true;
+      _hasLoadMoreError = false;
       _feedNotice = null;
       _items.clear();
     });
@@ -107,6 +115,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
 
     setState(() {
       _isLoadingMore = true;
+      _hasLoadMoreError = false;
     });
 
     try {
@@ -118,6 +127,11 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
         _items.addAll(page.items);
         _hasMore = page.hasMore;
       });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasLoadMoreError = true;
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -128,9 +142,48 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   }
 
   void _onScroll() {
+    if (_hasLoadMoreError) {
+      return;
+    }
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 240) {
       _loadMore();
+    }
+  }
+
+  Future<void> _retryLoadMore() => _loadMore();
+
+  void _highlightPostedUpdate(int updateId) {
+    _highlightedUpdateTimer?.cancel();
+    setState(() {
+      _highlightedUpdateId = updateId;
+    });
+    _highlightedUpdateTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() {
+        if (_highlightedUpdateId == updateId) {
+          _highlightedUpdateId = null;
+        }
+      });
+    });
+  }
+
+  Future<void> _openUpdateById(int updateId) async {
+    final result = await Navigator.of(context).push<UpdateDetailResult>(
+      MaterialPageRoute<UpdateDetailResult>(
+        builder: (context) => UpdateDetailScreen(
+          updateId: updateId,
+          currentUser: widget.currentUser,
+          repository: widget.updateRepository,
+          contentRepository: widget.contentRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          searchRepository: widget.searchRepository,
+        ),
+      ),
+    );
+    if (result?.shouldRefresh == true) {
+      await _loadInitial();
     }
   }
 
@@ -198,8 +251,32 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       currentUser: widget.currentUser,
     );
 
-    if (created != null) {
+    if (created is UpdateDetail) {
       await _loadInitial();
+      if (!mounted) return;
+      _highlightPostedUpdate(created.id);
+      if (_scrollController.hasClients) {
+        unawaited(
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOut,
+          ),
+        );
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Update posted'),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              unawaited(_openUpdateById(created.id));
+            },
+          ),
+        ),
+      );
     }
   }
 
@@ -227,9 +304,13 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                 physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
-                cacheExtent: 1200,
+                cacheExtent: 700,
                 padding: const EdgeInsets.all(16),
-                itemCount: _items.length + (_isLoadingMore ? 1 : 0) + 1,
+                itemCount:
+                    _items.length +
+                    (_isLoadingMore ? 1 : 0) +
+                    (_hasLoadMoreError ? 1 : 0) +
+                    1,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 14),
                 itemBuilder: (context, index) {
@@ -258,43 +339,43 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
 
                   final itemIndex = index - 1;
                   if (itemIndex >= _items.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: CircularProgressIndicator()),
+                    final overflowIndex = itemIndex - _items.length;
+                    if (_isLoadingMore && overflowIndex == 0) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Center(
+                        child: TextButton.icon(
+                          onPressed: _retryLoadMore,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Tap to retry loading more'),
+                        ),
+                      ),
                     );
                   }
 
                   final entry = _items[itemIndex];
+                  final isHighlighted =
+                      entry.type == 'update' &&
+                      entry.id == _highlightedUpdateId;
                   return RepaintBoundary(
-                    child: switch (entry.type) {
-                      'advert' => FeedAdvertCard(entry: entry),
-                      _ => InteractiveUpdateCard(
-                        key: ValueKey(
-                          'updates-feed-${entry.id}-${entry.createdAt}',
-                        ),
-                        updateId: entry.id,
-                        updateType: entry.updateType,
-                        title: entry.user?.displayName ?? entry.title,
-                        body: entry.body,
-                        photoUrl: entry.photoUrl,
-                        avatarUrl: entry.user?.photoUrl ?? '',
-                        fallbackLabel: entry.user?.displayName ?? entry.title,
-                        device: entry.device,
-                        createdAt: entry.createdAt,
-                        likesCount: entry.likesCount,
-                        commentsCount: entry.commentsCount,
-                        views: entry.views,
-                        updateRepository: widget.updateRepository,
-                        currentUser: widget.currentUser,
-                        ownerUsername: entry.user?.username,
-                        isVerified: entry.user?.isVerified ?? false,
-                        isLiked: entry.isLiked,
-                        onOpenProfile: _openProfile,
-                        onOpenUpdate: () => _openUpdate(entry),
-                        onOpenHashtag: _openSearchQuery,
-                        onOpenLink: _handleLinkTap,
+                    child: _UpdatesFeedRow(
+                      key: ValueKey(
+                        'updates-feed-item-${entry.type}-${entry.id}',
                       ),
-                    },
+                      entry: entry,
+                      isHighlighted: isHighlighted,
+                      updateRepository: widget.updateRepository,
+                      currentUser: widget.currentUser,
+                      onOpenProfile: _openProfile,
+                      onOpenUpdate: _openUpdate,
+                      onOpenHashtag: _openSearchQuery,
+                      onOpenLink: _handleLinkTap,
+                    ),
                   );
                 },
               ),
@@ -369,6 +450,89 @@ class _ActivitiesComposerCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _UpdatesFeedRow extends StatelessWidget {
+  const _UpdatesFeedRow({
+    required this.entry,
+    required this.isHighlighted,
+    required this.updateRepository,
+    required this.currentUser,
+    required this.onOpenProfile,
+    required this.onOpenUpdate,
+    required this.onOpenHashtag,
+    required this.onOpenLink,
+    super.key,
+  });
+
+  final FeedEntry entry;
+  final bool isHighlighted;
+  final UpdateRepository updateRepository;
+  final User? currentUser;
+  final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(String hashtag) onOpenHashtag;
+  final Future<void> Function(String url) onOpenLink;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final decoration = BoxDecoration(
+      color: isHighlighted
+          ? colors.brand.withValues(alpha: 0.08)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(
+        color: isHighlighted
+            ? colors.brand.withValues(alpha: 0.35)
+            : Colors.transparent,
+      ),
+    );
+
+    final child = switch (entry.type) {
+      'advert' => FeedAdvertCard(entry: entry),
+      _ => InteractiveUpdateCard(
+        key: ValueKey('updates-feed-${entry.id}-${entry.createdAt}'),
+        updateId: entry.id,
+        updateType: entry.updateType,
+        title: entry.user?.displayName ?? entry.title,
+        body: entry.body,
+        photoUrl: entry.photoUrl,
+        avatarUrl: entry.user?.photoUrl ?? '',
+        fallbackLabel: entry.user?.displayName ?? entry.title,
+        device: entry.device,
+        createdAt: entry.createdAt,
+        likesCount: entry.likesCount,
+        commentsCount: entry.commentsCount,
+        views: entry.views,
+        updateRepository: updateRepository,
+        currentUser: currentUser,
+        ownerUsername: entry.user?.username,
+        isVerified: entry.user?.isVerified ?? false,
+        isLiked: entry.isLiked,
+        onOpenProfile: onOpenProfile,
+        onOpenUpdate: () => onOpenUpdate(entry),
+        onOpenHashtag: onOpenHashtag,
+        onOpenLink: onOpenLink,
+      ),
+    };
+
+    if (!isHighlighted) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: decoration,
+        child: child,
+      );
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(4),
+      decoration: decoration,
+      child: child,
     );
   }
 }

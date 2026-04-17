@@ -245,7 +245,7 @@ class AppDeepLinkNavigator {
               updateRepository: updateRepository,
               currentUser: currentUser,
               username: username,
-              title: username,
+              title: 'Conversation',
             ),
           ),
         );
@@ -405,7 +405,7 @@ class AppDeepLinkNavigator {
       if (configuredHost != null && configuredHost.isNotEmpty) configuredHost,
       'ahopefulme.com',
       'www.ahopefulme.com',
-     // '127.0.0.1',
+      // '127.0.0.1',
       //'localhost',
     };
 

@@ -107,13 +107,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 24),
-                          child: Text(
-                            'HopefulMe',
-                            style: TextStyle(
-                              color: colors.brand,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -1.2,
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Hopeful',
+                                  style: TextStyle(
+                                    color: colors.brand,
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.2,
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: 'Me',
+                                  style: TextStyle(
+                                    color: Color(0xFFe08016),
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -1.2,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -341,8 +356,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                           vertical: 18,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                         ),
                                       ),
                                       child: widget.authController.isSubmitting
@@ -376,14 +392,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ),
                                       GestureDetector(
-                                        onTap: widget.authController.isSubmitting
+                                        onTap:
+                                            widget.authController.isSubmitting
                                             ? null
                                             : () {
                                                 widget.authController
                                                     .clearError();
-                                                Navigator.of(
-                                                  context,
-                                                ).pushNamed(
+                                                Navigator.of(context).pushNamed(
                                                   RegisterScreen.routeName,
                                                 );
                                               },

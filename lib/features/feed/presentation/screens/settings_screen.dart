@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -16,15 +18,16 @@ class SettingsScreen extends StatelessWidget {
     required this.username,
     required this.profileRepository,
     required this.themeController,
+    required this.onLogout,
     super.key,
   });
 
   final String username;
   final ProfileRepository profileRepository;
   final ThemeController themeController;
+  final Future<void> Function() onLogout;
 
-  static const _appUrl =
-      'https://www.ahopefulme.com/app';
+  static const _appUrl = 'https://www.ahopefulme.com/app';
   static const _officialWebsiteUrl = 'https://www.ahopefulme.com';
 
   Future<void> _openExternalUrl(BuildContext context, String url) async {
@@ -88,6 +91,12 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+          _SettingsTile(
+            icon: Icons.logout_rounded,
+            title: 'Log Out',
+            subtitle: 'Sign out of your HopefulMe account.',
+            onTap: () => unawaited(onLogout()),
           ),
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Appearance'),
@@ -260,10 +269,7 @@ class _SettingsTile extends StatelessWidget {
             ),
           ),
         ),
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          color: colors.textMuted,
-        ),
+        trailing: Icon(Icons.chevron_right_rounded, color: colors.textMuted),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
     );
@@ -271,10 +277,7 @@ class _SettingsTile extends StatelessWidget {
 }
 
 class _ThemeToggleTile extends StatelessWidget {
-  const _ThemeToggleTile({
-    required this.isDarkMode,
-    required this.onChanged,
-  });
+  const _ThemeToggleTile({required this.isDarkMode, required this.onChanged});
 
   final bool isDarkMode;
   final ValueChanged<bool> onChanged;

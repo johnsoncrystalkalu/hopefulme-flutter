@@ -36,7 +36,9 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:http/http.dart' as http;
+import 'package:in_app_review/in_app_review.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HopefulMeApp extends StatefulWidget {
@@ -72,10 +74,16 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _isPresencePingInFlight = false;
   bool _hasShownSoftUpdatePromptThisSession = false;
   bool _isVersionCheckInFlight = false;
+  bool _isRatingPromptInFlight = false;
+  bool _hasTrackedRatingLaunchThisSession = false;
 
   // Keep the version check responsive without hitting the endpoint too often.
   DateTime? _lastVersionCheck;
   static const Duration _versionCheckCooldown = Duration(minutes: 5);
+  static const int _minimumLaunchesForRatingPrompt = 6;
+  static const Duration _ratingPromptCooldown = Duration(days: 45);
+  static const String _ratingLaunchCountKey = 'rating_prompt_launch_count';
+  static const String _ratingLastPromptAtKey = 'rating_prompt_last_prompt_at';
 
   @override
   void initState() {
@@ -130,6 +138,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     // Check for app update after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkAppVersion(force: true));
+      unawaited(_trackRatingLaunchIfNeeded());
     });
   }
 
@@ -148,17 +157,24 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     try {
       _lastVersionCheck = now;
+      final versionUri = Uri.parse('${_config.baseUrl}/api/app/version')
+          .replace(
+            queryParameters: <String, String>{
+              'platform': _versionCheckPlatform(),
+            },
+          );
       final response = await http
-          .get(Uri.parse('${_config.baseUrl}/api/app/version'))
+          .get(versionUri)
           .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) return;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final minimumVersion = data['minimum_version']?.toString() ?? '0.0.0';
-      final forceUpdate = data['force_update'] == true;
-      final storeUrl = data['store_url']?.toString() ?? '';
-      final message = data['message']?.toString() ??
+      final minimumVersion = _resolveMinimumVersion(data);
+      final forceUpdate = _resolveForceUpdate(data);
+      final storeUrl = _resolveStoreUrl(data);
+      final message =
+          data['message']?.toString() ??
           'A new version of Hopeful Me is available. Please update to continue.';
 
       final packageInfo = await PackageInfo.fromPlatform();
@@ -208,6 +224,84 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     }
   }
 
+  String _versionCheckPlatform() {
+    if (kIsWeb) {
+      return 'web';
+    }
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      _ => 'other',
+    };
+  }
+
+  String _resolveStoreUrl(Map<String, dynamic> data) {
+    String readValue(String key) => data[key]?.toString().trim() ?? '';
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosUrl = readValue('ios_store_url').isNotEmpty
+          ? readValue('ios_store_url')
+          : readValue('app_store_url').isNotEmpty
+          ? readValue('app_store_url')
+          : readValue('appstore_url');
+      if (iosUrl.isNotEmpty) {
+        return iosUrl;
+      }
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final androidUrl = readValue('android_store_url').isNotEmpty
+          ? readValue('android_store_url')
+          : readValue('play_store_url');
+      if (androidUrl.isNotEmpty) {
+        return androidUrl;
+      }
+    }
+
+    return readValue('store_url');
+  }
+
+  String _resolveMinimumVersion(Map<String, dynamic> data) {
+    String readValue(String key) => data[key]?.toString().trim() ?? '';
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosVersion = readValue('minimum_version_ios');
+      if (iosVersion.isNotEmpty) {
+        return iosVersion;
+      }
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final androidVersion = readValue('minimum_version_android');
+      if (androidVersion.isNotEmpty) {
+        return androidVersion;
+      }
+    }
+
+    final sharedVersion = readValue('minimum_version');
+    return sharedVersion.isEmpty ? '0.0.0' : sharedVersion;
+  }
+
+  bool _resolveForceUpdate(Map<String, dynamic> data) {
+    bool parseBool(dynamic value) => value == true || value?.toString() == '1';
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosFlag = data['force_update_ios'];
+      if (iosFlag != null) {
+        return parseBool(iosFlag);
+      }
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final androidFlag = data['force_update_android'];
+      if (androidFlag != null) {
+        return parseBool(androidFlag);
+      }
+    }
+
+    return parseBool(data['force_update']);
+  }
+
   void _showForceUpdateDialog(
     BuildContext context,
     String storeUrl,
@@ -249,16 +343,16 @@ class _HopefulMeAppState extends State<HopefulMeApp>
                   if (storeUrl.isNotEmpty) {
                     final uri = Uri.parse(storeUrl);
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   }
                 },
                 child: const Text(
                   'Update Now',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
               ),
             ),
@@ -303,13 +397,126 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       }
       final playerId = await OneSignalService.instance.getPlayerId();
       if (playerId != null) {
-        await _authController.authRepository.registerOneSignalPlayerId(playerId);
+        await _authController.authRepository.registerOneSignalPlayerId(
+          playerId,
+        );
       }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Failed to sync OneSignal: $e');
       }
     }
+  }
+
+  Future<void> _trackRatingLaunchIfNeeded() async {
+    if (_hasTrackedRatingLaunchThisSession ||
+        !_authController.isAuthenticated) {
+      return;
+    }
+    _hasTrackedRatingLaunchThisSession = true;
+    await _maybePromptForRating(incrementLaunchCount: true);
+  }
+
+  bool get _supportsInAppRatingPrompt =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  Future<void> _maybePromptForRating({
+    bool incrementLaunchCount = false,
+  }) async {
+    if (!_supportsInAppRatingPrompt ||
+        !_authController.isAuthenticated ||
+        _isRatingPromptInFlight) {
+      return;
+    }
+
+    _isRatingPromptInFlight = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var launchCount = prefs.getInt(_ratingLaunchCountKey) ?? 0;
+      if (incrementLaunchCount) {
+        launchCount += 1;
+        await prefs.setInt(_ratingLaunchCountKey, launchCount);
+      }
+      if (launchCount < _minimumLaunchesForRatingPrompt) {
+        return;
+      }
+
+      final lastPromptAtRaw = prefs.getString(_ratingLastPromptAtKey);
+      if (lastPromptAtRaw != null && lastPromptAtRaw.trim().isNotEmpty) {
+        final lastPromptAt = DateTime.tryParse(lastPromptAtRaw);
+        if (lastPromptAt != null &&
+            DateTime.now().difference(lastPromptAt) < _ratingPromptCooldown) {
+          return;
+        }
+      }
+
+      final inAppReview = InAppReview.instance;
+      final available = await inAppReview.isAvailable();
+      if (!available) {
+        return;
+      }
+
+      final context = _navigatorKey.currentContext;
+      if (context == null || !context.mounted) {
+        return;
+      }
+
+      final accepted = await _showRatingPromptDialog(context);
+      await prefs.setString(
+        _ratingLastPromptAtKey,
+        DateTime.now().toIso8601String(),
+      );
+      if (accepted != true) {
+        return;
+      }
+
+      await inAppReview.requestReview();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Rating prompt failed: $e');
+      }
+    } finally {
+      _isRatingPromptInFlight = false;
+    }
+  }
+
+  Future<bool?> _showRatingPromptDialog(BuildContext context) {
+    final colors = context.appColors;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Icon(Icons.star_rounded, color: colors.warningText),
+            const SizedBox(width: 10),
+            const Text('Enjoying HopefulMe?'),
+          ],
+        ),
+        content: Text(
+          'Would you like to rate the app? Your feedback helps us improve.',
+          style: TextStyle(color: colors.textMuted, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.brand,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Rate app'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -331,7 +538,9 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     if (_authController.isAuthenticated) {
       _syncOneSignalPlayerId();
       unawaited(_checkAppVersion(force: true));
+      unawaited(_trackRatingLaunchIfNeeded());
     } else {
+      _hasTrackedRatingLaunchThisSession = false;
       OneSignalService.instance.removeExternalUserId();
     }
   }
@@ -392,6 +601,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     final type = data['type']?.toString().trim().toLowerCase() ?? '';
     final senderUsername =
         data['sender_username']?.toString().trim().replaceFirst('@', '') ?? '';
+    final senderName = data['sender_name']?.toString().trim() ?? '';
     final contentType =
         data['content_type']?.toString().trim().toLowerCase() ?? '';
     final contentId = int.tryParse(data['content_id']?.toString() ?? '') ?? 0;
@@ -417,7 +627,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
                 updateRepository: _updateRepository,
                 currentUser: _authController.currentUser,
                 username: senderUsername,
-                title: senderUsername,
+                title: senderName.isNotEmpty ? senderName : 'Conversation',
               ),
             ),
           );
@@ -577,9 +787,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     var targetUrl = '${_config.webBaseUrl}$normalizedPath';
 
     try {
-      final bridgedUrl = await _authController.authRepository.createWebSessionUrl(
-        targetUrl,
-      );
+      final bridgedUrl = await _authController.authRepository
+          .createWebSessionUrl(targetUrl);
       if (bridgedUrl.trim().isNotEmpty) {
         targetUrl = bridgedUrl.trim();
       }
@@ -648,9 +857,9 @@ class _HopefulMeAppState extends State<HopefulMeApp>
               ? _openDeepLink(context, uri)
               : _openLoggedOutDeepLink(context, uri))
           .whenComplete(() {
-        _isHandlingDeepLink = false;
-        if (mounted) _drainPendingDeepLink();
-      }),
+            _isHandlingDeepLink = false;
+            if (mounted) _drainPendingDeepLink();
+          }),
     );
   }
 
@@ -718,7 +927,9 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
   Future<void> _openResetPasswordScreen(BuildContext context, Uri uri) {
     final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
-    final token = segments.length >= 2 ? Uri.decodeComponent(segments.elementAt(1)) : '';
+    final token = segments.length >= 2
+        ? Uri.decodeComponent(segments.elementAt(1))
+        : '';
     final email = uri.queryParameters['email']?.trim() ?? '';
 
     return Navigator.of(context).push(
@@ -784,20 +995,20 @@ class _HopefulMeAppState extends State<HopefulMeApp>
             LoginScreen.routeName: (context) =>
                 LoginScreen(authController: _authController),
             ForgotPasswordScreen.routeName: (context) => ForgotPasswordScreen(
-                  authRepository: _authController.authRepository,
-                ),
+              authRepository: _authController.authRepository,
+            ),
             RegisterScreen.routeName: (context) => RegisterScreen(
-                  authController: _authController,
-                  profileRepository: _profileRepository,
-                ),
+              authController: _authController,
+              profileRepository: _profileRepository,
+            ),
             // FIX 2: Use the single builder method — no duplication.
             HomeScreen.routeName: (context) => _buildHomeScreen(),
             ProfileScreen.routeName: (context) => ProfileScreen(
-                  currentUser: _authController.currentUser,
-                  profileRepository: _profileRepository,
-                  messageRepository: _messageRepository,
-                  updateRepository: _updateRepository,
-                ),
+              currentUser: _authController.currentUser,
+              profileRepository: _profileRepository,
+              messageRepository: _messageRepository,
+              updateRepository: _updateRepository,
+            ),
           },
           // FIX 3: Auth-state changes now only rebuild this lightweight
           // _AppRouter widget, not the entire MaterialApp.

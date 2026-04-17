@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateDetailResult {
@@ -291,9 +292,16 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   Future<void> _shareUpdate(UpdateDetail detail) async {
     final baseUrl = 'https://ahopefulme.com';
     final url = '$baseUrl/social/${detail.id}@${detail.user.username}';
-    await Clipboard.setData(ClipboardData(text: url));
-    if (!mounted) return;
-    AppToast.info(context, 'Update link copied to clipboard');
+    try {
+      await Share.share(
+        '${detail.user.displayName} shared an update on HopefulMe:\n$url',
+        subject: 'HopefulMe Update',
+      );
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) return;
+      AppToast.info(context, 'Update link copied to clipboard');
+    }
   }
 
   Future<void> _editUpdate(UpdateDetail detail) async {

@@ -58,3 +58,7 @@ version name 10.0.1
 "C:\Users\Johnson Crystal Kalu\Desktop\flutter\projects\hopefulme-upload-certificate.pem"
 "C:\Users\Johnson Crystal Kalu\Desktop\flutter\projects\hopefulme-upload-key.jks"
 "C:\Users\Johnson Crystal Kalu\Desktop\flutter\projects\keystore.jks"
+
+flutter clean
+flutter pub get
+flutter build appbundle --release
