@@ -37,6 +37,7 @@ import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_review/in_app_review.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -76,6 +77,9 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _isVersionCheckInFlight = false;
   bool _isRatingPromptInFlight = false;
   bool _hasTrackedRatingLaunchThisSession = false;
+  bool _isHandlingNotificationOpen = false;
+  DateTime? _lastNotificationOpenAt;
+  String? _lastNotificationOpenFingerprint;
 
   // Keep the version check responsive without hitting the endpoint too often.
   DateTime? _lastVersionCheck;
@@ -181,6 +185,13 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       final currentVersion = packageInfo.version;
 
       if (_isOutdated(currentVersion, minimumVersion)) {
+        final handledByNativeAndroidUpdate = await _tryNativeAndroidUpdate(
+          forceUpdate: forceUpdate,
+        );
+        if (handledByNativeAndroidUpdate) {
+          return;
+        }
+
         final context = _navigatorKey.currentContext;
         if (context != null && context.mounted) {
           if (forceUpdate) {
@@ -300,6 +311,43 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     }
 
     return parseBool(data['force_update']);
+  }
+
+  Future<bool> _tryNativeAndroidUpdate({required bool forceUpdate}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return false;
+    }
+
+    try {
+      final updateInfo = await InAppUpdate.checkForUpdate();
+      if (updateInfo.updateAvailability != UpdateAvailability.updateAvailable) {
+        return false;
+      }
+
+      if (forceUpdate && updateInfo.immediateUpdateAllowed) {
+        final result = await InAppUpdate.performImmediateUpdate();
+        return result == AppUpdateResult.success;
+      }
+
+      if (!forceUpdate && updateInfo.flexibleUpdateAllowed) {
+        final result = await InAppUpdate.startFlexibleUpdate();
+        if (result == AppUpdateResult.success) {
+          await InAppUpdate.completeFlexibleUpdate();
+          return true;
+        }
+      }
+
+      if (updateInfo.immediateUpdateAllowed) {
+        final result = await InAppUpdate.performImmediateUpdate();
+        return result == AppUpdateResult.success;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Native Android update failed: $e');
+      }
+    }
+
+    return false;
   }
 
   void _showForceUpdateDialog(
@@ -453,10 +501,6 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       }
 
       final inAppReview = InAppReview.instance;
-      final available = await inAppReview.isAvailable();
-      if (!available) {
-        return;
-      }
 
       final context = _navigatorKey.currentContext;
       if (context == null || !context.mounted) {
@@ -472,13 +516,25 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         return;
       }
 
-      await inAppReview.requestReview();
+      await _launchRatingFlow(inAppReview);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Rating prompt failed: $e');
       }
     } finally {
       _isRatingPromptInFlight = false;
+    }
+  }
+
+  Future<void> _launchRatingFlow(InAppReview inAppReview) async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      await inAppReview.openStoreListing();
+      return;
+    }
+
+    final available = await inAppReview.isAvailable();
+    if (available) {
+      await inAppReview.requestReview();
     }
   }
 
@@ -593,102 +649,131 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   Future<void> _handleOneSignalNotificationTap(
     Map<String, dynamic> data,
   ) async {
+    final now = DateTime.now();
+    final fingerprint = _notificationPayloadFingerprint(data);
+    if (_isHandlingNotificationOpen) {
+      return;
+    }
+    if (_lastNotificationOpenFingerprint == fingerprint &&
+        _lastNotificationOpenAt != null &&
+        now.difference(_lastNotificationOpenAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _isHandlingNotificationOpen = true;
+    _lastNotificationOpenFingerprint = fingerprint;
+    _lastNotificationOpenAt = now;
+
     final context = _navigatorKey.currentContext;
     if (context == null || !_authController.isAuthenticated) {
+      _isHandlingNotificationOpen = false;
       return;
     }
 
-    final type = data['type']?.toString().trim().toLowerCase() ?? '';
-    final senderUsername =
-        data['sender_username']?.toString().trim().replaceFirst('@', '') ?? '';
-    final senderName = data['sender_name']?.toString().trim() ?? '';
-    final contentType =
-        data['content_type']?.toString().trim().toLowerCase() ?? '';
-    final contentId = int.tryParse(data['content_id']?.toString() ?? '') ?? 0;
-    final inspirationId =
-        int.tryParse(data['inspiration_id']?.toString() ?? '') ?? 0;
-    final orderId = int.tryParse(data['order_id']?.toString() ?? '') ?? 0;
+    try {
+      final type = data['type']?.toString().trim().toLowerCase() ?? '';
+      final senderUsername =
+          data['sender_username']?.toString().trim().replaceFirst('@', '') ??
+          '';
+      final senderName = data['sender_name']?.toString().trim() ?? '';
+      final contentType =
+          data['content_type']?.toString().trim().toLowerCase() ?? '';
+      final contentId = int.tryParse(data['content_id']?.toString() ?? '') ?? 0;
+      final inspirationId =
+          int.tryParse(data['inspiration_id']?.toString() ?? '') ?? 0;
+      final orderId = int.tryParse(data['order_id']?.toString() ?? '') ?? 0;
 
-    switch (type) {
-      case 'follow':
-      case 'referral_joined':
-        if (senderUsername.isNotEmpty) {
-          await _openDeepLink(context, Uri(path: '/$senderUsername'));
-          return;
-        }
-        break;
-      case 'message':
-        if (senderUsername.isNotEmpty) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (context) => MessageThreadScreen(
-                repository: _messageRepository,
-                profileRepository: _profileRepository,
-                updateRepository: _updateRepository,
-                currentUser: _authController.currentUser,
-                username: senderUsername,
-                title: senderName.isNotEmpty ? senderName : 'Conversation',
+      switch (type) {
+        case 'follow':
+        case 'referral_joined':
+          if (senderUsername.isNotEmpty) {
+            await _openDeepLink(context, Uri(path: '/$senderUsername'));
+            return;
+          }
+          break;
+        case 'message':
+          if (senderUsername.isNotEmpty) {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => MessageThreadScreen(
+                  repository: _messageRepository,
+                  profileRepository: _profileRepository,
+                  updateRepository: _updateRepository,
+                  currentUser: _authController.currentUser,
+                  username: senderUsername,
+                  title: senderName.isNotEmpty ? senderName : 'Conversation',
+                ),
               ),
-            ),
+            );
+            return;
+          }
+          break;
+        case 'comment':
+        case 'like':
+        case 'mention':
+          final targetUri = _contentNotificationUri(
+            contentType: contentType,
+            contentId: contentId,
           );
-          return;
-        }
-        break;
-      case 'comment':
-      case 'like':
-      case 'mention':
-        final targetUri = _contentNotificationUri(
-          contentType: contentType,
-          contentId: contentId,
-        );
-        if (targetUri != null) {
-          await _openDeepLink(context, targetUri);
-          return;
-        }
-        break;
-      case 'inspiration':
-        await _openDeepLink(
-          context,
-          inspirationId > 0
-              ? Uri(path: '/inspire/$inspirationId')
-              : Uri(path: '/inspire/inbox'),
-        );
-        return;
-      case 'welcome':
-        final user = _authController.currentUser;
-        if (user != null) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (context) => EditProfileScreen(
-                username: user.username,
-                repository: _profileRepository,
-              ),
-            ),
-          );
-          return;
-        }
-        break;
-      case 'account_verified':
-        final username = _authController.currentUser?.username ?? '';
-        if (username.isNotEmpty) {
-          await _openDeepLink(context, Uri(path: '/$username'));
-          return;
-        }
-        break;
-      case 'store_order':
-      case 'store_order_placed':
-        if (orderId > 0) {
-          await _openSignedWebPage(
+          if (targetUri != null) {
+            await _openDeepLink(context, targetUri);
+            return;
+          }
+          break;
+        case 'inspiration':
+          await _openDeepLink(
             context,
-            title: 'Order Details',
-            path: '/store/order-page/$orderId',
+            inspirationId > 0
+                ? Uri(path: '/inspire/$inspirationId')
+                : Uri(path: '/inspire/inbox'),
           );
           return;
-        }
-        break;
-    }
+        case 'welcome':
+          final user = _authController.currentUser;
+          if (user != null) {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => EditProfileScreen(
+                  username: user.username,
+                  repository: _profileRepository,
+                ),
+              ),
+            );
+            return;
+          }
+          break;
+        case 'account_verified':
+          final username = _authController.currentUser?.username ?? '';
+          if (username.isNotEmpty) {
+            await _openDeepLink(context, Uri(path: '/$username'));
+            return;
+          }
+          break;
+        case 'store_order':
+        case 'store_order_placed':
+          if (orderId > 0) {
+            await _openSignedWebPage(
+              context,
+              title: 'Order Details',
+              path: '/store/order-page/$orderId',
+            );
+            return;
+          }
+          break;
+      }
 
-    await _openNotificationsScreen();
+      await _openNotificationsScreen();
+    } finally {
+      _isHandlingNotificationOpen = false;
+    }
+  }
+
+  String _notificationPayloadFingerprint(Map<String, dynamic> data) {
+    final keys = data.keys.toList()..sort();
+    final normalized = <String, dynamic>{};
+    for (final key in keys) {
+      normalized[key] = data[key];
+    }
+    return jsonEncode(normalized);
   }
 
   Uri? _contentNotificationUri({

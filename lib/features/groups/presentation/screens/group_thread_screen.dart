@@ -1605,7 +1605,7 @@ class _GroupMessageBubble extends StatelessWidget {
                 child: Row(
                   children: [
                     _GroupBubbleActionButton(
-                      icon: Icons.reply_rounded,
+                      icon: Icons.share_outlined,
                       label: 'Reply',
                       color: colors.brand,
                       onTap: () => Navigator.of(sheetContext).pop('reply'),

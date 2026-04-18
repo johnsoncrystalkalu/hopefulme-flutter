@@ -43,6 +43,7 @@ dependencies:
   image_cropper: ^12.2.1
   file_picker: ^10.3.3
   in_app_review: ^2.0.10
+  in_app_update: ^4.2.3
   phosphor_flutter: ^2.0.0
   shared_preferences: ^2.3.2
   package_info_plus: ^8.0.2

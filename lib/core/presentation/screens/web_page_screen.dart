@@ -22,8 +22,6 @@ class _WebPageScreenState extends State<WebPageScreen> {
   late final WebViewController _controller;
   late final WebViewWidget _webView;
 
-  // All reactive state lives in ValueNotifiers — zero setState calls,
-  // so the WebView widget tree is never dirtied during page loads.
   final ValueNotifier<int> _progress = ValueNotifier<int>(0);
   final ValueNotifier<bool> _hasError = ValueNotifier<bool>(false);
   final ValueNotifier<String?> _errorMessage = ValueNotifier<String?>(null);
@@ -68,14 +66,16 @@ class _WebPageScreenState extends State<WebPageScreen> {
     }
 
     _controller = controller;
-
-    // Created once, never rebuilt — this is the key to eliminating jank.
     _webView = WebViewWidget(controller: _controller);
   }
 
   Future<List<String>> _selectFilesForWebInput(
     FileSelectorParams params,
   ) async {
+    if (params.mode == FileSelectorMode.save) {
+      return const <String>[];
+    }
+
     final allowMultiple = params.mode == FileSelectorMode.openMultiple;
     final fileType = _pickFileTypeFromAcceptTypes(params.acceptTypes);
     final allowedExtensions = fileType == FileType.custom
@@ -91,14 +91,28 @@ class _WebPageScreenState extends State<WebPageScreen> {
       withData: false,
     );
 
-    if (selected == null) {
+    if (selected == null || selected.files.isEmpty) {
       return const <String>[];
     }
 
-    return selected.paths
+    return selected.files
+        .map(_platformFileToWebViewUri)
         .whereType<String>()
-        .where((path) => path.trim().isNotEmpty)
         .toList(growable: false);
+  }
+
+  String? _platformFileToWebViewUri(PlatformFile file) {
+    final path = file.path;
+    if (path != null && path.trim().isNotEmpty) {
+      return Uri.file(path).toString();
+    }
+
+    final identifier = file.identifier;
+    if (identifier != null && identifier.trim().isNotEmpty) {
+      return identifier;
+    }
+
+    return null;
   }
 
   FileType _pickFileTypeFromAcceptTypes(List<String> acceptTypes) {
@@ -313,15 +327,10 @@ class _WebPageScreenState extends State<WebPageScreen> {
           ),
         ),
       ),
-      // Stack keeps the WebView permanently mounted so the platform view
-      // is never torn down and recreated — the #1 cause of jank on first open.
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // WebView sits at the bottom of the stack, always alive.
           RepaintBoundary(child: _webView),
-
-          // Error overlay floats on top; the WebView beneath is untouched.
           ValueListenableBuilder<bool>(
             valueListenable: _hasError,
             builder: (context, hasError, _) {

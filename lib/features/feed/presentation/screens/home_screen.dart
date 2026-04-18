@@ -524,6 +524,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openProfile() async {
+    _setActiveSidebarItem('Profile');
     await openUserProfile(
       context,
       profileRepository: widget.profileRepository,
@@ -2061,10 +2062,10 @@ class _HomeSidebar extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Text(
-                      'Main Menu',
+                      'Menu',
                       style: TextStyle(
                         color: colors.sidebarText,
-                        fontSize: 15,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
@@ -2120,14 +2121,16 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Home',
                         onTap: onHomeTap,
                       ),
+                    
                       _SidebarItemData(
                         HeroIcons.newspaper,
                         'Post & News',
                         activeItemLabel == 'Post & News',
                         onTap: onPostsTap,
                       ),
+               
                       _SidebarItemData(
-                        HeroIcons.bolt,
+                        HeroIcons.sparkles,
                         'Activities',
                         activeItemLabel == 'Activities',
                         onTap: onActivitiesTap,
@@ -2144,15 +2147,17 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Meet New Friends',
                         onTap: onMeetNewFriendsTap,
                       ),
+                    
                     ],
                   ),
-                  _SidebarSection(
-                    title: 'Content and Resources',
+                   _SidebarSection(
+                    title: 'Content & Resources',
                     items: [
+                      
                       _SidebarItemData(
                         HeroIcons.pencilSquare,
-                        'Blog',
-                        activeItemLabel == 'Blog',
+                        'Blog & Articles',
+                        activeItemLabel == 'Blog & Articles',
                         onTap: onBlogsTap,
                       ),
                       _SidebarItemData(
@@ -2170,7 +2175,7 @@ class _HomeSidebar extends StatelessWidget {
                     ],
                   ),
                   _SidebarSection(
-                    title: 'Discover',
+                    title: 'Explore',
                     items: [
                       _SidebarItemData(
                         HeroIcons.shoppingBag,
@@ -2184,17 +2189,17 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'HopefulMe TV',
                         onTap: onTvTap,
                       ),
+                        _SidebarItemData(
+                        HeroIcons.heart,
+                        'Outreach Events',
+                        activeItemLabel == 'Outreach Events',
+                        onTap: onOutreachTap,
+                      ),
                       _SidebarItemData(
                         HeroIcons.megaphone,
                         'Advert & Partnership',
                         activeItemLabel == 'Advert & Partnership',
                         onTap: onAdvertiseTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.heart,
-                        'Outreaches',
-                        activeItemLabel == 'Outreach',
-                        onTap: onOutreachTap,
                       ),
                       _SidebarItemData(
                         HeroIcons.newspaper,

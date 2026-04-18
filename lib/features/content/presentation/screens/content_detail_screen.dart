@@ -576,7 +576,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: colors.textPrimary,
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -594,7 +594,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                       _postMetaLine(detail),
                       style: TextStyle(
                         color: colors.textMuted,
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.2,
                       ),

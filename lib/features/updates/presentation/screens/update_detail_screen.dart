@@ -798,7 +798,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       ),
                                     ),
                                     icon: const Icon(
-                                      Icons.near_me_outlined,
+                                      Icons.share_outlined,
                                       color: Color(0xFF94A3B8),
                                     ),
                                     label: const Text(

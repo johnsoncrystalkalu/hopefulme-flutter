@@ -550,7 +550,7 @@ Purpose:
 - community-specific social discovery experiences
 
 Observed presentation examples:
-- meet new friends screen
+- Meet New Friends screen
 - most active user widgets
 
 When to add code here:
