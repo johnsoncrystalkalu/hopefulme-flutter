@@ -442,7 +442,7 @@ class _FriendOfDayCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'A gentle nudge to reconnect today',
+                            'A gentle nudge to connect with someone new today',
                             style: TextStyle(
                               color: colors.textMuted,
                               fontSize: 12,
