@@ -12,7 +12,6 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
-import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -146,17 +145,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
           updateRepository: widget.updateRepository,
         ),
       ),
-    );
-  }
-
-  Future<void> _openProfile(String username) async {
-    await openUserProfile(
-      context,
-      profileRepository: widget.profileRepository,
-      messageRepository: widget.repository,
-      updateRepository: widget.updateRepository,
-      currentUser: widget.currentUser,
-      username: username,
     );
   }
 
@@ -301,8 +289,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: _ConversationTile(
                         item: item,
                         onTap: () => _openConversation(item),
-                        onProfileTap: () =>
-                            _openProfile(item.otherUser.username),
                       ),
                     ),
                   ),
@@ -319,15 +305,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
 }
 
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({
-    required this.item,
-    required this.onTap,
-    required this.onProfileTap,
-  });
+  const _ConversationTile({required this.item, required this.onTap});
 
   final ConversationListItem item;
   final VoidCallback onTap;
-  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +339,7 @@ class _ConversationTile extends StatelessWidget {
               Stack(
                 children: [
                   InkWell(
-                    onTap: onProfileTap,
+                    onTap: onTap,
                     borderRadius: BorderRadius.circular(999),
                     child: CircleAvatar(
                       radius: 27,
@@ -395,7 +376,7 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: InkWell(
-                            onTap: onProfileTap,
+                            onTap: onTap,
                             borderRadius: BorderRadius.circular(8),
                             child: VerifiedNameText(
                               name: item.otherUser.displayName,
@@ -429,9 +410,7 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         if (isSentByMe) ...[
-                          _ConversationDeliveryStatus(
-                            status: latest.status,
-                          ),
+                          _ConversationDeliveryStatus(status: latest.status),
                           const SizedBox(width: 6),
                         ],
                         Expanded(

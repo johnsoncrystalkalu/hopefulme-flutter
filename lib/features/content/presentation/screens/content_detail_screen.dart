@@ -1325,6 +1325,7 @@ class _ContentCommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final commentTimestamp = formatRelativeTimestamp(comment.createdAt);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1367,6 +1368,17 @@ class _ContentCommentTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (commentTimestamp.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    commentTimestamp,
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 RichDisplayText(
                   text: comment.body,
@@ -1431,6 +1443,7 @@ class _ContentReplyTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final replyTimestamp = formatRelativeTimestamp(reply.createdAt);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1450,6 +1463,17 @@ class _ContentReplyTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (replyTimestamp.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              replyTimestamp,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
           const SizedBox(height: 5),
           RichDisplayText(
             text: reply.body,

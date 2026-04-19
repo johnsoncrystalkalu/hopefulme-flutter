@@ -938,8 +938,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openStorePage() => _openWebPage('Marketplace', '/store/home');
 
+  Future<void> _openGamesPage() => _openWebPage('Play Games', '/games');
+
   Future<void> _openAdvertisePage() =>
-      _openWebPage('Advert & Partnership', '/adverts');
+      _openWebPage('Advertisement', '/adverts');
+
+  Future<void> _openVolunteerPage() => _openWebPage('Volunteer', '/volunteer');
 
   Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv');
 
@@ -1095,9 +1099,11 @@ class _HomeScreenState extends State<HomeScreen>
         onGroupsTap: _openGroups,
         onLibraryTap: _openLibrary,
         onInspirationsTap: _openInspirations,
+        onPlayGamesTap: _openGamesPage,
         onStoreTap: _openStorePage,
         onOtherMenusTap: _openOtherMenusPage,
         onAdvertiseTap: _openAdvertisePage,
+        onVolunteerTap: _openVolunteerPage,
         onTvTap: _openTvPage,
         onOutreachTap: _openOutreachPage,
         onAdminTap: _openAdminPage,
@@ -2014,9 +2020,11 @@ class _HomeSidebar extends StatelessWidget {
     required this.onGroupsTap,
     required this.onLibraryTap,
     required this.onInspirationsTap,
+    required this.onPlayGamesTap,
     required this.onStoreTap,
     required this.onOtherMenusTap,
     required this.onAdvertiseTap,
+    required this.onVolunteerTap,
     required this.onTvTap,
     required this.onOutreachTap,
     required this.onAdminTap,
@@ -2035,9 +2043,11 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onGroupsTap;
   final Future<void> Function() onLibraryTap;
   final Future<void> Function() onInspirationsTap;
+  final Future<void> Function() onPlayGamesTap;
   final Future<void> Function() onStoreTap;
   final Future<void> Function() onOtherMenusTap;
   final Future<void> Function() onAdvertiseTap;
+  final Future<void> Function() onVolunteerTap;
   final Future<void> Function() onTvTap;
   final Future<void> Function() onOutreachTap;
   final Future<void> Function() onAdminTap;
@@ -2121,14 +2131,14 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Home',
                         onTap: onHomeTap,
                       ),
-                    
+
                       _SidebarItemData(
                         HeroIcons.newspaper,
                         'Post & News',
                         activeItemLabel == 'Post & News',
                         onTap: onPostsTap,
                       ),
-               
+
                       _SidebarItemData(
                         HeroIcons.sparkles,
                         'Activities',
@@ -2147,19 +2157,18 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Meet New Friends',
                         onTap: onMeetNewFriendsTap,
                       ),
-                    
                     ],
                   ),
-                   _SidebarSection(
-                    title: 'Content & Resources',
+                  _SidebarSection(
+                    title: 'Resources',
                     items: [
-                      
                       _SidebarItemData(
                         HeroIcons.pencilSquare,
                         'Blog & Articles',
                         activeItemLabel == 'Blog & Articles',
                         onTap: onBlogsTap,
                       ),
+                      
                       _SidebarItemData(
                         HeroIcons.inboxStack,
                         'Inspiration Inbox',
@@ -2190,9 +2199,26 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onTvTap,
                       ),
                         _SidebarItemData(
+                        HeroIcons.puzzlePiece,
+                        'Games & Contests',
+                        activeItemLabel == 'Games & Contests',
+                        onTap: onPlayGamesTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.newspaper,
+                        'More Features',
+                        activeItemLabel == 'More Features',
+                        onTap: onOtherMenusTap,
+                      ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Get Involved',
+                    items: [
+                      _SidebarItemData(
                         HeroIcons.heart,
-                        'Outreach Events',
-                        activeItemLabel == 'Outreach Events',
+                        'Outreaches',
+                        activeItemLabel == 'Outreaches',
                         onTap: onOutreachTap,
                       ),
                       _SidebarItemData(
@@ -2202,20 +2228,26 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onAdvertiseTap,
                       ),
                       _SidebarItemData(
-                        HeroIcons.newspaper,
-                        'More Menus',
-                        activeItemLabel == 'More Menus',
-                        onTap: onOtherMenusTap,
+                        HeroIcons.briefcase,
+                        'Volunteer & Support',
+                        activeItemLabel == 'Volunteer & Support',
+                        onTap: onVolunteerTap,
                       ),
-                      if (showAdminPanel)
+                    ],
+                  ),
+                 
+                  if (showAdminPanel)
+                    _SidebarSection(
+                      title: 'Admin',
+                      items: [
                         _SidebarItemData(
                           HeroIcons.shieldCheck,
                           'Admin',
                           activeItemLabel == 'Admin',
                           onTap: onAdminTap,
                         ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
