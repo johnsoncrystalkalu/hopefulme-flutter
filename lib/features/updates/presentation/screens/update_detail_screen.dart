@@ -486,6 +486,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 onPressed: _close,
                 icon: const Icon(Icons.arrow_back),
               ),
+             // title: const Text('Update'),
               actions: [
                 if (detail != null)
                   PopupMenuButton<String>(
@@ -798,7 +799,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       ),
                                     ),
                                     icon: const Icon(
-                                      Icons.share_outlined,
+                                      Icons.ios_share_outlined,
                                       color: Color(0xFF94A3B8),
                                     ),
                                     label: const Text(

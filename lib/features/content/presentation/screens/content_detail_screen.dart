@@ -26,6 +26,7 @@ import 'package:hopefulme_flutter/features/search/presentation/screens/search_sc
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContentDetailScreen extends StatefulWidget {
@@ -965,7 +966,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   ),
                                   if (widget.kind == 'post')
                                     _MetaChip(
-                                      icon: Icons.share_outlined,
+                                      icon: Icons.ios_share_outlined,
                                       label: 'Share',
                                       onTap: () => _sharePost(detail),
                                     ),
@@ -1117,7 +1118,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     }
     _resolvedUrl = _resolveUrl(widget.videoUrl);
     if (_resolvedUrl != null) {
-      _controller = WebViewController()
+      final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(const Color(0xFF000000))
         ..setNavigationDelegate(
@@ -1135,25 +1136,42 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               _progress.value = 100;
             },
           ),
-        )
-        ..loadRequest(Uri.parse(_resolvedUrl!));
+        );
+      if (controller.platform is AndroidWebViewController) {
+        final android = controller.platform as AndroidWebViewController;
+        android.setMediaPlaybackRequiresUserGesture(false);
+      }
+      controller.loadRequest(
+        Uri.parse(_resolvedUrl!),
+        headers: const <String, String>{
+          'Referer': 'https://ahopefulme.com/',
+          'Origin': 'https://ahopefulme.com',
+        },
+      );
+      _controller = controller;
       _webView = WebViewWidget(controller: _controller!);
     }
   }
 
   String? _resolveUrl(String rawUrl) {
-    final value = rawUrl.trim();
+    String value = rawUrl.trim();
     if (value.isEmpty) {
       return null;
+    }
+
+    if (value.contains('<iframe') && value.contains('src=')) {
+      final match = RegExp(
+        'src=["\\\']([^"\\\']+)["\\\']',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (match != null && (match.group(1)?.trim().isNotEmpty ?? false)) {
+        value = match.group(1)!.trim();
+      }
     }
 
     final uri = Uri.tryParse(value);
     if (uri == null) {
       return null;
-    }
-
-    if (value.contains('/embed/')) {
-      return value.contains('?') ? '$value&autoplay=1' : '$value?autoplay=1';
     }
 
     String? videoId;
@@ -1162,7 +1180,15 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
       videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
     } else if (host.contains('youtube.com') ||
         host.contains('youtube-nocookie.com')) {
-      videoId = uri.queryParameters['v'];
+      if (uri.pathSegments.contains('embed')) {
+        final embedIndex = uri.pathSegments.indexOf('embed');
+        if (embedIndex != -1 && embedIndex + 1 < uri.pathSegments.length) {
+          videoId = uri.pathSegments[embedIndex + 1];
+        }
+      }
+      if (videoId == null || videoId.isEmpty) {
+        videoId = uri.queryParameters['v'];
+      }
 
       if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
         if (uri.pathSegments.contains('shorts')) {
@@ -1186,7 +1212,14 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
       return value;
     }
 
-    return 'https://www.youtube.com/embed/$videoId?autoplay=1';
+    final embedUri = Uri.https('www.youtube.com', '/embed/$videoId', {
+      'autoplay': '0',
+      'playsinline': '1',
+      'rel': '0',
+      'modestbranding': '1',
+      'iv_load_policy': '3',
+    });
+    return embedUri.toString();
   }
 
   Future<void> _openInBrowser() async {

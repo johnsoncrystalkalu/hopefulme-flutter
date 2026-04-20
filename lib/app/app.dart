@@ -34,6 +34,7 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_pro
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_review/in_app_review.dart';
@@ -707,17 +708,13 @@ class _HopefulMeAppState extends State<HopefulMeApp>
           break;
         case 'message':
           if (senderUsername.isNotEmpty) {
-            await Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => MessageThreadScreen(
-                  repository: _messageRepository,
-                  profileRepository: _profileRepository,
-                  updateRepository: _updateRepository,
-                  currentUser: _authController.currentUser,
-                  username: senderUsername,
-                  title: senderName.isNotEmpty ? senderName : 'Conversation',
-                ),
-              ),
+            if (ActiveChat.currentUsername == senderUsername) {
+              return;
+            }
+            await _openNotificationMessageThread(
+              context,
+              username: senderUsername,
+              title: senderName.isNotEmpty ? senderName : 'Conversation',
             );
             return;
           }
@@ -725,6 +722,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         case 'comment':
         case 'like':
         case 'mention':
+          if (contentType == 'update' && contentId > 0) {
+            await _openNotificationUpdateDetail(context, updateId: contentId);
+            return;
+          }
           final targetUri = _contentNotificationUri(
             contentType: contentType,
             contentId: contentId,
@@ -827,6 +828,73 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     );
   }
 
+  bool _isNotificationRoute(String? routeName, {required String prefix}) {
+    if (routeName == null || routeName.isEmpty) {
+      return false;
+    }
+    return routeName.startsWith(prefix);
+  }
+
+  Future<void> _openNotificationMessageThread(
+    BuildContext context, {
+    required String username,
+    required String title,
+  }) async {
+    final normalized = username.trim().toLowerCase().replaceFirst('@', '');
+    if (normalized.isEmpty) {
+      return;
+    }
+    final routeName = '/notification/message/$normalized';
+    final route = MaterialPageRoute<void>(
+      settings: RouteSettings(name: routeName),
+      builder: (context) => MessageThreadScreen(
+        repository: _messageRepository,
+        profileRepository: _profileRepository,
+        updateRepository: _updateRepository,
+        currentUser: _authController.currentUser,
+        username: normalized,
+        title: title,
+      ),
+    );
+
+    if (_isNotificationRoute(
+      appRouteObserver.currentRouteName,
+      prefix: '/notification/message/',
+    )) {
+      await Navigator.of(context).pushReplacement(route);
+      return;
+    }
+    await Navigator.of(context).push(route);
+  }
+
+  Future<void> _openNotificationUpdateDetail(
+    BuildContext context, {
+    required int updateId,
+  }) async {
+    final routeName = '/notification/update/$updateId';
+    final route = MaterialPageRoute<void>(
+      settings: RouteSettings(name: routeName),
+      builder: (context) => UpdateDetailScreen(
+        updateId: updateId,
+        currentUser: _authController.currentUser,
+        repository: _updateRepository,
+        contentRepository: _contentRepository,
+        profileRepository: _profileRepository,
+        messageRepository: _messageRepository,
+        searchRepository: _searchRepository,
+      ),
+    );
+
+    if (_isNotificationRoute(
+      appRouteObserver.currentRouteName,
+      prefix: '/notification/update/',
+    )) {
+      await Navigator.of(context).pushReplacement(route);
+      return;
+    }
+    await Navigator.of(context).push(route);
+  }
+
   void _showSoftUpdateDialog(
     BuildContext context,
     String storeUrl,
@@ -902,7 +970,23 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => WebPageScreen(title: title, url: targetUrl),
+        builder: (context) => WebPageScreen(
+          title: title,
+          url: targetUrl,
+          onInternalLinkTap: (uri) async {
+            if (!WebPageScreen.shouldUseNativeRouting(
+              uri,
+              originUrl: _config.webBaseUrl,
+            )) {
+              return false;
+            }
+            if (!context.mounted) {
+              return false;
+            }
+            await _openDeepLink(context, uri);
+            return true;
+          },
+        ),
       ),
     );
   }

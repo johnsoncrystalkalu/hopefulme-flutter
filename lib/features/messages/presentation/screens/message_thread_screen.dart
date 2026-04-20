@@ -752,7 +752,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                 child: Row(
                   children: [
                     _BubbleActionButton(
-                      icon: Icons.share_outlined,
+                      icon: Icons.reply_outlined,
                       label: 'Reply',
                       color: colors.brand,
                       onTap: () => Navigator.of(sheetContext).pop('reply'),

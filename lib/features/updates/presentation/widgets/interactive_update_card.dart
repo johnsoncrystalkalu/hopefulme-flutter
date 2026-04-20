@@ -369,7 +369,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             child: const Padding(
               padding: EdgeInsets.all(6),
               child: Icon(
-                Icons.share_outlined,
+                Icons.ios_share_outlined,
                 size: 16,
                 color: Color(0xFF94A3B8),
               ),

@@ -6,6 +6,7 @@ import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
@@ -16,6 +17,8 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/models/search_result.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({
@@ -77,7 +80,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onScroll() {
-    if (_activeType != 'users' ||
+    if (_activeType == 'all' ||
         _isLoadingMore ||
         _result == null ||
         !_result!.hasMore) {
@@ -139,18 +142,7 @@ class _SearchScreenState extends State<SearchScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _result = SearchResult(
-          query: next.query,
-          type: next.type,
-          isSuggestion: next.isSuggestion,
-          users: [...result.users, ...next.users],
-          posts: next.posts,
-          blogs: next.blogs,
-          updates: next.updates,
-          currentPage: next.currentPage,
-          lastPage: next.lastPage,
-          total: next.total,
-        );
+        _result = _mergePagedResult(result, next);
       });
     } finally {
       if (mounted) {
@@ -169,6 +161,80 @@ class _SearchScreenState extends State<SearchScreen> {
       _activeType = type;
     });
     _runSearch(immediate: true);
+  }
+
+  SearchResult _mergePagedResult(SearchResult current, SearchResult next) {
+    return switch (_activeType) {
+      'users' => SearchResult(
+        query: next.query,
+        type: next.type,
+        isSuggestion: next.isSuggestion,
+        users: [...current.users, ...next.users],
+        posts: next.posts,
+        blogs: next.blogs,
+        updates: next.updates,
+        currentPage: next.currentPage,
+        lastPage: next.lastPage,
+        total: next.total,
+      ),
+      'posts' => SearchResult(
+        query: next.query,
+        type: next.type,
+        isSuggestion: next.isSuggestion,
+        users: next.users,
+        posts: [...current.posts, ...next.posts],
+        blogs: next.blogs,
+        updates: next.updates,
+        currentPage: next.currentPage,
+        lastPage: next.lastPage,
+        total: next.total,
+      ),
+      'blogs' => SearchResult(
+        query: next.query,
+        type: next.type,
+        isSuggestion: next.isSuggestion,
+        users: next.users,
+        posts: next.posts,
+        blogs: [...current.blogs, ...next.blogs],
+        updates: next.updates,
+        currentPage: next.currentPage,
+        lastPage: next.lastPage,
+        total: next.total,
+      ),
+      'updates' => SearchResult(
+        query: next.query,
+        type: next.type,
+        isSuggestion: next.isSuggestion,
+        users: next.users,
+        posts: next.posts,
+        blogs: next.blogs,
+        updates: [...current.updates, ...next.updates],
+        currentPage: next.currentPage,
+        lastPage: next.lastPage,
+        total: next.total,
+      ),
+      _ => next,
+    };
+  }
+
+  Future<void> _openSearchQuery(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+    _controller.text = normalized;
+    setState(() {
+      _activeType = 'all';
+    });
+    await _runSearch(immediate: true);
+  }
+
+  Future<void> _handleLinkTap(String url) async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   @override
@@ -216,9 +282,39 @@ class _SearchScreenState extends State<SearchScreen> {
                         ? 'People'
                         : _activeType == 'users'
                         ? 'People (${result.total})'
-                        : 'People (${result.users.length})',
+                        : 'People',
                     selected: _activeType == 'users',
                     onTap: () => _setType('users'),
+                  ),
+                  const SizedBox(width: 10),
+                  _SearchTab(
+                    label: result == null
+                        ? 'Posts'
+                        : _activeType == 'posts'
+                        ? 'Posts (${result.total})'
+                        : 'Posts',
+                    selected: _activeType == 'posts',
+                    onTap: () => _setType('posts'),
+                  ),
+                  const SizedBox(width: 10),
+                  _SearchTab(
+                    label: result == null
+                        ? 'Blogs'
+                        : _activeType == 'blogs'
+                        ? 'Blogs (${result.total})'
+                        : 'Blogs',
+                    selected: _activeType == 'blogs',
+                    onTap: () => _setType('blogs'),
+                  ),
+                  const SizedBox(width: 10),
+                  _SearchTab(
+                    label: result == null
+                        ? 'Updates'
+                        : _activeType == 'updates'
+                        ? 'Updates (${result.total})'
+                        : 'Updates',
+                    selected: _activeType == 'updates',
+                    onTap: () => _setType('updates'),
                   ),
                 ],
               ),
@@ -258,6 +354,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         else
                           _MixedResults(
                             result: result,
+                            activeType: _activeType,
                             onUserTap: (username) => openUserProfile(
                               context,
                               profileRepository: widget.profileRepository,
@@ -286,6 +383,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               blogId: blogId,
                               currentUsername: widget.currentUser?.username,
                             ),
+                            onHashtagTap: _openSearchQuery,
+                            onLinkTap: _handleLinkTap,
                             onUpdateTap: (updateId) =>
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(
@@ -486,7 +585,7 @@ class _UsersGrid extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                   Text(
+                    Text(
                       '@${user.username}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -508,20 +607,25 @@ class _UsersGrid extends StatelessWidget {
   }
 }
 
-
 class _MixedResults extends StatelessWidget {
   const _MixedResults({
     required this.result,
+    required this.activeType,
     required this.onUserTap,
     required this.onPostTap,
     required this.onBlogTap,
+    required this.onHashtagTap,
+    required this.onLinkTap,
     required this.onUpdateTap,
   });
 
   final SearchResult? result;
+  final String activeType;
   final Future<void> Function(String username) onUserTap;
   final Future<void> Function(int postId) onPostTap;
   final Future<void> Function(int blogId) onBlogTap;
+  final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
   final Future<void> Function(int updateId) onUpdateTap;
 
   @override
@@ -541,29 +645,35 @@ class _MixedResults extends StatelessWidget {
       return const _SearchEmpty(label: 'No results matched your keywords.');
     }
 
+    final showUsers = activeType == 'all' || activeType == 'users';
+    final showPosts = activeType == 'all' || activeType == 'posts';
+    final showBlogs = activeType == 'all' || activeType == 'blogs';
+    final showUpdates = activeType == 'all' || activeType == 'updates';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (data.users.isNotEmpty) ...[
+        if (showUsers && data.users.isNotEmpty) ...[
           const _SearchSectionTitle(title: 'People'),
           const SizedBox(height: 12),
           _UsersGrid(users: data.users, onUserTap: onUserTap),
           const SizedBox(height: 20),
         ],
-        if (data.posts.isNotEmpty) ...[
+        if (showPosts && data.posts.isNotEmpty) ...[
           const _SearchSectionTitle(title: 'Top Posts'),
           const SizedBox(height: 12),
           ...data.posts.map(
-            (item) => _SearchCard(
+            (item) => _SearchPostCard(
               item: item,
-              label: 'POST',
               onUserTap: onUserTap,
+              onHashtagTap: onHashtagTap,
+              onLinkTap: onLinkTap,
               onTap: () => onPostTap(item.id),
             ),
           ),
           const SizedBox(height: 20),
         ],
-        if (data.blogs.isNotEmpty) ...[
+        if (showBlogs && data.blogs.isNotEmpty) ...[
           const _SearchSectionTitle(title: 'Articles'),
           const SizedBox(height: 12),
           ...data.blogs.map(
@@ -576,14 +686,15 @@ class _MixedResults extends StatelessWidget {
           ),
           const SizedBox(height: 20),
         ],
-        if (data.updates.isNotEmpty) ...[
+        if (showUpdates && data.updates.isNotEmpty) ...[
           const _SearchSectionTitle(title: 'Updates'),
           const SizedBox(height: 12),
           ...data.updates.map(
-            (item) => _SearchCard(
+            (item) => _SearchUpdateCard(
               item: item,
-              label: 'UPDATE',
               onUserTap: onUserTap,
+              onHashtagTap: onHashtagTap,
+              onLinkTap: onLinkTap,
               onTap: () => onUpdateTap(item.id),
             ),
           ),
@@ -760,6 +871,200 @@ class _SearchCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SearchPostCard extends StatelessWidget {
+  const _SearchPostCard({
+    required this.item,
+    required this.onUserTap,
+    required this.onHashtagTap,
+    required this.onLinkTap,
+    required this.onTap,
+  });
+
+  final SearchContentItem item;
+  final Future<void> Function(String username) onUserTap;
+  final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: colors.borderStrong),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (item.photoUrl.isNotEmpty)
+              InkWell(
+                onTap: onTap,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(26),
+                  ),
+                  child: Image.network(
+                    item.photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(
+                          height: 180,
+                          child: Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (item.body.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    RichDisplayText(
+                      text: item.body,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                      onMentionTap: onUserTap,
+                      onHashtagTap: onHashtagTap,
+                      onLinkTap: onLinkTap,
+                    ),
+                  ],
+                  if (item.user != null) ...[
+                    const SizedBox(height: 14),
+                    InkWell(
+                      onTap: () => onUserTap(item.user!.username),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundImage: item.user!.photoUrl.isNotEmpty
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      item.user!.photoUrl,
+                                      size: 42,
+                                    ),
+                                  )
+                                : null,
+                            child: item.user!.photoUrl.isEmpty
+                                ? const Icon(Icons.person, size: 14)
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: VerifiedNameText(
+                              name: item.user!.displayName,
+                              verified: item.user!.isVerified,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'View Post',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchUpdateCard extends StatelessWidget {
+  const _SearchUpdateCard({
+    required this.item,
+    required this.onUserTap,
+    required this.onHashtagTap,
+    required this.onLinkTap,
+    required this.onTap,
+  });
+
+  final SearchContentItem item;
+  final Future<void> Function(String username) onUserTap;
+  final Future<void> Function(String hashtag) onHashtagTap;
+  final Future<void> Function(String url) onLinkTap;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = item.user;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ReusableUpdateCard(
+        data: UpdateCardData(
+          title: user?.displayName ?? 'HopefulMe User',
+          subtitle: user?.username ?? '',
+          metaLeading: formatRelativeTimestamp(item.createdAt),
+          body: item.body,
+          photoUrl: item.photoUrl,
+          avatarUrl: user?.photoUrl ?? '',
+          fallbackLabel: user?.displayName ?? 'HopefulMe User',
+          isVerified: user?.isVerified ?? false,
+          isGeneratedActivity: false,
+        ),
+        onHeaderTap: user == null ? null : () => onUserTap(user.username),
+        onCardTap: onTap,
+        onImageTap: onTap,
+        onMentionTap: onUserTap,
+        onHashtagTap: onHashtagTap,
+        onLinkTap: onLinkTap,
+        footer: const SizedBox.shrink(),
       ),
     );
   }

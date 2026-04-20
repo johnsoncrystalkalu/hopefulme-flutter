@@ -11,6 +11,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/navigation/app_deep_link_navigator.dart';
 import 'package:hopefulme_flutter/core/navigation/app_route_observer.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
@@ -934,7 +935,34 @@ class _HomeScreenState extends State<HomeScreen>
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => WebPageScreen(title: title, url: targetUrl),
+        builder: (context) => WebPageScreen(
+          title: title,
+          url: targetUrl,
+          onInternalLinkTap: (uri) async {
+            if (!WebPageScreen.shouldUseNativeRouting(
+              uri,
+              originUrl: _webBaseUrl,
+            )) {
+              return false;
+            }
+            if (!context.mounted) {
+              return false;
+            }
+            final navigator = AppDeepLinkNavigator(
+              feedRepository: widget.feedRepository,
+              contentRepository: widget.contentRepository,
+              profileRepository: widget.profileRepository,
+              messageRepository: widget.messageRepository,
+              groupRepository: widget.groupRepository,
+              updateRepository: widget.updateRepository,
+              searchRepository: widget.searchRepository,
+              libraryRepository: widget.libraryRepository,
+              currentUser: widget.authController.currentUser,
+              webBaseUrl: _webBaseUrl,
+            );
+            return navigator.open(context, uri);
+          },
+        ),
       ),
     );
   }
@@ -946,7 +974,8 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openAdvertisePage() =>
       _openWebPage('Advert & Partnership', '/adverts');
 
-  Future<void> _openVolunteerPage() => _openWebPage('Volunteer & Support', '/volunteer');
+  Future<void> _openVolunteerPage() =>
+      _openWebPage('Volunteer & Support', '/volunteer');
 
   Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv');
 

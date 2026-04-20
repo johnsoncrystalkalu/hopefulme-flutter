@@ -48,7 +48,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late Future<ProfileDashboard> _profileFuture;
+  ProfileDashboard? _dashboard;
+  Object? _profileLoadError;
+  bool _isInitialLoading = true;
   _ProfileTab _selectedTab = _ProfileTab.timeline;
   bool _isTogglingFollow = false;
   final GlobalKey _avatarMenuKey = GlobalKey();
@@ -61,15 +63,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _profileFuture = widget.profileRepository.fetchProfile(_targetUsername);
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile({bool forceNetwork = false}) async {
+    if (!mounted) {
+      return;
+    }
+
+    if (_dashboard == null) {
+      setState(() {
+        _isInitialLoading = true;
+        _profileLoadError = null;
+      });
+    }
+
+    if (!forceNetwork && _dashboard == null) {
+      final cached = await widget.profileRepository.fetchCachedProfile(
+        _targetUsername,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (cached != null) {
+        setState(() {
+          _dashboard = cached;
+          _isInitialLoading = false;
+        });
+      }
+    }
+
+    try {
+      final fresh = await widget.profileRepository.fetchProfile(
+        _targetUsername,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _dashboard = fresh;
+        _profileLoadError = null;
+        _isInitialLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || _dashboard != null) {
+        return;
+      }
+      setState(() {
+        _profileLoadError = error;
+        _isInitialLoading = false;
+      });
+    }
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _profileFuture = widget.profileRepository.fetchProfile(_targetUsername);
-    });
+    await _loadProfile(forceNetwork: true);
+  }
 
-    await _profileFuture;
+  ProfileDashboard? _requireDashboard() {
+    final dashboard = _dashboard;
+    if (dashboard == null && mounted) {
+      AppToast.error(context, 'Profile is still loading. Please try again.');
+    }
+    return dashboard;
   }
 
   Future<void> _openEditProfile() async {
@@ -124,46 +180,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _profileFuture = Future.value(
-          ProfileDashboard(
-            profile: ProfileSummary(
-              id: dashboard.profile.id,
-              username: dashboard.profile.username,
-              fullname: dashboard.profile.fullname,
-              email: dashboard.profile.email,
-              gender: dashboard.profile.gender,
-              quote: dashboard.profile.quote,
-              hobby: dashboard.profile.hobby,
-              role1: dashboard.profile.role1,
-              role2: dashboard.profile.role2,
-              rank: dashboard.profile.rank,
-              location: dashboard.profile.location,
-              city: dashboard.profile.city,
-              state: dashboard.profile.state,
-              birthday: dashboard.profile.birthday,
-              phoneNumber: dashboard.profile.phoneNumber,
-              emailNotifications: dashboard.profile.emailNotifications,
-              theme: dashboard.profile.theme,
-              device: dashboard.profile.device,
-              verified: dashboard.profile.verified,
-              photoUrl: dashboard.profile.photoUrl,
-              coverUrl: dashboard.profile.coverUrl,
-              followersCount: result.$2,
-              followingCount: dashboard.profile.followingCount,
-              views: dashboard.profile.views,
-              lastSeen: dashboard.profile.lastSeen,
-              isOnline: dashboard.profile.isOnline,
-              activityLevel: dashboard.profile.activityLevel,
-            ),
-            posts: dashboard.posts,
-            updates: dashboard.updates,
-            blogs: dashboard.blogs,
-            isFollowing: result.$1,
-            totalPosts: dashboard.totalPosts,
-            updatesCount: dashboard.updatesCount,
-            photosCount: dashboard.photosCount,
-            mutualFollowers: dashboard.mutualFollowers,
-          ),
+        _dashboard = _copyDashboardWithFollow(
+          source: dashboard,
+          isFollowing: result.$1,
+          followersCount: result.$2,
         );
       });
     } finally {
@@ -272,7 +292,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openUpdatesFeed() async {
-    final snapshot = await _profileFuture;
+    final snapshot = _requireDashboard();
+    if (snapshot == null) {
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -288,7 +311,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openArticlesFeed() async {
-    final snapshot = await _profileFuture;
+    final snapshot = _requireDashboard();
+    if (snapshot == null) {
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -301,7 +327,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openPhotosFeed() async {
-    final snapshot = await _profileFuture;
+    final snapshot = _requireDashboard();
+    if (snapshot == null) {
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -315,7 +344,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _openUpdate(ProfileContentItem item) async {
     final navigator = Navigator.of(context);
-    await _profileFuture;
+    if (_requireDashboard() == null) {
+      return;
+    }
     if (!mounted) return;
     final result = await navigator.push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
@@ -336,128 +367,118 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final dashboard = _dashboard;
+
+    if (_isInitialLoading && dashboard == null) {
+      return Scaffold(
+        backgroundColor: colors.scaffold,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (dashboard == null) {
+      return Scaffold(
+        backgroundColor: colors.scaffold,
+        body: _ProfileErrorState(
+          message: _profileLoadError?.toString() ?? 'Unable to load profile.',
+          onRetry: _refresh,
+        ),
+      );
+    }
+
+    final isDesktop = MediaQuery.of(context).size.width >= 1180;
+
     return Scaffold(
       backgroundColor: colors.scaffold,
-      body: FutureBuilder<ProfileDashboard>(
-        future: _profileFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError && !snapshot.hasData) {
-            return _ProfileErrorState(
-              message: snapshot.error.toString(),
-              onRetry: _refresh,
-            );
-          }
-
-          final dashboard = snapshot.data;
-          if (dashboard == null) {
-            return _ProfileErrorState(
-              message: 'Unable to load profile right now.',
-              onRetry: _refresh,
-            );
-          }
-
-          final isDesktop = MediaQuery.of(context).size.width >= 1180;
-
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                children: [
-                  _ProfileHero(profile: dashboard.profile),
-                  Transform.translate(
-                    offset: const Offset(0, -56),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isDesktop ? 32 : 16,
-                      ),
-                      child: Column(
-                        children: [
-                          _ProfileHeaderCard(
-                            profile: dashboard.profile,
-                            isFollowing: dashboard.isFollowing,
-                            updatesCount: dashboard.updatesCount,
-                            isCurrentUser:
-                                widget.currentUser?.username ==
-                                dashboard.profile.username,
-                            onEditProfile: _openEditProfile,
-                            onEditMedia: _openEditMedia,
-                            isTogglingFollow: _isTogglingFollow,
-                            onToggleFollow: () => _toggleFollow(dashboard),
-                            onMessage: () => _openChat(dashboard.profile),
-                            onInspire: () => _openInspire(dashboard.profile),
-                            onFollowers: () => _openConnections(
-                              ProfileConnectionsType.followers,
-                            ),
-                            onFollowing: () => _openConnections(
-                              ProfileConnectionsType.following,
-                            ),
-                            onPosts: _openUpdatesFeed,
-                            mutualFollowers: dashboard.mutualFollowers,
-                            onCopyProfileUrl: (username) =>
-                                _copyProfileUrl(username),
-                            onReportUser: (username) => _reportUser(username),
-                            menuKey: _avatarMenuKey,
-                          ),
-                          const SizedBox(height: 16),
-                          if (_isBirthdayToday(dashboard.profile.birthday))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _BirthdayBanner(
-                                profile: dashboard.profile,
-                              ),
-                            ),
-                          _ProfileTabs(
-                            selectedTab: _selectedTab,
-                            onSelected: (tab) {
-                              setState(() {
-                                _selectedTab = tab;
-                              });
-                            },
-                            photosCount: dashboard.photosCount,
-                            articleCount: dashboard.blogs.length,
-                          ),
-                          const SizedBox(height: 18),
-                          _ProfileBody(
-                            selectedTab: _selectedTab,
-                            dashboard: dashboard,
-                            currentUser: widget.currentUser,
-                            isCurrentUser:
-                                widget.currentUser?.username ==
-                                dashboard.profile.username,
-                            onSeeAllPhotos: _openPhotosFeed,
-                            onSeeAllArticles: _openArticlesFeed,
-                          ),
-                          const SizedBox(height: 18),
-                          _ProfileUpdatesTab(
-                            key: ValueKey<String>(
-                              'updates:${dashboard.profile.username}',
-                            ),
-                            profile: dashboard.profile,
-                            repository: widget.profileRepository,
-                            updateRepository: widget.updateRepository,
-                            currentUser: widget.currentUser,
-                            onOpenUpdate: _openUpdate,
-                            onSeeAllUpdates: _openUpdatesFeed,
-                          ),
-                          if (widget.currentUser?.isAdmin == true) ...[
-                            const SizedBox(height: 18),
-                            _AdminProfilePanel(profile: dashboard.profile),
-                          ],
-                        ],
-                      ),
-                    ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _ProfileHero(profile: dashboard.profile),
+              Transform.translate(
+                offset: const Offset(0, -56),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? 32 : 16,
                   ),
-                ],
+                  child: Column(
+                    children: [
+                      _ProfileHeaderCard(
+                        profile: dashboard.profile,
+                        isFollowing: dashboard.isFollowing,
+                        updatesCount: dashboard.updatesCount,
+                        isCurrentUser:
+                            widget.currentUser?.username ==
+                            dashboard.profile.username,
+                        onEditProfile: _openEditProfile,
+                        onEditMedia: _openEditMedia,
+                        isTogglingFollow: _isTogglingFollow,
+                        onToggleFollow: () => _toggleFollow(dashboard),
+                        onMessage: () => _openChat(dashboard.profile),
+                        onInspire: () => _openInspire(dashboard.profile),
+                        onFollowers: () =>
+                            _openConnections(ProfileConnectionsType.followers),
+                        onFollowing: () =>
+                            _openConnections(ProfileConnectionsType.following),
+                        onPosts: _openUpdatesFeed,
+                        mutualFollowers: dashboard.mutualFollowers,
+                        onCopyProfileUrl: (username) =>
+                            _copyProfileUrl(username),
+                        onReportUser: (username) => _reportUser(username),
+                        menuKey: _avatarMenuKey,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_isBirthdayToday(dashboard.profile.birthday))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _BirthdayBanner(profile: dashboard.profile),
+                        ),
+                      _ProfileTabs(
+                        selectedTab: _selectedTab,
+                        onSelected: (tab) {
+                          setState(() {
+                            _selectedTab = tab;
+                          });
+                        },
+                        photosCount: dashboard.photosCount,
+                        articleCount: dashboard.blogs.length,
+                      ),
+                      const SizedBox(height: 18),
+                      _ProfileBody(
+                        selectedTab: _selectedTab,
+                        dashboard: dashboard,
+                        currentUser: widget.currentUser,
+                        isCurrentUser:
+                            widget.currentUser?.username ==
+                            dashboard.profile.username,
+                        onSeeAllPhotos: _openPhotosFeed,
+                        onSeeAllArticles: _openArticlesFeed,
+                      ),
+                      const SizedBox(height: 18),
+                      _ProfileUpdatesTab(
+                        key: ValueKey<String>(
+                          'updates:${dashboard.profile.username}',
+                        ),
+                        profile: dashboard.profile,
+                        repository: widget.profileRepository,
+                        updateRepository: widget.updateRepository,
+                        currentUser: widget.currentUser,
+                        onOpenUpdate: _openUpdate,
+                        onSeeAllUpdates: _openUpdatesFeed,
+                      ),
+                      if (widget.currentUser?.isAdmin == true) ...[
+                        const SizedBox(height: 18),
+                        _AdminProfilePanel(profile: dashboard.profile),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -481,6 +502,60 @@ bool _isBirthdayToday(String birthday) {
 
   final now = DateTime.now();
   return now.day == day && now.month == month;
+}
+
+ProfileDashboard _copyDashboardWithFollow({
+  required ProfileDashboard source,
+  required bool isFollowing,
+  required int followersCount,
+}) {
+  return ProfileDashboard(
+    profile: ProfileSummary(
+      id: source.profile.id,
+      username: source.profile.username,
+      fullname: source.profile.fullname,
+      email: source.profile.email,
+      gender: source.profile.gender,
+      quote: source.profile.quote,
+      hobby: source.profile.hobby,
+      role1: source.profile.role1,
+      role2: source.profile.role2,
+      rank: source.profile.rank,
+      location: source.profile.location,
+      city: source.profile.city,
+      state: source.profile.state,
+      birthday: source.profile.birthday,
+      phoneNumber: source.profile.phoneNumber,
+      emailNotifications: source.profile.emailNotifications,
+      theme: source.profile.theme,
+      device: source.profile.device,
+      verified: source.profile.verified,
+      photoUrl: source.profile.photoUrl,
+      coverUrl: source.profile.coverUrl,
+      followersCount: followersCount,
+      followingCount: source.profile.followingCount,
+      views: source.profile.views,
+      lastSeen: source.profile.lastSeen,
+      isOnline: source.profile.isOnline,
+      activityLevel: source.profile.activityLevel,
+      registeredDate: source.profile.registeredDate,
+      idCard: source.profile.idCard,
+      socialHandle: source.profile.socialHandle,
+      subEmail: source.profile.subEmail,
+      invitedBy: source.profile.invitedBy,
+      lwpStatus: source.profile.lwpStatus,
+      phoneCode: source.profile.phoneCode,
+      friend: source.profile.friend,
+    ),
+    posts: source.posts,
+    updates: source.updates,
+    blogs: source.blogs,
+    isFollowing: isFollowing,
+    totalPosts: source.totalPosts,
+    updatesCount: source.updatesCount,
+    photosCount: source.photosCount,
+    mutualFollowers: source.mutualFollowers,
+  );
 }
 
 Future<void> _openActivityRankHelp(BuildContext context) {

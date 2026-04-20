@@ -10,6 +10,16 @@ class ProfileRepository {
   final AuthRepository _authRepository;
   final PageCache _cache;
 
+  Future<ProfileDashboard?> fetchCachedProfile(String username) async {
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final key = 'profile:$normalizedUsername';
+    final cached = await _cache.read(key);
+    if (cached == null) {
+      return null;
+    }
+    return ProfileDashboard.fromJson(cached);
+  }
+
   Future<ProfileDashboard> fetchProfile(String username) async {
     final normalizedUsername = username.trim().replaceFirst('@', '');
     final key = 'profile:$normalizedUsername';

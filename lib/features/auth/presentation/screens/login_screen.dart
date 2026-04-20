@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _showPassword = false;
+  bool _rememberMe = true;
 
   @override
   void dispose() {
@@ -310,18 +311,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Row(
                                   children: [
                                     Checkbox(
-                                      value: true,
-                                      onChanged: (_) {},
+                                      value: _rememberMe,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _rememberMe = value ?? false;
+                                        });
+                                      },
                                       activeColor: colors.brand,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                     ),
-                                    Text(
-                                      'Remember me',
-                                      style: TextStyle(
-                                        color: colors.textMuted,
-                                        fontWeight: FontWeight.w600,
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _rememberMe = !_rememberMe;
+                                        });
+                                      },
+                                      child: Text(
+                                        'Remember me',
+                                        style: TextStyle(
+                                          color: colors.textMuted,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],

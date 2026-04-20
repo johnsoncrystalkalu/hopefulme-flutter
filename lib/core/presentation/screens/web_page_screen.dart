@@ -8,11 +8,119 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+typedef WebPageInternalLinkHandler = Future<bool> Function(Uri uri);
+
 class WebPageScreen extends StatefulWidget {
-  const WebPageScreen({required this.title, required this.url, super.key});
+  const WebPageScreen({
+    required this.title,
+    required this.url,
+    this.onInternalLinkTap,
+    super.key,
+  });
 
   final String title;
   final String url;
+  final WebPageInternalLinkHandler? onInternalLinkTap;
+
+  static bool shouldUseNativeRouting(Uri uri, {String? originUrl}) {
+    final host = uri.host.trim().toLowerCase();
+    final configuredHost = Uri.tryParse(originUrl ?? '')?.host.toLowerCase();
+    final allowedHosts = <String>{
+      if (configuredHost != null && configuredHost.isNotEmpty) configuredHost,
+      'ahopefulme.com',
+      'www.ahopefulme.com',
+    };
+
+    if (host.isEmpty || !allowedHosts.contains(host)) {
+      return false;
+    }
+
+    final segments = uri.pathSegments
+        .where((segment) => segment.trim().isNotEmpty)
+        .map((segment) => segment.trim().toLowerCase())
+        .toList(growable: false);
+    if (segments.isEmpty) {
+      return true;
+    }
+
+    final head = segments.first;
+    if (head == 'home') {
+      return true;
+    }
+    if (head.startsWith('@')) {
+      return true;
+    }
+
+    if (head == 'profile' && segments.length >= 2) {
+      return true;
+    }
+
+    const nativeHeads = <String>{
+      'updates',
+      'social',
+      'posts',
+      'post',
+      'blog',
+      'library',
+      'chat',
+      'groups',
+      'community',
+      'search',
+      'inspire',
+    };
+    if (nativeHeads.contains(head)) {
+      return true;
+    }
+
+    if (segments.length == 1 && !_reservedProfileLikePath(head)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool _reservedProfileLikePath(String segment) {
+    const reserved = <String>{
+      'about',
+      'admin',
+      'adverts',
+      'api',
+      'auth',
+      'blog',
+      'chat',
+      'community',
+      'contact',
+      'games',
+      'groups',
+      'home',
+      'inspire',
+      'library',
+      'login',
+      'logout',
+      'more-menu',
+      'myprofile',
+      'notifications',
+      'outreach',
+      'partnership',
+      'play',
+      'post',
+      'posts',
+      'privacy',
+      'profile',
+      'register',
+      'search',
+      'settings',
+      'social',
+      'store',
+      'terms',
+      'tv',
+      'updates',
+      'volunteer',
+      'welcome',
+    };
+
+    return reserved.contains(segment);
+  }
 
   @override
   State<WebPageScreen> createState() => _WebPageScreenState();
@@ -25,6 +133,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
   final ValueNotifier<int> _progress = ValueNotifier<int>(0);
   final ValueNotifier<bool> _hasError = ValueNotifier<bool>(false);
   final ValueNotifier<String?> _errorMessage = ValueNotifier<String?>(null);
+  bool _isShowingFallbackDocument = false;
 
   @override
   void initState() {
@@ -36,6 +145,10 @@ class _WebPageScreenState extends State<WebPageScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
+            if (_isShowingFallbackDocument) {
+              _progress.value = 100;
+              return;
+            }
             _hasError.value = false;
             _errorMessage.value = null;
             _progress.value = 0;
@@ -46,6 +159,10 @@ class _WebPageScreenState extends State<WebPageScreen> {
             }
           },
           onPageFinished: (_) {
+            if (_isShowingFallbackDocument) {
+              _progress.value = 100;
+              return;
+            }
             _progress.value = 100;
           },
           onWebResourceError: (error) {
@@ -53,6 +170,27 @@ class _WebPageScreenState extends State<WebPageScreen> {
             _hasError.value = true;
             _errorMessage.value = _friendlyErrorMessage(error);
             _progress.value = 100;
+            unawaited(_showFallbackDocument());
+          },
+          onNavigationRequest: (request) async {
+            final linkHandler = widget.onInternalLinkTap;
+            if (linkHandler == null) {
+              return NavigationDecision.navigate;
+            }
+
+            final uri = Uri.tryParse(request.url);
+            if (uri == null ||
+                !WebPageScreen.shouldUseNativeRouting(
+                  uri,
+                  originUrl: widget.url,
+                )) {
+              return NavigationDecision.navigate;
+            }
+
+            final handled = await linkHandler(uri);
+            return handled
+                ? NavigationDecision.prevent
+                : NavigationDecision.navigate;
           },
         ),
       )
@@ -231,10 +369,22 @@ class _WebPageScreenState extends State<WebPageScreen> {
   }
 
   Future<void> _reload() async {
+    _isShowingFallbackDocument = false;
     _hasError.value = false;
     _errorMessage.value = null;
     _progress.value = 0;
     await _controller.reload();
+  }
+
+  Future<void> _showFallbackDocument() async {
+    _isShowingFallbackDocument = true;
+    try {
+      await _controller.loadHtmlString(
+        '<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:transparent;"></body></html>',
+      );
+    } catch (_) {
+      // Ignore fallback injection failures; the custom error overlay remains.
+    }
   }
 
   Future<void> _openInBrowser() async {

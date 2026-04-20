@@ -50,11 +50,6 @@ class AppStatusState extends StatelessWidget {
         : isTimeout
         ? const Color(0xFFFFF4DB)
         : colors.accentSoft;
-    final badgeLabel = isOffline
-        ? 'Offline Mode'
-        : isTimeout
-        ? 'Slow Connection'
-        : 'Status';
 
     return Center(
       child: Padding(
@@ -78,42 +73,6 @@ class AppStatusState extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentSurface,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          badgeLabel,
-                          style: TextStyle(
-                            color: accentColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
                 Container(
                   width: 76,
                   height: 76,

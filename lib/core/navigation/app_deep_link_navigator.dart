@@ -62,7 +62,13 @@ class AppDeepLinkNavigator {
         .toList();
 
     if (segments.isEmpty) {
-      return _openWebPage(context, normalized, title: 'HopefulMe');
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return true;
+    }
+
+    if (segments.first.toLowerCase() == 'home') {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return true;
     }
 
     if (segments.length == 1 && _looksLikeProfileSegment(segments.first)) {
@@ -474,8 +480,22 @@ class AppDeepLinkNavigator {
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            WebPageScreen(title: title, url: absoluteUri.toString()),
+        builder: (context) => WebPageScreen(
+          title: title,
+          url: absoluteUri.toString(),
+          onInternalLinkTap: (uri) async {
+            if (!WebPageScreen.shouldUseNativeRouting(
+              uri,
+              originUrl: webBaseUrl,
+            )) {
+              return false;
+            }
+            if (!context.mounted) {
+              return false;
+            }
+            return open(context, uri);
+          },
+        ),
       ),
     );
 

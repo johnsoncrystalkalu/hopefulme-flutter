@@ -122,7 +122,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Community'),
           _SettingsTile(
-            icon: Icons.share_outlined,
+            icon: Icons.ios_share_outlined,
             title: 'Invite Friends',
             subtitle: 'Copy the App link and share HopefulMe.',
             onTap: () => _copyInviteLink(context),
