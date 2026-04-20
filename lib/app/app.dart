@@ -160,6 +160,17 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     _isVersionCheckInFlight = true;
 
     try {
+      // Always ask Play Core for available Android updates first so users can
+      // get the native Play Store update flow even when backend minimum version
+      // has not been bumped yet.
+      final handledByNativeAndroidSoftUpdate = await _tryNativeAndroidUpdate(
+        forceUpdate: false,
+        allowImmediateFallback: false,
+      );
+      if (handledByNativeAndroidSoftUpdate) {
+        return;
+      }
+
       _lastVersionCheck = now;
       final versionUri = Uri.parse('${_config.baseUrl}/api/app/version')
           .replace(
@@ -187,6 +198,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       if (_isOutdated(currentVersion, minimumVersion)) {
         final handledByNativeAndroidUpdate = await _tryNativeAndroidUpdate(
           forceUpdate: forceUpdate,
+          allowImmediateFallback: forceUpdate,
         );
         if (handledByNativeAndroidUpdate) {
           return;
@@ -313,7 +325,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     return parseBool(data['force_update']);
   }
 
-  Future<bool> _tryNativeAndroidUpdate({required bool forceUpdate}) async {
+  Future<bool> _tryNativeAndroidUpdate({
+    required bool forceUpdate,
+    bool allowImmediateFallback = true,
+  }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return false;
     }
@@ -337,7 +352,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         }
       }
 
-      if (updateInfo.immediateUpdateAllowed) {
+      if (allowImmediateFallback && updateInfo.immediateUpdateAllowed) {
         final result = await InAppUpdate.performImmediateUpdate();
         return result == AppUpdateResult.success;
       }
@@ -1047,6 +1062,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       searchRepository: _searchRepository,
       updateRepository: _updateRepository,
       libraryRepository: _libraryRepository,
+      onCheckForUpdates: () => _checkAppVersion(force: true),
     );
   }
 

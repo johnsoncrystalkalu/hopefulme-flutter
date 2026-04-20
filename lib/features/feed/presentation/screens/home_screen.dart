@@ -87,6 +87,7 @@ class HomeScreen extends StatefulWidget {
     required this.searchRepository,
     required this.updateRepository,
     required this.libraryRepository,
+    required this.onCheckForUpdates,
     super.key,
   });
 
@@ -103,6 +104,7 @@ class HomeScreen extends StatefulWidget {
   final SearchRepository searchRepository;
   final UpdateRepository updateRepository;
   final LibraryRepository libraryRepository;
+  final Future<void> Function() onCheckForUpdates;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -665,6 +667,7 @@ class _HomeScreenState extends State<HomeScreen>
           profileRepository: widget.profileRepository,
           themeController: widget.themeController,
           onLogout: _handleLogout,
+          onCheckForUpdates: widget.onCheckForUpdates,
         ),
       ),
     );
@@ -1021,6 +1024,9 @@ class _HomeScreenState extends State<HomeScreen>
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Update posted'),
+          duration: const Duration(seconds: 4),
+          dismissDirection: DismissDirection.horizontal,
+          showCloseIcon: true,
           action: SnackBarAction(
             label: 'View',
             onPressed: () {
@@ -2168,7 +2174,7 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Blog & Articles',
                         onTap: onBlogsTap,
                       ),
-                      
+
                       _SidebarItemData(
                         HeroIcons.inboxStack,
                         'Inspiration Inbox',
@@ -2198,7 +2204,7 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'HopefulMe TV',
                         onTap: onTvTap,
                       ),
-                        _SidebarItemData(
+                      _SidebarItemData(
                         HeroIcons.puzzlePiece,
                         'Games & Contests',
                         activeItemLabel == 'Games & Contests',
@@ -2235,7 +2241,7 @@ class _HomeSidebar extends StatelessWidget {
                       ),
                     ],
                   ),
-                 
+
                   if (showAdminPanel)
                     _SidebarSection(
                       title: 'Admin',

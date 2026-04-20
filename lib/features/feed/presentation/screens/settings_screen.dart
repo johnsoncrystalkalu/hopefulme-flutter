@@ -19,6 +19,7 @@ class SettingsScreen extends StatelessWidget {
     required this.profileRepository,
     required this.themeController,
     required this.onLogout,
+    required this.onCheckForUpdates,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class SettingsScreen extends StatelessWidget {
   final ProfileRepository profileRepository;
   final ThemeController themeController;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onCheckForUpdates;
 
   static const _appUrl = 'https://www.ahopefulme.com/app';
   static const _officialWebsiteUrl = 'https://www.ahopefulme.com';
@@ -135,6 +137,15 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Support'),
+          _SettingsTile(
+            icon: Icons.system_update_alt_rounded,
+            title: 'Check for Updates',
+            subtitle: 'Check if a new app version is available.',
+            onTap: () async {
+              AppToast.success(context, 'Checking for updates...');
+              await onCheckForUpdates();
+            },
+          ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             title: 'About',

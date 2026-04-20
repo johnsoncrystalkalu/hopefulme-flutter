@@ -65,6 +65,7 @@ class _FullscreenNetworkImageScreenState
   bool _isSaving = false;
   late final PageController _pageController;
   late int _currentIndex;
+  double _verticalDragOffset = 0;
 
   String get _currentImageUrl => widget.imageUrls[_currentIndex];
 
@@ -200,106 +201,146 @@ class _FullscreenNetworkImageScreenState
 
   @override
   Widget build(BuildContext context) {
+    final translatedOffset = _verticalDragOffset < 0
+        ? 0.0
+        : _verticalDragOffset;
+    final dragProgress = (translatedOffset / 320).clamp(0.0, 1.0);
+    final screenOpacity = (1 - (dragProgress * 0.25)).clamp(0.75, 1.0);
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.black.withValues(alpha: screenOpacity),
       appBar: AppBar(
         backgroundColor: Colors.black,
         surfaceTintColor: Colors.black,
         scrolledUnderElevation: 0,
         foregroundColor: Colors.white,
       ),
-      body: Stack(
-        children: [
-          Center(
-            child: GestureDetector(
-              onLongPress: _showImageActions,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: widget.imageUrls.length,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemBuilder: (context, index) {
-                  return InteractiveViewer(
-                    minScale: 1,
-                    maxScale: 4,
-                    child: SizedBox.expand(
-                      child: AppNetworkImage(
-                        imageUrl: widget.imageUrls[index],
-                        fit: BoxFit.contain,
-                        backgroundColor: Colors.black,
-                        placeholderIcon: Icons.photo_outlined,
-                      ),
-                    ),
-                  );
-                },
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragUpdate: (details) {
+          final nextOffset = _verticalDragOffset + details.delta.dy;
+          if (nextOffset <= 0) {
+            if (_verticalDragOffset != 0) {
+              setState(() {
+                _verticalDragOffset = 0;
+              });
+            }
+            return;
+          }
+          setState(() {
+            _verticalDragOffset = nextOffset;
+          });
+        },
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity > 850 || _verticalDragOffset > 120) {
+            Navigator.of(context).maybePop();
+            return;
+          }
+          if (_verticalDragOffset != 0) {
+            setState(() {
+              _verticalDragOffset = 0;
+            });
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          transform: Matrix4.translationValues(0, translatedOffset, 0),
+          child: Stack(
+            children: [
+              Center(
+                child: GestureDetector(
+                  onLongPress: _showImageActions,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: widget.imageUrls.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return InteractiveViewer(
+                        minScale: 1,
+                        maxScale: 4,
+                        child: SizedBox.expand(
+                          child: AppNetworkImage(
+                            imageUrl: widget.imageUrls[index],
+                            fit: BoxFit.contain,
+                            backgroundColor: Colors.black,
+                            placeholderIcon: Icons.photo_outlined,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
-          ),
-          if (widget.imageUrls.length > 1)
-            Positioned(
-              top: kToolbarHeight + 18,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+              if (widget.imageUrls.length > 1)
+                Positioned(
+                  top: kToolbarHeight + 18,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Text(
+                          '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
-                    child: Text(
-                      '${_currentIndex + 1} / ${widget.imageUrls.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                  ),
+                ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 28,
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: const Text(
+                        'Long press to save',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 28,
-            child: IgnorePointer(
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: const Text(
-                    'Long press to save',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
