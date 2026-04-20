@@ -10,6 +10,7 @@ import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
@@ -44,7 +45,8 @@ class GroupThreadScreen extends StatefulWidget {
   State<GroupThreadScreen> createState() => _GroupThreadScreenState();
 }
 
-class _GroupThreadScreenState extends State<GroupThreadScreen> {
+class _GroupThreadScreenState extends State<GroupThreadScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
@@ -52,6 +54,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   List<GroupMessage> _messages = <GroupMessage>[];
   GroupMessage? _replyingTo;
   Timer? _pollTimer;
+  bool _isPollInFlight = false;
+  bool _isAppForeground = true;
+  int _realtimeBurstTicksRemaining = 0;
   bool _isLoading = true;
   bool _isSending = false;
   bool _isJoining = false;
@@ -73,21 +78,35 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
 
   String get _draftKey => 'group_draft_${widget.groupId}';
 
+  String _selectedPhotoLabel() {
+    final name = _selectedPhoto?.name.trim() ?? '';
+    if (name.isEmpty) {
+      return 'Selected image';
+    }
+    final normalized = name.toLowerCase();
+    if (normalized.startsWith('scaled_') ||
+        normalized.startsWith('image_picker') ||
+        normalized.startsWith('resized_')) {
+      return 'Selected image';
+    }
+    return name;
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_handleComposerChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
     _loadInitial();
-    _pollTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _pollLatest(),
-    );
+    _primeRealtimeBurst();
+    _scheduleNextPoll();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _typingDebounce?.cancel();
     if (_typingSent) {
@@ -96,6 +115,17 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground) {
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
+      return;
+    }
+    _pollTimer?.cancel();
   }
 
   Future<void> _restoreDraft() async {
@@ -163,14 +193,19 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
         setState(() {
           _isLoading = false;
         });
+        if (_isAppForeground) {
+          _scheduleNextPoll();
+        }
       }
     }
   }
 
   Future<void> _pollLatest() async {
+    if (_isPollInFlight || !mounted) return;
     final group = _group;
     if (!mounted || group == null || !group.isMember) return;
 
+    _isPollInFlight = true;
     try {
       final latestId = _messages.isEmpty ? null : _messages.last.id;
       final response = await widget.repository.fetchMessages(
@@ -189,8 +224,47 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       setState(() {
         _messages = _dedupeMessages([..._messages, ...response.messages]);
       });
+      _primeRealtimeBurst(ticks: 6);
       _scrollToBottom();
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isPollInFlight = false;
+    }
+  }
+
+  void _primeRealtimeBurst({int ticks = 10}) {
+    if (ticks > _realtimeBurstTicksRemaining) {
+      _realtimeBurstTicksRemaining = ticks;
+    }
+  }
+
+  Duration _nextPollInterval() {
+    if (!_isAppForeground) {
+      return const Duration(seconds: 15);
+    }
+    if (_realtimeBurstTicksRemaining > 0) {
+      _realtimeBurstTicksRemaining -= 1;
+      return const Duration(seconds: 1);
+    }
+    if (_showJumpToBottom) {
+      return const Duration(seconds: 4);
+    }
+    return const Duration(seconds: 2);
+  }
+
+  void _scheduleNextPoll({bool immediate = false}) {
+    _pollTimer?.cancel();
+    if (!mounted || !_isAppForeground) {
+      return;
+    }
+    final delay = immediate ? Duration.zero : _nextPollInterval();
+    _pollTimer = Timer(delay, () async {
+      await _pollLatest();
+      if (!mounted) {
+        return;
+      }
+      _scheduleNextPoll();
+    });
   }
 
   Future<void> _joinGroup() async {
@@ -221,6 +295,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
+    final effectiveText = text.isEmpty && hasPhoto ? 'Shared a photo' : text;
     if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) {
       return;
     }
@@ -275,6 +350,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
               .toList();
           _editingMessage = null;
         });
+        _primeRealtimeBurst();
+        _scheduleNextPoll(immediate: true);
       } catch (error) {
         if (!mounted) {
           return;
@@ -324,7 +401,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
       id: optimisticId,
       groupId: widget.groupId,
       userId: widget.currentUser?.id ?? 0,
-      message: text,
+      message: effectiveText,
       photoUrl: '',
       status: 'sending',
       replyId: _replyingTo?.id,
@@ -370,7 +447,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
     try {
       final sent = await widget.repository.sendMessage(
         widget.groupId,
-        message: text,
+        message: effectiveText,
         replyId: optimisticMessage.replyId,
         photo: selectedPhoto,
       );
@@ -381,6 +458,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
             .map((item) => item.id == optimisticId ? sent : item)
             .toList();
       });
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
       _scrollToBottom();
     } catch (error) {
       if (!mounted) return;
@@ -470,8 +549,21 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
   }
 
   // ✅ open image fullscreen with pinch-to-zoom
-  void _openFullImage(BuildContext context, {String? url, Uint8List? bytes}) {
-    Navigator.of(context).push(
+  Future<void> _openFullImage(
+    BuildContext context, {
+    String? url,
+    Uint8List? bytes,
+  }) async {
+    final resolvedUrl = url?.trim() ?? '';
+    if (resolvedUrl.isNotEmpty) {
+      await FullscreenNetworkImageScreen.show(context, imageUrl: resolvedUrl);
+      return;
+    }
+    if (bytes == null) {
+      return;
+    }
+
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           backgroundColor: Colors.black,
@@ -481,9 +573,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
           ),
           body: Center(
             child: InteractiveViewer(
-              child: bytes != null
-                  ? Image.memory(bytes, fit: BoxFit.contain)
-                  : Image.network(url!, fit: BoxFit.contain),
+              child: Image.memory(bytes, fit: BoxFit.contain),
             ),
           ),
         ),
@@ -512,6 +602,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
           _editingMessage = null;
         }
       });
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
     } catch (error) {
       if (!mounted) return;
       AppToast.error(context, error);
@@ -1111,6 +1203,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                           setState(() {
                             _editingMessage = null;
                           });
+                          _controller.clear();
+                          unawaited(_clearDraft());
                         },
                       ),
                     SafeArea(
@@ -1146,8 +1240,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen> {
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        _selectedPhoto?.name ??
-                                            'Selected image',
+                                        _selectedPhotoLabel(),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(

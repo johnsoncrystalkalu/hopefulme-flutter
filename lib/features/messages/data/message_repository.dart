@@ -21,12 +21,28 @@ class MessageRepository {
   Future<ConversationThread> fetchThread(
     String username, {
     int page = 1,
+    int? beforeId,
+    int? afterId,
   }) async {
+    final query = <String, dynamic>{'page': page};
+    if (beforeId != null) {
+      query['before_id'] = beforeId;
+    }
+    if (afterId != null) {
+      query['after_id'] = afterId;
+    }
     final response = await _authRepository.get(
       'messages/$username',
-      queryParameters: {'page': page},
+      queryParameters: query,
     );
     return ConversationThread.fromJson(response);
+  }
+
+  Future<ConversationThread> fetchThreadUpdates(
+    String username, {
+    required int afterId,
+  }) {
+    return fetchThread(username, afterId: afterId);
   }
 
   Future<ChatMessage> sendMessage(
@@ -36,19 +52,28 @@ class MessageRepository {
     XFile? photo,
   }) async {
     final trimmed = message.trim();
+    final effectiveMessage = trimmed.isEmpty && photo != null
+        ? 'Shared a photo'
+        : trimmed;
     final response = photo == null
         ? await _authRepository.post(
             'messages/$username',
             body: {
-              if (trimmed.isNotEmpty) 'message': trimmed,
-              ...?switch (replyId) { final id? => {'reply_id': id}, null => null },
+              if (effectiveMessage.isNotEmpty) 'message': effectiveMessage,
+              ...?switch (replyId) {
+                final id? => {'reply_id': id},
+                null => null,
+              },
             },
           )
         : await _authRepository.postMultipart(
             'messages/$username',
             fields: {
-              if (trimmed.isNotEmpty) 'message': trimmed,
-              ...?switch (replyId) { final id? => {'reply_id': '$id'}, null => null },
+              'message': effectiveMessage,
+              ...?switch (replyId) {
+                final id? => {'reply_id': '$id'},
+                null => null,
+              },
             },
             files: [
               ApiMultipartFile(
@@ -80,7 +105,10 @@ class MessageRepository {
     await _authRepository.delete('messages/item/$messageId');
   }
 
-  Future<ChatMessage> editMessage(int messageId, {required String message}) async {
+  Future<ChatMessage> editMessage(
+    int messageId, {
+    required String message,
+  }) async {
     final payload = {'message': message.trim()};
     Map<String, dynamic> response;
     try {

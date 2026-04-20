@@ -79,7 +79,10 @@ class GroupRepository {
     }
   }
 
-  Future<AppGroup> setTypingStatus(int groupId, {required bool isTyping}) async {
+  Future<AppGroup> setTypingStatus(
+    int groupId, {
+    required bool isTyping,
+  }) async {
     final response = await _authRepository.post(
       'groups/$groupId/typing',
       body: {'is_typing': isTyping},
@@ -96,19 +99,28 @@ class GroupRepository {
     XFile? photo,
   }) async {
     final trimmed = message.trim();
+    final effectiveMessage = trimmed.isEmpty && photo != null
+        ? 'Shared a photo'
+        : trimmed;
     final response = photo == null
         ? await _authRepository.post(
             'groups/$groupId/messages',
             body: {
-              'message': trimmed,
-              ...?switch (replyId) { final value? => {'reply_id': value}, null => null },
+              'message': effectiveMessage,
+              ...?switch (replyId) {
+                final value? => {'reply_id': value},
+                null => null,
+              },
             },
           )
         : await _authRepository.postMultipart(
             'groups/$groupId/messages',
             fields: {
-              if (trimmed.isNotEmpty) 'message': trimmed,
-              ...?switch (replyId) { final value? => {'reply_id': '$value'}, null => null },
+              'message': effectiveMessage,
+              ...?switch (replyId) {
+                final value? => {'reply_id': '$value'},
+                null => null,
+              },
             },
             files: [
               ApiMultipartFile(

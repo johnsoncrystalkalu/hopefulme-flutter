@@ -46,7 +46,8 @@ class MessageThreadScreen extends StatefulWidget {
   State<MessageThreadScreen> createState() => _MessageThreadScreenState();
 }
 
-class _MessageThreadScreenState extends State<MessageThreadScreen> {
+class _MessageThreadScreenState extends State<MessageThreadScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
@@ -54,6 +55,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   List<ChatMessage> _messages = <ChatMessage>[];
   ChatMessage? _replyingTo;
   Timer? _pollTimer;
+  bool _isPollInFlight = false;
+  bool _isAppForeground = true;
+  int _realtimeBurstTicksRemaining = 0;
   bool _isLoading = true;
   bool _isSending = false;
   bool _showEmojiPicker = false;
@@ -70,6 +74,20 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   ChatMessage? _editingMessage;
 
   String get _draftKey => 'message_draft_${widget.username}';
+
+  String _selectedPhotoLabel() {
+    final name = _selectedPhoto?.name.trim() ?? '';
+    if (name.isEmpty) {
+      return 'Selected image';
+    }
+    final normalized = name.toLowerCase();
+    if (normalized.startsWith('scaled_') ||
+        normalized.startsWith('image_picker') ||
+        normalized.startsWith('resized_')) {
+      return 'Selected image';
+    }
+    return name;
+  }
 
   ConversationUser? _displaySenderForMessage(ChatMessage message) {
     return message.sender ??
@@ -111,6 +129,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ActiveChat.currentUsername = widget.username
         .trim()
         .toLowerCase()
@@ -120,14 +139,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
     _loadThread();
-    _pollTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _loadThread(silent: true),
-    );
+    _primeRealtimeBurst();
+    _scheduleNextPoll();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final normalizedUsername = widget.username
         .trim()
         .toLowerCase()
@@ -144,6 +162,17 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground) {
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
+      return;
+    }
+    _pollTimer?.cancel();
   }
 
   Future<void> _restoreDraft() async {
@@ -215,12 +244,93 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
           _isLoading = false;
         });
       }
+      if (mounted && _isAppForeground) {
+        _scheduleNextPoll();
+      }
+    }
+  }
+
+  void _primeRealtimeBurst({int ticks = 10}) {
+    if (ticks > _realtimeBurstTicksRemaining) {
+      _realtimeBurstTicksRemaining = ticks;
+    }
+  }
+
+  Duration _nextPollInterval() {
+    if (!_isAppForeground) {
+      return const Duration(seconds: 15);
+    }
+    if (_realtimeBurstTicksRemaining > 0) {
+      _realtimeBurstTicksRemaining -= 1;
+      return const Duration(seconds: 1);
+    }
+    if (_showJumpToBottom) {
+      return const Duration(seconds: 4);
+    }
+    return const Duration(seconds: 2);
+  }
+
+  void _scheduleNextPoll({bool immediate = false}) {
+    _pollTimer?.cancel();
+    if (!mounted || !_isAppForeground) {
+      return;
+    }
+    final delay = immediate ? Duration.zero : _nextPollInterval();
+    _pollTimer = Timer(delay, () async {
+      await _pollLatestMessages();
+      if (!mounted) {
+        return;
+      }
+      _scheduleNextPoll();
+    });
+  }
+
+  Future<void> _pollLatestMessages() async {
+    if (_isPollInFlight || !mounted) {
+      return;
+    }
+    _isPollInFlight = true;
+    try {
+      final currentMessages = _messages.where((message) => message.id > 0);
+      final latestMessageId = currentMessages.isEmpty
+          ? null
+          : currentMessages.last.id;
+      if (latestMessageId == null) {
+        await _loadThread(silent: true);
+        return;
+      }
+
+      final thread = await widget.repository.fetchThreadUpdates(
+        widget.username,
+        afterId: latestMessageId,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      final shouldStickToBottom = _isNearBottom() || _messages.isEmpty;
+      final mergedMessages = _mergeMessages(_messages, thread.messages);
+      setState(() {
+        _conversation = thread.conversation;
+        _messages = mergedMessages;
+      });
+      if (thread.messages.isNotEmpty) {
+        _primeRealtimeBurst(ticks: 6);
+      }
+      if (shouldStickToBottom && thread.messages.isNotEmpty) {
+        _scrollToBottomAnimated();
+      }
+    } catch (_) {
+      // Keep chat resilient; polling fallback continues on next cycle.
+    } finally {
+      _isPollInFlight = false;
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
+    final effectiveText = text.isEmpty && hasPhoto ? 'Shared a photo' : text;
     if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) {
       return;
     }
@@ -269,6 +379,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
               .toList();
           _editingMessage = null;
         });
+        _primeRealtimeBurst();
+        _scheduleNextPoll(immediate: true);
       } catch (error) {
         if (!mounted) return;
         final reverted = ChatMessage(
@@ -313,7 +425,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         conversationId: _conversation?.id ?? 0,
         senderId: widget.currentUser?.id ?? 0,
         recipientId: _conversation?.otherUser.id ?? 0,
-        message: text,
+        message: effectiveText,
         photoUrl: '',
         replyId: _replyingTo?.id ?? 0,
         status: 'sending',
@@ -351,7 +463,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
       try {
         final sent = await widget.repository.sendMessage(
           widget.username,
-          message: text,
+          message: effectiveText,
           replyId: optimisticMessage.replyId == 0
               ? null
               : optimisticMessage.replyId,
@@ -365,7 +477,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
               .toList();
         });
         _scrollToBottomAnimated();
-        unawaited(_loadThread(silent: true));
+        _primeRealtimeBurst();
+        _scheduleNextPoll(immediate: true);
+        unawaited(_pollLatestMessages());
       } catch (error) {
         if (!mounted) return;
         setState(() {
@@ -593,6 +707,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
         _hasThreadChanges = true;
         _messages = _messages.where((m) => m.id != message.id).toList();
       });
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
     } catch (error) {
       if (!mounted) return;
       AppToast.error(
@@ -602,7 +718,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     }
   }
 
-  Future<String?> _showBubbleActions({required bool isMine}) {
+  Future<String?> _showBubbleActions({
+    required bool isMine,
+    required bool hasText,
+  }) {
     return showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -638,13 +757,15 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                       color: colors.brand,
                       onTap: () => Navigator.of(sheetContext).pop('reply'),
                     ),
-                    const SizedBox(width: 10),
-                    _BubbleActionButton(
-                      icon: Icons.content_copy_rounded,
-                      label: 'Copy',
-                      color: colors.textSecondary,
-                      onTap: () => Navigator.of(sheetContext).pop('copy'),
-                    ),
+                    if (hasText) ...[
+                      const SizedBox(width: 10),
+                      _BubbleActionButton(
+                        icon: Icons.content_copy_rounded,
+                        label: 'Copy',
+                        color: colors.textSecondary,
+                        onTap: () => Navigator.of(sheetContext).pop('copy'),
+                      ),
+                    ],
                     if (isMine) ...[
                       const SizedBox(width: 10),
                       _BubbleActionButton(
@@ -836,10 +957,17 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                                           child: GestureDetector(
                                             onLongPressStart: (_) async {
                                               HapticFeedback.mediumImpact();
+                                              final hasText = item.message
+                                                  .trim()
+                                                  .isNotEmpty;
                                               final value =
                                                   await _showBubbleActions(
                                                     isMine: isMine,
+                                                    hasText: hasText,
                                                   );
+                                              if (!context.mounted) {
+                                                return;
+                                              }
 
                                               if (value == 'reply') {
                                                 setState(() {
@@ -1086,7 +1214,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
             if (_editingMessage != null)
               _EditingBanner(
                 message: _editingMessage!,
-                onCancel: () => setState(() => _editingMessage = null),
+                onCancel: () {
+                  setState(() => _editingMessage = null);
+                  _controller.clear();
+                  unawaited(_clearDraft());
+                },
               ),
             SafeArea(
               top: false,
@@ -1121,7 +1253,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                _selectedPhoto?.name ?? 'Selected image',
+                                _selectedPhotoLabel(),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(

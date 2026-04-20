@@ -7,7 +7,7 @@ flutter run -d 27be0f2b
 flutter run --profile -d 27be0f2b
  or
 Press:
-
+flutter emulators --launch Pixel_9_Pro_XL_API_34_-app
 Ctrl + Shift + P
 
 Then type:

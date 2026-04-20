@@ -941,12 +941,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _openStorePage() => _openWebPage('Marketplace', '/store/home');
 
-  Future<void> _openGamesPage() => _openWebPage('Play Games', '/games');
+  Future<void> _openGamesPage() => _openWebPage('Games & Contests', '/games');
 
   Future<void> _openAdvertisePage() =>
-      _openWebPage('Advertisement', '/adverts');
+      _openWebPage('Advert & Partnership', '/adverts');
 
-  Future<void> _openVolunteerPage() => _openWebPage('Volunteer', '/volunteer');
+  Future<void> _openVolunteerPage() => _openWebPage('Volunteer & Support', '/volunteer');
 
   Future<void> _openTvPage() => _openWebPage('HopefulMe TV', '/tv');
 
