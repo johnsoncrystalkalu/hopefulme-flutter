@@ -268,7 +268,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _refreshDashboard() async {
     setState(() {
-      _homeUpdates = const <FeedEntry>[];
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
       _hasLoadMoreHomeUpdatesError = false;
@@ -302,11 +301,13 @@ class _HomeScreenState extends State<HomeScreen>
   void _handleHomeScroll() {
     if (!_homeScrollController.hasClients ||
         _homePaginationInFlight ||
-        _hasLoadMoreHomeUpdatesError) {
+        _hasLoadMoreHomeUpdatesError ||
+        _isLoadingMoreHomeUpdates ||
+        !_hasMoreHomeUpdates) {
       return;
     }
     final position = _homeScrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 280) {
+    if (position.extentAfter <= 320) {
       _homePaginationInFlight = true;
       unawaited(
         _loadMoreHomeUpdates().whenComplete(() {
@@ -497,6 +498,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) {
       return;
     }
+    if (_inAppNotificationsEnabled == enabled) {
+      return;
+    }
     setState(() {
       _inAppNotificationsEnabled = enabled;
     });
@@ -506,6 +510,9 @@ class _HomeScreenState extends State<HomeScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_inAppNotificationsPrefKey, enabled);
     if (!mounted) {
+      return;
+    }
+    if (_inAppNotificationsEnabled == enabled) {
       return;
     }
     setState(() {
@@ -1191,7 +1198,7 @@ class _HomeScreenState extends State<HomeScreen>
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          cacheExtent: 280,
+                          cacheExtent: 700,
                           slivers: [
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(

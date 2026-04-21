@@ -1286,7 +1286,8 @@ class _AppLoadingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Inspire the world around you',
+                     // 'Inspire the world around you',
+                      '',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.orange,

@@ -56,7 +56,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   bool _hasLoadMoreError = false;
   bool _hasMore = true;
   int _page = 1;
-  int? _highlightedUpdateId;
+  final ValueNotifier<int?> _highlightedUpdateId = ValueNotifier<int?>(null);
   Timer? _highlightedUpdateTimer;
   String? _error;
   FeedNotice? _feedNotice;
@@ -71,40 +71,42 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
   @override
   void dispose() {
     _highlightedUpdateTimer?.cancel();
+    _highlightedUpdateId.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadInitial() async {
+    final shouldShowBlockingLoader = _items.isEmpty;
     setState(() {
-      _isLoading = true;
+      _isLoading = shouldShowBlockingLoader;
       _error = null;
       _page = 1;
       _hasMore = true;
       _hasLoadMoreError = false;
-      _feedNotice = null;
-      _items.clear();
+      if (shouldShowBlockingLoader) {
+        _feedNotice = null;
+        _items.clear();
+      }
     });
 
     try {
       final page = await widget.feedRepository.fetchUpdatesPage(page: 1);
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        _items
+          ..clear()
+          ..addAll(page.items);
         _hasMore = page.hasMore;
         _feedNotice = page.feedNotice;
+        _isLoading = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
+        _isLoading = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -131,22 +133,26 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       if (!mounted) return;
       setState(() {
         _hasLoadMoreError = true;
+        _isLoadingMore = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
+      return;
     }
+    if (!mounted) return;
+    setState(() {
+      _isLoadingMore = false;
+    });
   }
 
   void _onScroll() {
-    if (_hasLoadMoreError) {
+    if (_hasLoadMoreError ||
+        _isLoading ||
+        _isLoadingMore ||
+        !_hasMore ||
+        !_scrollController.hasClients) {
       return;
     }
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 240) {
+
+    if (_scrollController.position.extentAfter <= 320) {
       _loadMore();
     }
   }
@@ -155,16 +161,11 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
 
   void _highlightPostedUpdate(int updateId) {
     _highlightedUpdateTimer?.cancel();
-    setState(() {
-      _highlightedUpdateId = updateId;
-    });
+    _highlightedUpdateId.value = updateId;
     _highlightedUpdateTimer = Timer(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      setState(() {
-        if (_highlightedUpdateId == updateId) {
-          _highlightedUpdateId = null;
-        }
-      });
+      if (_highlightedUpdateId.value == updateId) {
+        _highlightedUpdateId.value = null;
+      }
     });
   }
 
@@ -359,16 +360,15 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                   }
 
                   final entry = _items[itemIndex];
-                  final isHighlighted =
-                      entry.type == 'update' &&
-                      entry.id == _highlightedUpdateId;
-                  return RepaintBoundary(
-                    child: _UpdatesFeedRow(
+                  return ValueListenableBuilder<int?>(
+                    valueListenable: _highlightedUpdateId,
+                    builder: (context, highlightedId, _) => _UpdatesFeedRow(
                       key: ValueKey(
                         'updates-feed-item-${entry.type}-${entry.id}',
                       ),
                       entry: entry,
-                      isHighlighted: isHighlighted,
+                      isHighlighted:
+                          entry.type == 'update' && entry.id == highlightedId,
                       updateRepository: widget.updateRepository,
                       currentUser: widget.currentUser,
                       onOpenProfile: _openProfile,
