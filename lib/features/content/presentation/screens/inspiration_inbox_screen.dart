@@ -191,7 +191,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isSent = _activeView == _InspirationInboxView.sent;
-    final toggleLabel = isSent ? 'Inbox' : 'Sent';
+    final toggleLabel = isSent ? 'View Inbox' : 'View Sent';
     return Scaffold(
       backgroundColor: colors.scaffold,
       appBar: AppBar(

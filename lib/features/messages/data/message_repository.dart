@@ -129,4 +129,17 @@ class MessageRepository {
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
   }
+
+  Future<ChatMessage> toggleReaction(
+    int messageId, {
+    required String emoji,
+  }) async {
+    final response = await _authRepository.post(
+      'messages/item/$messageId/reactions',
+      body: {'emoji': emoji},
+    );
+    return ChatMessage.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
 }

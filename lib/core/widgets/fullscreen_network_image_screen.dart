@@ -11,24 +11,51 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
   const FullscreenNetworkImageScreen({
     required this.imageUrls,
     this.initialIndex = 0,
+    this.primaryActionLabel,
+    this.secondaryActionLabel,
+    this.onPrimaryAction,
+    this.onSecondaryAction,
     super.key,
   });
 
   final List<String> imageUrls;
   final int initialIndex;
+  final String? primaryActionLabel;
+  final String? secondaryActionLabel;
+  final Future<void> Function()? onPrimaryAction;
+  final Future<void> Function()? onSecondaryAction;
 
-  static Future<void> show(BuildContext context, {required String imageUrl}) {
+  static Future<void> show(
+    BuildContext context, {
+    required String imageUrl,
+    String? primaryActionLabel,
+    String? secondaryActionLabel,
+    Future<void> Function()? onPrimaryAction,
+    Future<void> Function()? onSecondaryAction,
+  }) {
     if (imageUrl.trim().isEmpty) {
       return Future<void>.value();
     }
 
-    return showGallery(context, imageUrls: <String>[imageUrl], initialIndex: 0);
+    return showGallery(
+      context,
+      imageUrls: <String>[imageUrl],
+      initialIndex: 0,
+      primaryActionLabel: primaryActionLabel,
+      secondaryActionLabel: secondaryActionLabel,
+      onPrimaryAction: onPrimaryAction,
+      onSecondaryAction: onSecondaryAction,
+    );
   }
 
   static Future<void> showGallery(
     BuildContext context, {
     required List<String> imageUrls,
     int initialIndex = 0,
+    String? primaryActionLabel,
+    String? secondaryActionLabel,
+    Future<void> Function()? onPrimaryAction,
+    Future<void> Function()? onSecondaryAction,
   }) {
     final filteredUrls = imageUrls
         .map((url) => url.trim())
@@ -50,6 +77,10 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
         builder: (_) => FullscreenNetworkImageScreen(
           imageUrls: filteredUrls,
           initialIndex: safeInitialIndex,
+          primaryActionLabel: primaryActionLabel,
+          secondaryActionLabel: secondaryActionLabel,
+          onPrimaryAction: onPrimaryAction,
+          onSecondaryAction: onSecondaryAction,
         ),
       ),
     );
@@ -66,6 +97,7 @@ class _FullscreenNetworkImageScreenState
   late final PageController _pageController;
   late int _currentIndex;
   double _verticalDragOffset = 0;
+  bool _isRunningAction = false;
 
   String get _currentImageUrl => widget.imageUrls[_currentIndex];
 
@@ -199,6 +231,31 @@ class _FullscreenNetworkImageScreenState
     return 'jpg';
   }
 
+  Future<void> _runExternalAction(Future<void> Function()? action) async {
+    if (action == null || _isRunningAction) {
+      return;
+    }
+
+    setState(() {
+      _isRunningAction = true;
+    });
+
+    try {
+      Navigator.of(context).pop();
+      await action();
+    } catch (error) {
+      if (mounted) {
+        AppToast.error(context, error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningAction = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final translatedOffset = _verticalDragOffset < 0
@@ -313,28 +370,90 @@ class _FullscreenNetworkImageScreenState
                 right: 20,
                 bottom: 28,
                 child: IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                  ignoring: _isRunningAction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.primaryActionLabel != null ||
+                          widget.secondaryActionLabel != null)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            if (widget.primaryActionLabel != null)
+                              FilledButton.tonal(
+                                onPressed: () => _runExternalAction(
+                                  widget.onPrimaryAction,
+                                ),
+                                style: FilledButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.17,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  minimumSize: const Size(0, 36),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: Text(widget.primaryActionLabel!),
+                              ),
+                            if (widget.secondaryActionLabel != null)
+                              FilledButton.tonal(
+                                onPressed: () => _runExternalAction(
+                                  widget.onSecondaryAction,
+                                ),
+                                style: FilledButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.17,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  minimumSize: const Size(0, 36),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: Text(widget.secondaryActionLabel!),
+                              ),
+                          ],
+                        ),
+                      if (widget.primaryActionLabel != null ||
+                          widget.secondaryActionLabel != null)
+                        const SizedBox(height: 8),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          child: const Text(
+                            'Long press to save',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
-                      child: const Text(
-                        'Long press to save',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ),

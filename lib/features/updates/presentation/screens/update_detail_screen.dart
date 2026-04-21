@@ -66,6 +66,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   late Future<UpdateDetail> _future;
   late AnimationController _likeController;
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   bool _liked = false;
   bool _isSubmittingComment = false;
   bool _isLoadingMoreComments = false;
@@ -104,6 +105,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   void dispose() {
     _likeController.dispose();
     _commentController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -543,7 +545,6 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 }
 
                 final colors = context.appColors;
-                final isDark = Theme.of(context).brightness == Brightness.dark;
                 final isGeneratedActivity =
                     detail.type.trim().toLowerCase() != 'update';
 
@@ -699,98 +700,44 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               ),
                               child: Row(
                                 children: [
-                                  ScaleTransition(
-                                    scale: _likeController,
-                                    child: FilledButton.tonalIcon(
-                                      onPressed: () => _toggleLike(detail),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: isDark
-                                            ? Colors.transparent
-                                            : const Color(0xFFFFF1F4),
-                                        elevation: 0,
-                                        shadowColor: Colors.transparent,
-                                        surfaceTintColor: Colors.transparent,
-                                        side: isDark
-                                            ? const BorderSide(
-                                                color: Color(0x55FF4D6D),
-                                              )
-                                            : null,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 10,
-                                        ),
-                                      ),
-                                      icon: Icon(
-                                        _liked
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => _toggleLike(detail),
+                                    child: ScaleTransition(
+                                      scale: _likeController,
+                                      child: _DetailActionPill(
+                                        icon: _liked
                                             ? Icons.favorite
                                             : Icons.favorite_border,
-                                        color: Color(0xFFFF4D6D),
-                                        fill: _liked ? 1 : 0,
-                                      ),
-                                      label: AnimatedSwitcher(
-                                        duration: const Duration(
-                                          milliseconds: 220,
-                                        ),
-                                        child: Text(
-                                          '${detail.likesCount}',
-                                          key: ValueKey(detail.likesCount),
-                                          style: const TextStyle(
-                                            color: Color(0xFFFF4D6D),
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                        iconFill: _liked ? 1 : 0,
+                                        label: '${detail.likesCount}',
+                                        color: const Color(0xFFFF4D6D),
+                                        background: const Color(0xFFFFF1F4),
+                                        darkBackground: const Color(
+                                          0x221A1618,
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  FilledButton.tonalIcon(
-                                    onPressed: () {},
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: isDark
-                                          ? Colors.transparent
-                                          : const Color(0xFFEEF1FF),
-                                      elevation: 0,
-                                      shadowColor: Colors.transparent,
-                                      surfaceTintColor: Colors.transparent,
-                                      side: isDark
-                                          ? const BorderSide(
-                                              color: Color(0x553D5AFE),
-                                            )
-                                          : null,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.chat_bubble_outline,
-                                      color: Color(0xFF3D5AFE),
-                                    ),
-                                    label: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 220,
-                                      ),
-                                      child: Text(
-                                        '${detail.commentsCount}',
-                                        key: ValueKey(detail.commentsCount),
-                                        style: const TextStyle(
-                                          color: Color(0xFF3D5AFE),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => _commentFocusNode.requestFocus(),
+                                    child: _DetailActionPill(
+                                      icon: Icons.chat_bubble_outline,
+                                      label: '${detail.commentsCount}',
+                                      color: colors.icon,
+                                      background: const Color(0x00000000),
                                     ),
                                   ),
                                   const Spacer(),
                                   InkWell(
-                                    borderRadius: BorderRadius.circular(999),
+                                    borderRadius: BorderRadius.circular(16),
                                     onTap: () => _shareUpdate(detail),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(6),
-                                      child: Icon(
-                                        Icons.ios_share_outlined,
-                                        size: 16,
-                                        color: Color(0xFF94A3B8),
-                                      ),
+                                    child: _DetailActionPill(
+                                      icon: Icons.ios_share_outlined,
+                                      color: colors.icon,
+                                      background: const Color(0x00000000),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -833,6 +780,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                 Expanded(
                                   child: TextField(
                                     controller: _commentController,
+                                    focusNode: _commentFocusNode,
                                     minLines: 1,
                                     maxLines: 3,
                                     decoration: InputDecoration(
@@ -907,6 +855,60 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
           ),
         );
       },
+    );
+  }
+}
+
+class _DetailActionPill extends StatelessWidget {
+  const _DetailActionPill({
+    required this.icon,
+    required this.color,
+    required this.background,
+    this.darkBackground,
+    this.label,
+    this.iconFill,
+  });
+
+  final IconData icon;
+  final String? label;
+  final Color color;
+  final Color background;
+  final Color? darkBackground;
+  final double? iconFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLikePill = icon == Icons.favorite || icon == Icons.favorite_border;
+    final hasLikeBg = isLikePill && iconFill != null && iconFill! > 0;
+    final effectiveLightBackground = hasLikeBg ? background : Colors.transparent;
+    final effectiveDarkBackground = hasLikeBg
+        ? (darkBackground ?? Colors.transparent)
+        : Colors.transparent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? effectiveDarkBackground : effectiveLightBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color, fill: iconFill),
+          if (label != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              label!,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

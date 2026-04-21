@@ -164,4 +164,18 @@ class GroupRepository {
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
   }
+
+  Future<GroupMessage> toggleReaction(
+    int groupId,
+    int messageId, {
+    required String emoji,
+  }) async {
+    final response = await _authRepository.post(
+      'groups/$groupId/messages/$messageId/reactions',
+      body: {'emoji': emoji},
+    );
+    return GroupMessage.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
 }

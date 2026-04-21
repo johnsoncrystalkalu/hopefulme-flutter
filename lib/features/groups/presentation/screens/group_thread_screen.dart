@@ -318,6 +318,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         time: editingMessage.time,
         sender: editingMessage.sender,
         replyTo: editingMessage.replyTo,
+        reactions: editingMessage.reactions,
         localImageBytes: editingMessage.localImageBytes,
       );
 
@@ -368,6 +369,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
           time: editingMessage.time,
           sender: editingMessage.sender,
           replyTo: editingMessage.replyTo,
+          reactions: editingMessage.reactions,
           localImageBytes: editingMessage.localImageBytes,
         );
         setState(() {
@@ -425,6 +427,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
               message: _replyingTo!.message,
               sender: _replyingTo!.sender,
             ),
+      reactions: const <ChatReactionSummary>[],
       localImageBytes: localPhotoBytes,
     );
 
@@ -486,6 +489,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
             time: '',
             sender: optimisticMessage.replyTo!.sender,
             replyTo: null,
+            reactions: const <ChatReactionSummary>[],
           );
         }
       });
@@ -607,6 +611,124 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     } catch (error) {
       if (!mounted) return;
       AppToast.error(context, error);
+    }
+  }
+
+  List<ChatReactionSummary> _optimisticToggleReactions(
+    List<ChatReactionSummary> current,
+    String emoji,
+  ) {
+    final targetKey = _normalizedReactionKey(emoji);
+    final items = <ChatReactionSummary>[...current];
+
+    int? myReactionIndex;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].reactedByMe) {
+        myReactionIndex = i;
+        break;
+      }
+    }
+
+    // User tapped own current emoji -> remove reaction.
+    if (myReactionIndex != null &&
+        _normalizedReactionKey(items[myReactionIndex].emoji) == targetKey) {
+      final mine = items[myReactionIndex];
+      final nextCount = mine.count - 1;
+      if (nextCount <= 0) {
+        items.removeAt(myReactionIndex);
+      } else {
+        items[myReactionIndex] = mine.copyWith(
+          count: nextCount,
+          reactedByMe: false,
+        );
+      }
+    } else {
+      // If user already reacted with another emoji, remove that first.
+      if (myReactionIndex != null) {
+        final mine = items[myReactionIndex];
+        final nextCount = mine.count - 1;
+        if (nextCount <= 0) {
+          items.removeAt(myReactionIndex);
+        } else {
+          items[myReactionIndex] = mine.copyWith(
+            count: nextCount,
+            reactedByMe: false,
+          );
+        }
+      }
+
+      // Add/mark new reaction.
+      final targetIndex = items.indexWhere(
+        (item) => _normalizedReactionKey(item.emoji) == targetKey,
+      );
+      if (targetIndex == -1) {
+        items.add(
+          ChatReactionSummary(emoji: emoji, count: 1, reactedByMe: true),
+        );
+      } else {
+        final target = items[targetIndex];
+        items[targetIndex] = target.copyWith(
+          count: target.count + 1,
+          reactedByMe: true,
+        );
+      }
+    }
+
+    final deduped = <String, ChatReactionSummary>{};
+    for (final item in items) {
+      final key = _normalizedReactionKey(item.emoji);
+      final existing = deduped[key];
+      if (existing == null) {
+        deduped[key] = item;
+      } else {
+        deduped[key] = ChatReactionSummary(
+          emoji: existing.emoji.isNotEmpty ? existing.emoji : item.emoji,
+          count: existing.count + item.count,
+          reactedByMe: existing.reactedByMe || item.reactedByMe,
+        );
+      }
+    }
+
+    final normalizedItems = deduped.values.toList();
+    normalizedItems.sort((a, b) => b.count.compareTo(a.count));
+    return normalizedItems;
+  }
+
+  String _normalizedReactionKey(String emoji) {
+    return emoji.replaceAll('\uFE0F', '').replaceAll('\uFE0E', '').trim();
+  }
+
+  Future<void> _toggleReaction(GroupMessage message, String emoji) async {
+    final previous = message;
+    final optimistic = message.copyWith(
+      reactions: _optimisticToggleReactions(message.reactions, emoji),
+    );
+
+    setState(() {
+      _messages = _messages
+          .map((item) => item.id == message.id ? optimistic : item)
+          .toList();
+    });
+
+    try {
+      final updated = await widget.repository.toggleReaction(
+        widget.groupId,
+        message.id,
+        emoji: emoji,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages
+            .map((item) => item.id == message.id ? updated : item)
+            .toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _messages = _messages
+            .map((item) => item.id == message.id ? previous : item)
+            .toList();
+      });
     }
   }
 
@@ -1135,6 +1257,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                           },
                                           onDelete: () =>
                                               _deleteMessage(message),
+                                          onReact: _toggleReaction,
                                           onCopy: () async {
                                             await Clipboard.setData(
                                               ClipboardData(
@@ -1634,10 +1757,20 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onCopy,
+    required this.onReact,
     required this.onLinkTap,
     required this.onOpenFullImage, // 👈
     required this.onMentionTap, // 👈
   });
+
+  static const List<String> _quickReactions = <String>[
+    '❤️',
+    '😂',
+    '😮',
+    '😢',
+    '🙏',
+    '👍',
+  ];
 
   final GroupMessage message;
   final bool isMine;
@@ -1651,6 +1784,7 @@ class _GroupMessageBubble extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final Future<void> Function() onCopy;
+  final Future<void> Function(GroupMessage message, String emoji) onReact;
   final Future<void> Function(String url) onLinkTap;
   final void Function(String? url, Uint8List? bytes) onOpenFullImage; // 👈
   final Future<void> Function(String username) onMentionTap; // 👈
@@ -1695,45 +1829,68 @@ class _GroupMessageBubble extends StatelessWidget {
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _GroupBubbleActionButton(
-                      icon: Icons.reply_outlined,
-                      label: 'Reply',
-                      color: colors.brand,
-                      onTap: () => Navigator.of(sheetContext).pop('reply'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _quickReactions
+                        .map(
+                          (emoji) => _GroupReactionQuickButton(
+                            emoji: emoji,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop('react:$emoji'),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _GroupBubbleActionButton(
+                          icon: Icons.reply_outlined,
+                          label: 'Reply',
+                          color: colors.brand,
+                          onTap: () => Navigator.of(sheetContext).pop('reply'),
+                        ),
+                        if (canCopy) ...[
+                          const SizedBox(width: 10),
+                          _GroupBubbleActionButton(
+                            icon: Icons.content_copy_rounded,
+                            label: 'Copy',
+                            color: colors.textSecondary,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop('copy'),
+                          ),
+                        ],
+                        if (canEdit) ...[
+                          const SizedBox(width: 10),
+                          _GroupBubbleActionButton(
+                            icon: Icons.edit_rounded,
+                            label: 'Edit',
+                            color: colors.textSecondary,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop('edit'),
+                          ),
+                        ],
+                        if (canDelete) ...[
+                          const SizedBox(width: 10),
+                          _GroupBubbleActionButton(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'Delete',
+                            color: colors.dangerText,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop('delete'),
+                          ),
+                        ],
+                      ],
                     ),
-                    if (canCopy) ...[
-                      const SizedBox(width: 10),
-                      _GroupBubbleActionButton(
-                        icon: Icons.content_copy_rounded,
-                        label: 'Copy',
-                        color: colors.textSecondary,
-                        onTap: () => Navigator.of(sheetContext).pop('copy'),
-                      ),
-                    ],
-                    if (canEdit) ...[
-                      const SizedBox(width: 10),
-                      _GroupBubbleActionButton(
-                        icon: Icons.edit_rounded,
-                        label: 'Edit',
-                        color: colors.textSecondary,
-                        onTap: () => Navigator.of(sheetContext).pop('edit'),
-                      ),
-                    ],
-                    if (canDelete) ...[
-                      const SizedBox(width: 10),
-                      _GroupBubbleActionButton(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete',
-                        color: colors.dangerText,
-                        onTap: () => Navigator.of(sheetContext).pop('delete'),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1756,22 +1913,27 @@ class _GroupMessageBubble extends StatelessWidget {
         children: [
           if (!isMine) ...[
             if (showAvatar)
-              InkWell(
-                onTap: onProfileTap,
-                borderRadius: BorderRadius.circular(999),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundImage: message.sender?.photoUrl.isNotEmpty == true
-                      ? NetworkImage(
-                          ImageUrlResolver.avatar(
-                            message.sender!.photoUrl,
-                            size: 42,
-                          ),
-                        )
-                      : null,
-                  child: message.sender?.photoUrl.isEmpty ?? true
-                      ? const Icon(Icons.person, size: 14)
-                      : null,
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: message.reactions.isNotEmpty ? 18 : 0,
+                ),
+                child: InkWell(
+                  onTap: onProfileTap,
+                  borderRadius: BorderRadius.circular(999),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundImage: message.sender?.photoUrl.isNotEmpty == true
+                        ? NetworkImage(
+                            ImageUrlResolver.avatar(
+                              message.sender!.photoUrl,
+                              size: 42,
+                            ),
+                          )
+                        : null,
+                    child: message.sender?.photoUrl.isEmpty ?? true
+                        ? const Icon(Icons.person, size: 14)
+                        : null,
+                  ),
                 ),
               )
             else
@@ -1805,6 +1967,9 @@ class _GroupMessageBubble extends StatelessWidget {
                     HapticFeedback.mediumImpact();
                     final value = await _showBubbleActions(context);
                     if (value == 'reply') onReply();
+                    if (value != null && value.startsWith('react:')) {
+                      await onReact(message, value.substring(6));
+                    }
                     if (value == 'copy') await onCopy();
                     if (value == 'edit') onEdit();
                     if (value == 'delete') onDelete();
@@ -1958,6 +2123,17 @@ class _GroupMessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (message.reactions.isNotEmpty)
+                  Transform.translate(
+                    offset: const Offset(0, -4),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 0),
+                      child: _GroupReactionBar(
+                        reactions: message.reactions,
+                        onTapEmoji: (emoji) => onReact(message, emoji),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -2035,6 +2211,90 @@ class _GroupBubbleActionButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GroupReactionQuickButton extends StatelessWidget {
+  const _GroupReactionQuickButton({
+    required this.emoji,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          emoji,
+          style: const TextStyle(fontSize: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupReactionBar extends StatelessWidget {
+  const _GroupReactionBar({
+    required this.reactions,
+    required this.onTapEmoji,
+  });
+
+  final List<ChatReactionSummary> reactions;
+  final Future<void> Function(String emoji) onTapEmoji;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final totalCount = reactions.fold<int>(
+      0,
+      (sum, reaction) => sum + reaction.count,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...reactions.map(
+            (reaction) => Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: InkWell(
+                onTap: () => onTapEmoji(reaction.emoji),
+                borderRadius: BorderRadius.circular(999),
+                child: Text(
+                  reaction.emoji,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          Text(
+            '$totalCount',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

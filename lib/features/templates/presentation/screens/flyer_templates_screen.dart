@@ -176,7 +176,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                               // ),
                              // const SizedBox(height: 6),
                               Text(
-                                'Create your own HopefulMe flyers, birthday cards and community invites.',
+                                'Create your own HopefulMe flyers, birthday cards and posters. Share them and invite more friends to the community.',
                                 style: TextStyle(
                                   color: colors.textSecondary,
                                   fontSize: 12,
@@ -184,16 +184,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Share your designs and invite more friends into the community. Contact us if you have template suggestions.',
-                                style: TextStyle(
-                                  color: colors.textMuted,
-                                  fontSize: 11.5,
-                                  height: 1.4,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                          
                             ],
                           ),
                         ),

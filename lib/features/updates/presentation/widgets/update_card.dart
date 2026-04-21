@@ -69,25 +69,41 @@ class ReusableUpdateCard extends StatelessWidget {
         : colors.brand;
 
     final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _CardAvatar(
           imageUrl: data.avatarUrl,
           label: data.fallbackLabel,
-          radius: 22,
+          radius: 20,
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              VerifiedNameText(
-                name: data.title,
-                verified: data.isVerified,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: VerifiedNameText(
+                      name: data.title,
+                      verified: data.isVerified,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (headerTrailing != null) ...[
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      height: 20,
+                      width: 30,
+                      child: headerTrailing!,
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               if (data.metaLeading.isNotEmpty || data.metaTrailing.isNotEmpty)
@@ -144,7 +160,6 @@ class ReusableUpdateCard extends StatelessWidget {
             ],
           ),
         ),
-        if (headerTrailing != null) ...[headerTrailing!],
       ],
     );
 

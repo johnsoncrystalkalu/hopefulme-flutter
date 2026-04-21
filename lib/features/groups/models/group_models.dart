@@ -211,6 +211,7 @@ class GroupMessage {
     required this.time,
     required this.sender,
     required this.replyTo,
+    required this.reactions,
     this.localImageBytes,
   });
 
@@ -225,9 +226,43 @@ class GroupMessage {
   final String time;
   final ConversationUser? sender;
   final GroupReply? replyTo;
+  final List<ChatReactionSummary> reactions;
   final Uint8List? localImageBytes;
 
+  GroupMessage copyWith({
+    String? message,
+    String? photoUrl,
+    String? status,
+    List<ChatReactionSummary>? reactions,
+    Uint8List? localImageBytes,
+    bool clearLocalImageBytes = false,
+  }) {
+    return GroupMessage(
+      id: id,
+      groupId: groupId,
+      userId: userId,
+      message: message ?? this.message,
+      photoUrl: photoUrl ?? this.photoUrl,
+      status: status ?? this.status,
+      replyId: replyId,
+      createdAt: createdAt,
+      time: time,
+      sender: sender,
+      replyTo: replyTo,
+      reactions: reactions ?? this.reactions,
+      localImageBytes: clearLocalImageBytes
+          ? null
+          : (localImageBytes ?? this.localImageBytes),
+    );
+  }
+
   factory GroupMessage.fromJson(Map<String, dynamic> json) {
+    final parsedReactions =
+        (json['reactions'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(ChatReactionSummary.fromJson)
+            .toList();
+
     return GroupMessage(
       id: parseInt(json['id']),
       groupId: parseInt(json['group_id']),
@@ -244,8 +279,40 @@ class GroupMessage {
       replyTo: (json['reply_to'] as Map<String, dynamic>?)?.let(
         GroupReply.fromJson,
       ),
+      reactions: _mergeReactionSummaries(parsedReactions),
     );
   }
+}
+
+List<ChatReactionSummary> _mergeReactionSummaries(
+  List<ChatReactionSummary> input,
+) {
+  if (input.isEmpty) {
+    return const <ChatReactionSummary>[];
+  }
+
+  final merged = <String, ChatReactionSummary>{};
+  for (final reaction in input) {
+    final key = _normalizedReactionKey(reaction.emoji);
+    final existing = merged[key];
+    if (existing == null) {
+      merged[key] = reaction;
+      continue;
+    }
+    merged[key] = ChatReactionSummary(
+      emoji: existing.emoji.isNotEmpty ? existing.emoji : reaction.emoji,
+      count: existing.count + reaction.count,
+      reactedByMe: existing.reactedByMe || reaction.reactedByMe,
+    );
+  }
+
+  final items = merged.values.toList()
+    ..sort((a, b) => b.count.compareTo(a.count));
+  return items;
+}
+
+String _normalizedReactionKey(String emoji) {
+  return emoji.replaceAll('\uFE0F', '').replaceAll('\uFE0E', '').trim();
 }
 
 class GroupReply {

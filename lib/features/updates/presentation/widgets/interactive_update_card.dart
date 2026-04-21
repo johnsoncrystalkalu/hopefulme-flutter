@@ -66,9 +66,14 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   late int _likesCount;
   late int _commentsCount;
   late String _body;
+  final TextEditingController _inlineCommentController =
+      TextEditingController();
+  final FocusNode _inlineCommentFocusNode = FocusNode();
   bool _liked = false;
   bool _busy = false;
   bool _isDeleted = false;
+  bool _showInlineCommentComposer = false;
+  bool _isSubmittingInlineComment = false;
   late AnimationController _likeController;
 
   bool get _isOwner => widget.currentUser?.username == widget.ownerUsername;
@@ -92,6 +97,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
 
   @override
   void dispose() {
+    _inlineCommentController.dispose();
+    _inlineCommentFocusNode.dispose();
     _likeController.dispose();
     super.dispose();
   }
@@ -116,6 +123,10 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _commentsCount = widget.commentsCount;
       _liked = widget.isLiked; // ✅ restore from backend on refresh
       _isDeleted = false;
+      _showInlineCommentComposer = false;
+      _isSubmittingInlineComment = false;
+      _inlineCommentController.clear();
+      _inlineCommentFocusNode.unfocus();
     }
   }
 
@@ -249,7 +260,12 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       return;
     }
 
-    await FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
+    await FullscreenNetworkImageScreen.show(
+      context,
+      imageUrl: imageUrl,
+      primaryActionLabel: 'View Post',
+      onPrimaryAction: widget.onOpenUpdate,
+    );
   }
 
   Future<void> _shareUpdate() async {
@@ -275,8 +291,62 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     }
   }
 
+  Future<void> _handleCommentTap() async {
+    final shouldShow = !_showInlineCommentComposer;
+    setState(() {
+      _showInlineCommentComposer = shouldShow;
+    });
+    if (shouldShow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _inlineCommentFocusNode.requestFocus();
+        }
+      });
+    } else {
+      _inlineCommentFocusNode.unfocus();
+    }
+  }
+
+  Future<void> _submitInlineComment() async {
+    final comment = _inlineCommentController.text.trim();
+    if (comment.isEmpty || _isSubmittingInlineComment) {
+      return;
+    }
+
+    setState(() {
+      _isSubmittingInlineComment = true;
+    });
+    try {
+      await widget.updateRepository.addComment(
+        updateId: widget.updateId,
+        comment: comment,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _commentsCount += 1;
+        _showInlineCommentComposer = false;
+      });
+      _inlineCommentController.clear();
+      AppToast.success(context, 'Comment posted.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingInlineComment = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     if (_isDeleted) {
       return const SizedBox.shrink();
     }
@@ -309,7 +379,11 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       onHashtagTap: widget.onOpenHashtag,
       onLinkTap: widget.onOpenLink,
       headerTrailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8)),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+        iconSize: 20,
+        splashRadius: 18,
+        icon: Icon(Icons.more_horiz, color: colors.icon),
         onSelected: (value) async {
           switch (value) {
             case 'view':
@@ -335,45 +409,140 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             const PopupMenuItem(value: 'delete', child: Text('Delete Update')),
         ],
       ),
-      footer: Row(
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: _toggleLike,
-            child: ScaleTransition(
-              scale: _likeController,
-              child: _ActionPill(
-                icon: _liked ? Icons.favorite : Icons.favorite_border,
-                iconFill: _liked ? 1 : 0,
-                label: '$_likesCount',
-                color: const Color(0xFFFF4D6D),
-                background: const Color(0xFFFFF1F4),
+          Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _toggleLike,
+                child: ScaleTransition(
+                  scale: _likeController,
+                  child: _ActionPill(
+                    icon: _liked ? Icons.favorite : Icons.favorite_border,
+                    iconFill: _liked ? 1 : 0,
+                    label: '$_likesCount',
+                    color: _liked
+                        ? const Color(0xFFFF4D6D)
+                        : colors.icon,
+                    background: const Color(0xFFFFF1F4),
+                    darkBackground: const Color(0x221A1618),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => widget.onOpenUpdate(),
-            child: _ActionPill(
-              icon: Icons.chat_bubble_outline,
-              label: '$_commentsCount',
-              color: const Color(0xFF3D5AFE),
-              background: const Color(0xFFEEF1FF),
-            ),
-          ),
-          const Spacer(),
-          InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: _shareUpdate,
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(
-                Icons.ios_share_outlined,
-                size: 16,
-                color: Color(0xFF94A3B8),
+              const SizedBox(width: 0),
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _handleCommentTap,
+                child: _ActionPill(
+                  icon: Icons.chat_bubble_outline,
+                  label: '$_commentsCount',
+                  color: colors.icon,
+                  background: const Color(0x00000000),
+                ),
               ),
-            ),
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _shareUpdate,
+                child: _ActionPill(
+                  icon: Icons.ios_share_outlined,
+                  color: colors.icon,
+                  background: const Color(0x00000000),
+                ),
+              ),
+            ],
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _showInlineCommentComposer
+                ? Padding(
+                    key: const ValueKey('inline_comment'),
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _inlineCommentController,
+                                  focusNode: _inlineCommentFocusNode,
+                                  minLines: 1,
+                                  maxLines: 3,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _submitInlineComment(),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: 'Write a comment...',
+                                    border: InputBorder.none,
+                                    hintStyle: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Post comment',
+                                onPressed: _isSubmittingInlineComment
+                                    ? null
+                                    : _submitInlineComment,
+                                icon: _isSubmittingInlineComment
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colors.brand,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.send_rounded,
+                                        size: 18,
+                                        color: colors.brand,
+                                      ),
+                              ),
+                            ],
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 0,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => widget.onOpenUpdate(),
+                              child: Text(
+                                'View all comments',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('inline_comment_hidden')),
           ),
         ],
       ),
@@ -384,44 +553,51 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
 class _ActionPill extends StatelessWidget {
   const _ActionPill({
     required this.icon,
-    required this.label,
     required this.color,
     required this.background,
+    this.darkBackground,
+    this.label,
     this.iconFill,
   });
 
   final IconData icon;
-  final String label;
+  final String? label;
   final Color color;
   final Color background;
+  final Color? darkBackground;
   final double? iconFill;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLikePill = icon == Icons.favorite || icon == Icons.favorite_border;
+    final hasLikeBg = isLikePill && iconFill != null && iconFill! > 0;
+    final effectiveLightBackground = hasLikeBg ? background : Colors.transparent;
+    final effectiveDarkBackground = hasLikeBg
+        ? (darkBackground ?? Colors.transparent)
+        : Colors.transparent;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : background,
+        color: isDark ? effectiveDarkBackground : effectiveLightBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? colors.borderStrong : Colors.transparent,
-        ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color, fill: iconFill),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+          Icon(icon, size: 19, color: color, fill: iconFill),
+          if (label != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              label!,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

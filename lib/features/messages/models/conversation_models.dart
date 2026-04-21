@@ -126,6 +126,7 @@ class ChatMessage {
     required this.sender,
     required this.recipient,
     required this.replyTo,
+    required this.reactions,
     this.localImageBytes,
   });
 
@@ -141,9 +142,44 @@ class ChatMessage {
   final ConversationUser? sender;
   final ConversationUser? recipient;
   final ChatMessageReply? replyTo;
+  final List<ChatReactionSummary> reactions;
   final Uint8List? localImageBytes;
 
+  ChatMessage copyWith({
+    String? message,
+    String? photoUrl,
+    String? status,
+    List<ChatReactionSummary>? reactions,
+    Uint8List? localImageBytes,
+    bool clearLocalImageBytes = false,
+  }) {
+    return ChatMessage(
+      id: id,
+      conversationId: conversationId,
+      senderId: senderId,
+      recipientId: recipientId,
+      message: message ?? this.message,
+      photoUrl: photoUrl ?? this.photoUrl,
+      replyId: replyId,
+      status: status ?? this.status,
+      createdAt: createdAt,
+      sender: sender,
+      recipient: recipient,
+      replyTo: replyTo,
+      reactions: reactions ?? this.reactions,
+      localImageBytes: clearLocalImageBytes
+          ? null
+          : (localImageBytes ?? this.localImageBytes),
+    );
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final parsedReactions =
+        (json['reactions'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(ChatReactionSummary.fromJson)
+            .toList();
+
     return ChatMessage(
       id: parseInt(json['id']),
       conversationId: parseInt(json['conversation_id']),
@@ -163,8 +199,72 @@ class ChatMessage {
       replyTo: (json['reply_to'] as Map<String, dynamic>?)?.let(
         ChatMessageReply.fromJson,
       ),
+      reactions: _mergeChatReactionSummaries(parsedReactions),
     );
   }
+}
+
+class ChatReactionSummary {
+  const ChatReactionSummary({
+    required this.emoji,
+    required this.count,
+    required this.reactedByMe,
+  });
+
+  final String emoji;
+  final int count;
+  final bool reactedByMe;
+
+  ChatReactionSummary copyWith({
+    String? emoji,
+    int? count,
+    bool? reactedByMe,
+  }) {
+    return ChatReactionSummary(
+      emoji: emoji ?? this.emoji,
+      count: count ?? this.count,
+      reactedByMe: reactedByMe ?? this.reactedByMe,
+    );
+  }
+
+  factory ChatReactionSummary.fromJson(Map<String, dynamic> json) {
+    return ChatReactionSummary(
+      emoji: json['emoji']?.toString() ?? '',
+      count: parseInt(json['count']),
+      reactedByMe: parseBool(json['reacted_by_me']),
+    );
+  }
+}
+
+List<ChatReactionSummary> _mergeChatReactionSummaries(
+  List<ChatReactionSummary> input,
+) {
+  if (input.isEmpty) {
+    return const <ChatReactionSummary>[];
+  }
+
+  final merged = <String, ChatReactionSummary>{};
+  for (final reaction in input) {
+    final key = _normalizedChatReactionKey(reaction.emoji);
+    final existing = merged[key];
+    if (existing == null) {
+      merged[key] = reaction;
+      continue;
+    }
+    merged[key] = ChatReactionSummary(
+      emoji: existing.emoji.isNotEmpty ? existing.emoji : reaction.emoji,
+      count: existing.count + reaction.count,
+      reactedByMe: existing.reactedByMe || reaction.reactedByMe,
+    );
+  }
+
+  final items = merged.values.toList()
+    ..sort((a, b) => b.count.compareTo(a.count));
+  return items;
+}
+
+String _normalizedChatReactionKey(String emoji) {
+  return emoji.replaceAll('\uFE0F', '').replaceAll('\uFE0E', '').trim();
 }
 
 class ChatMessageReply {
