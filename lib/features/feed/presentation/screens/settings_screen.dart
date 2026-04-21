@@ -11,7 +11,7 @@ import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart'
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -29,28 +29,28 @@ class SettingsScreen extends StatelessWidget {
   final Future<void> Function() onLogout;
   final Future<void> Function() onCheckForUpdates;
 
-  static const _appUrl = 'https://www.ahopefulme.com/app';
   static const _officialWebsiteUrl = 'https://www.ahopefulme.com';
+  static const _inviteMessage =
+      "I am inviting to join me at Hopefulme, let's inspire the world around us - www.ahopefulme.com/app";
 
-  Future<void> _openExternalUrl(BuildContext context, String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      AppToast.error(context, 'Unable to open this link right now.');
-      return;
-    }
-
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && context.mounted) {
-      AppToast.error(context, 'Unable to open this link right now.');
+  Future<void> _shareInviteLink(BuildContext context) async {
+    try {
+      await Share.share(_inviteMessage, subject: 'Join me on HopefulMe');
+    } catch (_) {
+      await Clipboard.setData(const ClipboardData(text: _inviteMessage));
+      if (!context.mounted) {
+        return;
+      }
+      AppToast.info(context, 'Sharing unavailable. Invite message copied.');
     }
   }
 
-  Future<void> _copyInviteLink(BuildContext context) async {
-    await Clipboard.setData(const ClipboardData(text: _appUrl));
+  Future<void> _copyOfficialWebsiteLink(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _officialWebsiteUrl));
     if (!context.mounted) {
       return;
     }
-    AppToast.success(context, 'App link copied.');
+    AppToast.success(context, 'Official website link copied.');
   }
 
   @override
@@ -124,8 +124,8 @@ class SettingsScreen extends StatelessWidget {
           _SettingsTile(
             icon: Icons.ios_share_outlined,
             title: 'Invite Friends',
-            subtitle: 'Copy the App link and share HopefulMe.',
-            onTap: () => _copyInviteLink(context),
+            subtitle: 'Share HopefulMe on WhatsApp, mail, and more.',
+            onTap: () => _shareInviteLink(context),
           ),
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Official'),
@@ -133,7 +133,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.language_rounded,
             title: 'Official Website',
             subtitle: 'www.ahopefulme.com',
-            onTap: () => _openExternalUrl(context, _officialWebsiteUrl),
+            onTap: () => _copyOfficialWebsiteLink(context),
           ),
           const SizedBox(height: 14),
           const _SettingsSectionTitle('Support'),

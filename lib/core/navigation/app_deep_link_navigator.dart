@@ -15,6 +15,9 @@ import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_sc
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_detail_screen.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
+import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
+import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_template_editor_screen.dart';
+import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_templates_screen.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/messages_screen.dart';
@@ -36,6 +39,7 @@ class AppDeepLinkNavigator {
     required this.updateRepository,
     required this.searchRepository,
     required this.libraryRepository,
+    required this.flyerTemplateRepository,
     required this.currentUser,
     required this.webBaseUrl,
   });
@@ -48,6 +52,7 @@ class AppDeepLinkNavigator {
   final UpdateRepository updateRepository;
   final SearchRepository searchRepository;
   final LibraryRepository libraryRepository;
+  final FlyerTemplateRepository flyerTemplateRepository;
   final User? currentUser;
   final String webBaseUrl;
 
@@ -219,6 +224,33 @@ class AppDeepLinkNavigator {
             builder: (context) => LibraryDetailScreen(
               libraryId: libraryId,
               repository: libraryRepository,
+            ),
+          ),
+        );
+        return true;
+      case 'templates':
+        final templateId = _extractLeadingInt(segments.elementAtOrNull(1));
+        if (templateId == null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => FlyerTemplatesScreen(
+                repository: flyerTemplateRepository,
+                webBaseUrl: webBaseUrl,
+              ),
+            ),
+          );
+          return true;
+        }
+
+        final navigatorState = Navigator.of(context);
+        final template = await flyerTemplateRepository.fetchTemplate(
+          templateId,
+        );
+        await navigatorState.push(
+          MaterialPageRoute<void>(
+            builder: (context) => FlyerTemplateEditorScreen(
+              template: template,
+              repository: flyerTemplateRepository,
             ),
           ),
         );
@@ -451,6 +483,7 @@ class AppDeepLinkNavigator {
       'social',
       'store',
       'terms',
+      'templates',
       'tv',
       'updates',
       'welcome',

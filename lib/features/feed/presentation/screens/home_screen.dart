@@ -59,6 +59,8 @@ import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_s
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
+import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
+import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_templates_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,6 +90,7 @@ class HomeScreen extends StatefulWidget {
     required this.searchRepository,
     required this.updateRepository,
     required this.libraryRepository,
+    required this.flyerTemplateRepository,
     required this.onCheckForUpdates,
     super.key,
   });
@@ -105,6 +108,7 @@ class HomeScreen extends StatefulWidget {
   final SearchRepository searchRepository;
   final UpdateRepository updateRepository;
   final LibraryRepository libraryRepository;
+  final FlyerTemplateRepository flyerTemplateRepository;
   final Future<void> Function() onCheckForUpdates;
 
   @override
@@ -921,6 +925,19 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _openFlyerTemplates() async {
+    _setActiveSidebarItem('Flyer Templates');
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => FlyerTemplatesScreen(
+          repository: widget.flyerTemplateRepository,
+          webBaseUrl: _webBaseUrl,
+        ),
+      ),
+    );
+    await widget.authController.refreshCurrentUser();
+  }
+
   Future<void> _openWebPage(String title, String path) async {
     _setActiveSidebarItem(title);
     final normalizedPath = path.startsWith('/') ? path : '/$path';
@@ -964,6 +981,7 @@ class _HomeScreenState extends State<HomeScreen>
               updateRepository: widget.updateRepository,
               searchRepository: widget.searchRepository,
               libraryRepository: widget.libraryRepository,
+              flyerTemplateRepository: widget.flyerTemplateRepository,
               currentUser: widget.authController.currentUser,
               webBaseUrl: _webBaseUrl,
             );
@@ -1140,6 +1158,7 @@ class _HomeScreenState extends State<HomeScreen>
         onActivitiesTap: _openActivities,
         onGroupsTap: _openGroups,
         onLibraryTap: _openLibrary,
+        onFlyerTemplatesTap: _openFlyerTemplates,
         onInspirationsTap: _openInspirations,
         onPlayGamesTap: _openGamesPage,
         onStoreTap: _openStorePage,
@@ -2061,6 +2080,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onActivitiesTap,
     required this.onGroupsTap,
     required this.onLibraryTap,
+    required this.onFlyerTemplatesTap,
     required this.onInspirationsTap,
     required this.onPlayGamesTap,
     required this.onStoreTap,
@@ -2084,6 +2104,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onActivitiesTap;
   final Future<void> Function() onGroupsTap;
   final Future<void> Function() onLibraryTap;
+  final Future<void> Function() onFlyerTemplatesTap;
   final Future<void> Function() onInspirationsTap;
   final Future<void> Function() onPlayGamesTap;
   final Future<void> Function() onStoreTap;
@@ -2222,6 +2243,12 @@ class _HomeSidebar extends StatelessWidget {
                         'Library',
                         activeItemLabel == 'Library',
                         onTap: onLibraryTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.photo,
+                        'Flyer Templates',
+                        activeItemLabel == 'Flyer Templates',
+                        onTap: onFlyerTemplatesTap,
                       ),
                     ],
                   ),
@@ -4500,7 +4527,20 @@ class _ProfilePhotoReminderCard extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: FilledButton.icon(
                     onPressed: () => onTap(),
-                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: const Size(0, 34),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    icon: const Icon(Icons.photo_camera_outlined, size: 15),
                     label: const Text('Upload Photo'),
                   ),
                 ),

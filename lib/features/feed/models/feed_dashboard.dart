@@ -212,8 +212,7 @@ class FeedEntry {
       commentsCount: parseInt(json['comments_count']),
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
-      linkUrl:
-          json['url']?.toString() ?? json['update_link']?.toString() ?? '',
+      linkUrl: json['url']?.toString() ?? json['update_link']?.toString() ?? '',
       isSponsored: parseBool(json['is_sponsored']),
       isLiked: parseBool(json['is_liked']),
     );
@@ -302,7 +301,13 @@ class FeedUser {
   final double loginActivity;
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
-  bool get isVerified => verified.toLowerCase() == 'yes';
+  bool get isVerified {
+    final normalized = verified.trim().toLowerCase();
+    return normalized == 'yes' ||
+        normalized == 'true' ||
+        normalized == '1' ||
+        normalized == 'verified';
+  }
   String get cityState {
     final parts = <String>[
       if (city.trim().isNotEmpty) city.trim(),

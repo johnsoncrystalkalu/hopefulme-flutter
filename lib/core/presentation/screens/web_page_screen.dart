@@ -62,6 +62,7 @@ class WebPageScreen extends StatefulWidget {
       'post',
       'blog',
       'library',
+      'templates',
       'chat',
       'groups',
       'community',
@@ -113,6 +114,7 @@ class WebPageScreen extends StatefulWidget {
       'social',
       'store',
       'terms',
+      'templates',
       'tv',
       'updates',
       'volunteer',
@@ -176,12 +178,19 @@ class _WebPageScreenState extends State<WebPageScreen> {
             unawaited(_showFallbackDocument());
           },
           onNavigationRequest: (request) async {
+            final uri = Uri.tryParse(request.url);
+            if (uri != null && _isFileDownloadUri(uri)) {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                return NavigationDecision.prevent;
+              }
+            }
+
             final linkHandler = widget.onInternalLinkTap;
             if (linkHandler == null) {
               return NavigationDecision.navigate;
             }
 
-            final uri = Uri.tryParse(request.url);
             if (uri == null ||
                 !WebPageScreen.shouldUseNativeRouting(
                   uri,
@@ -230,6 +239,24 @@ class _WebPageScreenState extends State<WebPageScreen> {
     final nextQuery = <String, String>{...uri.queryParameters};
     nextQuery['source'] = 'flutter_app';
     return uri.replace(queryParameters: nextQuery);
+  }
+
+  bool _isFileDownloadUri(Uri uri) {
+    const downloadExtensions = <String>[
+      '.pdf',
+      '.zip',
+      '.doc',
+      '.docx',
+      '.xls',
+      '.xlsx',
+      '.ppt',
+      '.pptx',
+      '.csv',
+      '.txt',
+    ];
+
+    final lowerPath = uri.path.toLowerCase();
+    return downloadExtensions.any(lowerPath.endsWith);
   }
 
   Future<List<String>> _selectFilesForWebInput(

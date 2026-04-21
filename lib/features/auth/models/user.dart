@@ -13,6 +13,7 @@ class User {
     required this.theme,
     required this.isVerified,
     required this.isAdmin,
+    this.card = '',
   });
 
   final int id;
@@ -26,6 +27,9 @@ class User {
   final String theme;
   final bool isVerified;
   final bool isAdmin;
+  final String card;
+
+  bool get hasCardEnabled => card.trim().toUpperCase() == 'YES';
 
   String get displayName => fullname.isNotEmpty ? fullname : username;
 
@@ -52,6 +56,7 @@ class User {
           json['user_type']?.toString().toLowerCase() == 'admin' ||
           json['role']?.toString().toLowerCase() == 'admin' ||
           json['role1']?.toString().toLowerCase() == 'admin',
+      card: json['card']?.toString() ?? '',
     );
   }
 
@@ -68,6 +73,7 @@ class User {
       'theme': theme,
       'verified': isVerified,
       'is_admin': isAdmin,
+      'card': card,
     };
   }
 }

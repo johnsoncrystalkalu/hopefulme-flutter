@@ -134,10 +134,29 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? AppStatusState.fromError(
-              error: _error!,
-              actionLabel: 'Try again',
-              onAction: _loadInitial,
+          ? Theme(
+              data: Theme.of(context).copyWith(
+                filledButtonTheme: FilledButtonThemeData(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    iconSize: 16,
+                    minimumSize: const Size(0, 34),
+                  ),
+                ),
+              ),
+              child: AppStatusState.fromError(
+                error: _error!,
+                actionLabel: 'Try again',
+                onAction: _loadInitial,
+              ),
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,

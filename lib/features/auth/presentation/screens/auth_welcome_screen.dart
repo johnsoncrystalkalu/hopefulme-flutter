@@ -38,14 +38,14 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Connect and meet\nnew friends.',
       description:
-          'Chat, share photos, publish articles, join groups, and connect with inspiring people across the globe.',
+          'Chat, share photos, publish articles, join groups, play games and connect with inspiring people across the globe.',
       icon: Icons.chat_bubble_outline_rounded,
       accent: Color(0xFF4F46E5), // Indigo Accent
     ),
     _OnboardingSlideData(
       title: 'Join our physical\nevents and hangouts.',
       description:
-          'Attend exciting meetups, life-changing programs, and city tours. HopefulMe hosts regular conferences across multiple locations.',
+          'Attend exciting meetups, life-changing programs, and city tours. HopefulMe organizes several events and conferences across multiple locations.',
       icon: Icons.event_available_rounded,
       accent: Color(0xFF059669), // Emerald Accent
     ),

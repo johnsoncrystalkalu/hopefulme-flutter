@@ -1,4 +1,5 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 
 class AuthRepository {
@@ -151,6 +152,63 @@ class AuthRepository {
     } finally {
       await _apiClient.clearToken();
       await _apiClient.tokenStorage.clearCachedUser();
+      await _apiClient.tokenStorage.clearImpersonationBackup();
+    }
+  }
+
+  Future<User> loginAsUser({required String username}) async {
+    final normalized = username.trim().replaceFirst('@', '');
+    final currentToken = await _apiClient.tokenStorage.readToken();
+    final currentUser = await _apiClient.tokenStorage.readCachedUser();
+    if (currentToken != null &&
+        currentToken.isNotEmpty &&
+        currentUser != null &&
+        currentUser.isAdmin) {
+      await _apiClient.tokenStorage.saveImpersonationBackup(
+        adminToken: currentToken,
+        adminUser: currentUser,
+      );
+    }
+
+    final response = await _apiClient.post(
+      'auth/login-as/$normalized',
+      body: const <String, dynamic>{},
+    );
+
+    return _persistAuthResponse(response);
+  }
+
+  Future<bool> hasImpersonationBackup() =>
+      _apiClient.tokenStorage.hasImpersonationBackup();
+
+  Future<User> switchBackFromImpersonation() async {
+    final adminToken = await _apiClient.tokenStorage.readImpersonationToken();
+    final adminUser = await _apiClient.tokenStorage.readImpersonationUser();
+    final activeToken = await _apiClient.tokenStorage.readToken();
+    final activeUser = await _apiClient.tokenStorage.readCachedUser();
+
+    if (adminToken == null ||
+        adminToken.isEmpty ||
+        adminUser == null ||
+        !adminUser.isAdmin) {
+      throw ApiException('Admin backup session is unavailable.');
+    }
+
+    await _apiClient.saveToken(adminToken);
+    await _apiClient.tokenStorage.saveCachedUser(adminUser);
+
+    try {
+      final refreshed = await currentUser();
+      await _apiClient.tokenStorage.clearImpersonationBackup();
+      return refreshed;
+    } on ApiException {
+      if (activeToken != null && activeToken.isNotEmpty) {
+        await _apiClient.saveToken(activeToken);
+      }
+      if (activeUser != null) {
+        await _apiClient.tokenStorage.saveCachedUser(activeUser);
+      }
+      rethrow;
     }
   }
 
@@ -171,6 +229,7 @@ class AuthRepository {
   Future<void> clearLocalSession() async {
     await _apiClient.clearToken();
     await _apiClient.tokenStorage.clearCachedUser();
+    await _apiClient.tokenStorage.clearImpersonationBackup();
   }
 
   Future<User> _persistAuthResponse(Map<String, dynamic> response) async {

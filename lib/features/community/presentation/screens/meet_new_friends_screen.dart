@@ -550,11 +550,6 @@ class _FriendOfDayCard extends StatelessWidget {
                                           : 'COMMUNITY',
                                       bright: true,
                                     ),
-                                    _TagPill(
-                                      label: user.lastSeen.isEmpty
-                                          ? 'HOPEFULME'
-                                          : user.lastSeen.toUpperCase(),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 14),
@@ -684,13 +679,14 @@ Widget build(BuildContext context) {
 
           const SizedBox(height: 12),
 
-          Text(
-            user.displayName.split(' ').first,
+          VerifiedNameText(
+            name: user.displayName,
+            verified: user.isVerified,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: colors.textPrimary,
-              fontSize: 15, // ↓ slightly reduced
+              fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -942,13 +938,32 @@ class _NewestHeartsPanel extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            user.username,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              VerifiedNameText(
+                                name: user.displayName,
+                                verified: user.isVerified,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '@${user.username}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color.fromRGBO(255, 255, 255, 0.7),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const Icon(
@@ -995,3 +1010,4 @@ class _TagPill extends StatelessWidget {
     );
   }
 }
+

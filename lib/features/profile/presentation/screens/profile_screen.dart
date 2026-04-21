@@ -19,11 +19,14 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_photos_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_updates_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
+import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
+import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_templates_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -53,6 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isInitialLoading = true;
   _ProfileTab _selectedTab = _ProfileTab.timeline;
   bool _isTogglingFollow = false;
+  bool _isImpersonating = false;
+  bool _isSwitchingBack = false;
   final GlobalKey _avatarMenuKey = GlobalKey();
 
   String get _targetUsername =>
@@ -241,6 +246,151 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ClipboardData(text: 'https://ahopefulme.com/$username'),
     );
     if (mounted) AppToast.success(context, 'Profile link copied!');
+  }
+
+  Future<void> _openFlyerTemplates() async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Auth is unavailable right now.');
+      return;
+    }
+
+    final repository = FlyerTemplateRepository(authController.authRepository);
+    final webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => FlyerTemplatesScreen(
+          repository: repository,
+          webBaseUrl: webBaseUrl,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loginAsUser(ProfileSummary profile) async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Auth controller unavailable. Please restart.');
+      return;
+    }
+
+    final activeUsername = authController.currentUser?.username
+        .trim()
+        .toLowerCase();
+    final targetUsername = profile.username.trim().toLowerCase();
+
+    if (activeUsername == targetUsername) {
+      AppToast.error(context, 'You are already signed in as this user.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Login As User'),
+        content: Text('Switch into @${profile.username} now?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Switch User'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isImpersonating = true;
+    });
+
+    try {
+      final switched = await authController.impersonateAsUser(profile.username);
+      if (!mounted) {
+        return;
+      }
+
+      if (!switched) {
+        AppToast.error(
+          context,
+          authController.errorMessage ?? 'Unable to switch user right now.',
+        );
+        return;
+      }
+
+      AppToast.success(context, 'Now signed in as @${profile.username}');
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImpersonating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _switchBackToAdmin() async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Auth controller unavailable. Please restart.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Switch Back'),
+        content: const Text('Return to your admin account now?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Switch Back'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSwitchingBack = true;
+    });
+
+    try {
+      final switched = await authController.switchBackToAdmin();
+      if (!mounted) {
+        return;
+      }
+      if (!switched) {
+        AppToast.error(
+          context,
+          authController.errorMessage ??
+              'Unable to restore the admin session right now.',
+        );
+        return;
+      }
+
+      AppToast.success(context, 'Switched back to admin account.');
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSwitchingBack = false;
+        });
+      }
+    }
   }
 
   Future<void> _reportUser(String username) async {
@@ -435,6 +585,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.only(bottom: 16),
                           child: _BirthdayBanner(profile: dashboard.profile),
                         ),
+                      if (AuthController.instance?.isImpersonating == true)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _ImpersonationBanner(
+                            isSwitchingBack: _isSwitchingBack,
+                            onSwitchBack: _switchBackToAdmin,
+                          ),
+                        ),
                       _ProfileTabs(
                         selectedTab: _selectedTab,
                         onSelected: (tab) {
@@ -455,6 +613,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             dashboard.profile.username,
                         onSeeAllPhotos: _openPhotosFeed,
                         onSeeAllArticles: _openArticlesFeed,
+                        onOpenFlyerTemplates: _openFlyerTemplates,
                       ),
                       const SizedBox(height: 18),
                       _ProfileUpdatesTab(
@@ -470,7 +629,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       if (widget.currentUser?.isAdmin == true) ...[
                         const SizedBox(height: 18),
-                        _AdminProfilePanel(profile: dashboard.profile),
+                        _AdminProfilePanel(
+                          profile: dashboard.profile,
+                          isImpersonating: _isImpersonating,
+                          onLoginAsUser: () => _loginAsUser(dashboard.profile),
+                        ),
                       ],
                     ],
                   ),
@@ -1444,6 +1607,7 @@ class _ProfileBody extends StatelessWidget {
     required this.isCurrentUser,
     required this.onSeeAllPhotos,
     required this.onSeeAllArticles,
+    required this.onOpenFlyerTemplates,
   });
 
   final _ProfileTab selectedTab;
@@ -1452,6 +1616,7 @@ class _ProfileBody extends StatelessWidget {
   final bool isCurrentUser;
   final Future<void> Function() onSeeAllPhotos;
   final Future<void> Function() onSeeAllArticles;
+  final Future<void> Function() onOpenFlyerTemplates;
 
   @override
   Widget build(BuildContext context) {
@@ -1473,7 +1638,9 @@ class _ProfileBody extends StatelessWidget {
     return switch (selectedTab) {
       _ProfileTab.timeline => _ProfileTimeline(
         dashboard: dashboard,
+        currentUser: currentUser,
         isCurrentUser: isCurrentUser,
+        onOpenFlyerTemplates: onOpenFlyerTemplates,
       ),
       _ProfileTab.about => _AboutTab(
         profile: dashboard.profile,
@@ -1494,11 +1661,15 @@ class _ProfileBody extends StatelessWidget {
 class _ProfileTimeline extends StatelessWidget {
   const _ProfileTimeline({
     required this.dashboard,
+    required this.currentUser,
     required this.isCurrentUser,
+    required this.onOpenFlyerTemplates,
   });
 
   final ProfileDashboard dashboard;
+  final User? currentUser;
   final bool isCurrentUser;
+  final Future<void> Function() onOpenFlyerTemplates;
 
   @override
   Widget build(BuildContext context) {
@@ -1553,6 +1724,12 @@ class _ProfileTimeline extends StatelessWidget {
             ],
           ),
         ),
+        if (isCurrentUser &&
+            currentUser != null &&
+            !currentUser!.hasCardEnabled) ...[
+          const SizedBox(height: 12),
+          _ProfileMembershipCardPrompt(onTap: onOpenFlyerTemplates),
+        ],
       ],
     );
   }
@@ -2053,9 +2230,15 @@ class _ProfileRail extends StatelessWidget {
 }
 
 class _AdminProfilePanel extends StatelessWidget {
-  const _AdminProfilePanel({required this.profile});
+  const _AdminProfilePanel({
+    required this.profile,
+    required this.onLoginAsUser,
+    this.isImpersonating = false,
+  });
 
   final ProfileSummary profile;
+  final VoidCallback onLoginAsUser;
+  final bool isImpersonating;
 
   @override
   Widget build(BuildContext context) {
@@ -2118,6 +2301,14 @@ class _AdminProfilePanel extends StatelessWidget {
             icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
             label: const Text('Settings & Security'),
           ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: isImpersonating ? null : onLoginAsUser,
+            icon: const Icon(Icons.switch_account_outlined, size: 18),
+            label: Text(
+              isImpersonating ? 'Switching...' : 'Login As This User',
+            ),
+          ),
           if (details.isNotEmpty) ...[
             const SizedBox(height: 18),
             ...details.map(
@@ -2159,6 +2350,50 @@ class _AdminProfilePanel extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImpersonationBanner extends StatelessWidget {
+  const _ImpersonationBanner({
+    required this.isSwitchingBack,
+    required this.onSwitchBack,
+  });
+
+  final bool isSwitchingBack;
+  final VoidCallback onSwitchBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.brand.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.brand.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.admin_panel_settings_outlined, color: colors.brand),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You are currently logged in as a user.',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton.tonal(
+            onPressed: isSwitchingBack ? null : onSwitchBack,
+            child: Text(isSwitchingBack ? 'Switching...' : 'Switch Back'),
+          ),
         ],
       ),
     );
@@ -2771,6 +3006,52 @@ class _OverviewRow extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileMembershipCardPrompt extends StatelessWidget {
+  const _ProfileMembershipCardPrompt({required this.onTap});
+
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _PanelCard(
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colors.brand.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.badge_outlined, color: colors.brand, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Create your own HopefulMe flyer',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () => onTap(),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            child: const Text('Create'),
           ),
         ],
       ),

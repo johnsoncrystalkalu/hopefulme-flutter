@@ -36,6 +36,7 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
+import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_review/in_app_review.dart';
 import 'package:in_app_update/in_app_update.dart';
@@ -65,6 +66,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   late final UpdateRepository _updateRepository;
   late final SearchRepository _searchRepository;
   late final LibraryRepository _libraryRepository;
+  late final FlyerTemplateRepository _flyerTemplateRepository;
   late final AppConfig _config;
 
   Timer? _presenceTimer;
@@ -129,6 +131,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     _updateRepository = UpdateRepository(_authController.authRepository);
     _searchRepository = SearchRepository(_authController.authRepository);
     _libraryRepository = LibraryRepository(
+      _authController.authRepository,
+      cache: pageCache,
+    );
+    _flyerTemplateRepository = FlyerTemplateRepository(
       _authController.authRepository,
       cache: pageCache,
     );
@@ -1057,6 +1063,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       updateRepository: _updateRepository,
       searchRepository: _searchRepository,
       libraryRepository: _libraryRepository,
+      flyerTemplateRepository: _flyerTemplateRepository,
       currentUser: _authController.currentUser,
       webBaseUrl: _config.webBaseUrl,
     );
@@ -1146,6 +1153,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       searchRepository: _searchRepository,
       updateRepository: _updateRepository,
       libraryRepository: _libraryRepository,
+      flyerTemplateRepository: _flyerTemplateRepository,
       onCheckForUpdates: () => _checkAppVersion(force: true),
     );
   }
@@ -1286,7 +1294,7 @@ class _AppLoadingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                     // 'Inspire the world around you',
+                      // 'Inspire the world around you',
                       '',
                       textAlign: TextAlign.center,
                       style: TextStyle(

@@ -7,7 +7,12 @@ import 'package:hopefulme_flutter/features/auth/models/user.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController({required AuthRepository authRepository})
-    : _authRepository = authRepository;
+    : _authRepository = authRepository {
+    _active = this;
+  }
+
+  static AuthController? _active;
+  static AuthController? get instance => _active;
 
   final AuthRepository _authRepository;
 
@@ -16,6 +21,7 @@ class AuthController extends ChangeNotifier {
   bool _isLoading = false;
   bool _isBootstrapping = true;
   bool _isAuthenticated = false;
+  bool _isImpersonating = false;
   String? _errorMessage;
   User? _currentUser;
 
@@ -23,6 +29,7 @@ class AuthController extends ChangeNotifier {
   bool get isSubmitting => _isLoading;
   bool get isBootstrapping => _isBootstrapping;
   bool get isAuthenticated => _isAuthenticated;
+  bool get isImpersonating => _isImpersonating;
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
 
@@ -36,6 +43,7 @@ class AuthController extends ChangeNotifier {
       if (!hasToken) {
         _currentUser = null;
         _isAuthenticated = false;
+        _isImpersonating = false;
         return;
       }
 
@@ -43,6 +51,7 @@ class AuthController extends ChangeNotifier {
       if (cachedUser != null) {
         _currentUser = cachedUser;
         _isAuthenticated = true;
+        _isImpersonating = await _authRepository.hasImpersonationBackup();
         _isBootstrapping = false;
         _setLoading(false);
         unawaited(_refreshSessionInBackground());
@@ -51,6 +60,7 @@ class AuthController extends ChangeNotifier {
 
       _currentUser = await _authRepository.currentUser();
       _isAuthenticated = true;
+      _isImpersonating = await _authRepository.hasImpersonationBackup();
     } on ApiException catch (error) {
       _errorMessage = error.message;
       final cachedUser = await _authRepository.readCachedUser();
@@ -59,9 +69,11 @@ class AuthController extends ChangeNotifier {
       if (cachedUser != null && !isUnauthorized) {
         _currentUser = cachedUser;
         _isAuthenticated = true;
+        _isImpersonating = await _authRepository.hasImpersonationBackup();
       } else {
         _currentUser = null;
         _isAuthenticated = false;
+        _isImpersonating = false;
         await _authRepository.clearLocalSession();
       }
     } finally {
@@ -74,6 +86,7 @@ class AuthController extends ChangeNotifier {
     try {
       _currentUser = await _authRepository.currentUser();
       _isAuthenticated = true;
+      _isImpersonating = await _authRepository.hasImpersonationBackup();
       _errorMessage = null;
     } on ApiException catch (error) {
       _errorMessage = error.message;
@@ -81,6 +94,7 @@ class AuthController extends ChangeNotifier {
       if (isUnauthorized) {
         _currentUser = null;
         _isAuthenticated = false;
+        _isImpersonating = false;
         await _authRepository.clearLocalSession();
       }
     } finally {
@@ -97,6 +111,7 @@ class AuthController extends ChangeNotifier {
           password: password,
         );
         _isAuthenticated = true;
+        _isImpersonating = false;
         debugPrint('Login successful for: $login');
       } catch (e, stackTrace) {
         debugPrint('Login error: $e\n$stackTrace');
@@ -123,6 +138,7 @@ class AuthController extends ChangeNotifier {
         password: password,
       );
       _isAuthenticated = true;
+      _isImpersonating = false;
     });
   }
 
@@ -139,6 +155,62 @@ class AuthController extends ChangeNotifier {
       // should always leave the signed-in state immediately.
       _currentUser = null;
       _isAuthenticated = false;
+      _isImpersonating = false;
+      _setLoading(false);
+    }
+  }
+
+  Future<void> refreshCurrentUser() async {
+    try {
+      final user = await _authRepository.currentUser();
+      _currentUser = user;
+      _isAuthenticated = true;
+      _isImpersonating = await _authRepository.hasImpersonationBackup();
+      _errorMessage = null;
+      notifyListeners();
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> impersonateAsUser(String username) async {
+    final normalized = username.trim().replaceFirst('@', '');
+    if (normalized.isEmpty) {
+      _errorMessage = 'User is invalid.';
+      notifyListeners();
+      return false;
+    }
+
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      _currentUser = await _authRepository.loginAsUser(username: normalized);
+      _isAuthenticated = true;
+      _isImpersonating = true;
+      return true;
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> switchBackToAdmin() async {
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      _currentUser = await _authRepository.switchBackFromImpersonation();
+      _isAuthenticated = true;
+      _isImpersonating = false;
+      return true;
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      return false;
+    } finally {
       _setLoading(false);
     }
   }
@@ -153,6 +225,7 @@ class AuthController extends ChangeNotifier {
     } on ApiException catch (error) {
       _errorMessage = error.message;
       _isAuthenticated = false;
+      _isImpersonating = false;
       return false;
     } finally {
       _setLoading(false);
@@ -168,5 +241,13 @@ class AuthController extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    if (identical(_active, this)) {
+      _active = null;
+    }
+    super.dispose();
   }
 }
