@@ -1,5 +1,6 @@
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:image_picker/image_picker.dart';
@@ -87,13 +88,13 @@ class ContentRepository {
     );
   }
 
-  Future<InspirationPage> fetchInspirationInbox({int page = 1}) async {
-    final key = 'inspire-inbox:$page';
+  Future<InspirationPage> fetchInspirationInbox({
+    int page = 1,
+    bool sent = false,
+  }) async {
+    final key = sent ? 'inspire-sent:$page' : 'inspire-inbox:$page';
     try {
-      final response = await _authRepository.get(
-        'inspire/inbox',
-        queryParameters: {'page': page},
-      );
+      final response = await _fetchInspirationPage(page: page, sent: sent);
       await _cache.save(key, response);
       return InspirationPage.fromApi(response);
     } catch (error) {
@@ -103,6 +104,56 @@ class ContentRepository {
       }
       rethrow;
     }
+  }
+
+  Future<void> deleteInspiration(int inspirationId) async {
+    try {
+      await _authRepository.delete('inspire/$inspirationId');
+      return;
+    } on ApiException catch (error) {
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        rethrow;
+      }
+    }
+
+    try {
+      await _authRepository.delete('inspire/inbox/$inspirationId');
+      return;
+    } on ApiException catch (error) {
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        rethrow;
+      }
+    }
+
+    await _authRepository.post('inspire/delete/$inspirationId');
+  }
+
+  Future<Map<String, dynamic>> _fetchInspirationPage({
+    required int page,
+    required bool sent,
+  }) async {
+    if (!sent) {
+      return _authRepository.get(
+        'inspire/inbox',
+        queryParameters: {'page': page},
+      );
+    }
+
+    try {
+      return await _authRepository.get(
+        'inspire/sent',
+        queryParameters: {'page': page},
+      );
+    } on ApiException catch (error) {
+      if (error.statusCode != 404) {
+        rethrow;
+      }
+    }
+
+    return _authRepository.get(
+      'inspire/inbox',
+      queryParameters: {'page': page, 'box': 'sent'},
+    );
   }
 
   Future<ContentComment> addComment({

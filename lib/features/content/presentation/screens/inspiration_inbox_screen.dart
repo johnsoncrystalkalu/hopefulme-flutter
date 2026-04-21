@@ -3,12 +3,15 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+
+enum _InspirationInboxView { received, sent }
 
 class InspirationInboxScreen extends StatefulWidget {
   const InspirationInboxScreen({
@@ -33,6 +36,8 @@ class InspirationInboxScreen extends StatefulWidget {
 class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<InspirationDetail> _items = <InspirationDetail>[];
+  final Set<int> _deletingIds = <int>{};
+  _InspirationInboxView _activeView = _InspirationInboxView.received;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   int _currentPage = 0;
@@ -59,7 +64,10 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
     });
 
     try {
-      final page = await widget.repository.fetchInspirationInbox(page: 1);
+      final page = await widget.repository.fetchInspirationInbox(
+        page: 1,
+        sent: _activeView == _InspirationInboxView.sent,
+      );
       setState(() {
         _items
           ..clear()
@@ -92,6 +100,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
     try {
       final page = await widget.repository.fetchInspirationInbox(
         page: _currentPage + 1,
+        sent: _activeView == _InspirationInboxView.sent,
       );
       setState(() {
         _items.addAll(page.items);
@@ -114,15 +123,92 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
     }
   }
 
+  Future<void> _switchView(_InspirationInboxView view) async {
+    if (_activeView == view) {
+      return;
+    }
+    setState(() {
+      _activeView = view;
+      _items.clear();
+      _currentPage = 0;
+      _lastPage = 1;
+    });
+    await _loadInitial();
+  }
+
+  Future<void> _deleteInspiration(InspirationDetail item) async {
+    final isSent = _activeView == _InspirationInboxView.sent;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete inspiration'),
+        content: Text(
+          isSent
+              ? 'Delete this sent inspiration permanently?'
+              : 'Delete this inspiration from your inbox?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      _deletingIds.add(item.id);
+    });
+
+    try {
+      await widget.repository.deleteInspiration(item.id);
+      if (!mounted) return;
+      setState(() {
+        _items.removeWhere((entry) => entry.id == item.id);
+      });
+      AppToast.success(context, 'Inspiration deleted.');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingIds.remove(item.id);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isSent = _activeView == _InspirationInboxView.sent;
+    final toggleLabel = isSent ? 'Inbox' : 'Sent';
     return Scaffold(
       backgroundColor: colors.scaffold,
       appBar: AppBar(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
         title: const Text('Inspiration Inbox'),
+        actions: [
+          TextButton(
+            onPressed: () => _switchView(
+              isSent
+                  ? _InspirationInboxView.received
+                  : _InspirationInboxView.sent,
+            ),
+            child: Text(toggleLabel),
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -145,7 +231,10 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                       if (index == 0) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 24),
-                          child: _HeroBanner(totalCount: _items.length),
+                          child: _HeroBanner(
+                            totalCount: _items.length,
+                            isSentView: isSent,
+                          ),
                         );
                       }
 
@@ -159,9 +248,12 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
                       final item = _items[index - 1];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _InspirationInboxTile(
-                          item: item,
-                          onTap: () => openInspirationDetail(
+                          child: _InspirationInboxTile(
+                            item: item,
+                            isSentView: isSent,
+                            isDeleting: _deletingIds.contains(item.id),
+                            onDelete: () => _deleteInspiration(item),
+                            onTap: () => openInspirationDetail(
                             context,
                             contentRepository: widget.repository,
                             profileRepository: widget.profileRepository,
@@ -182,9 +274,10 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
 }
 
 class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({required this.totalCount});
+  const _HeroBanner({required this.totalCount, required this.isSentView});
 
   final int totalCount;
+  final bool isSentView;
 
   @override
   Widget build(BuildContext context) {
@@ -248,10 +341,10 @@ class _HeroBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Align(
+                Align(
                   alignment: Alignment.center,
                   child: Text(
-                    'Your Inspirations',
+                    isSentView ? 'Inspirations Sent' : 'Your Inspirations',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -265,7 +358,7 @@ class _HeroBanner extends StatelessWidget {
                 Align(
                   alignment: Alignment.center,
                   child: Text(
-                    '$totalCount inspiration${totalCount != 1 ? 's' : ''} received so far',
+                    '$totalCount inspiration${totalCount != 1 ? 's' : ''} ${isSentView ? 'sent' : 'received'} so far',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.58),
@@ -306,21 +399,35 @@ class _DottedPatternPainter extends CustomPainter {
 }
 
 class _InspirationInboxTile extends StatelessWidget {
-  const _InspirationInboxTile({required this.item, required this.onTap});
+  const _InspirationInboxTile({
+    required this.item,
+    required this.isSentView,
+    required this.onTap,
+    required this.onDelete,
+    required this.isDeleting,
+  });
 
   final InspirationDetail item;
+  final bool isSentView;
   final VoidCallback onTap;
+  final Future<void> Function() onDelete;
+  final bool isDeleting;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    const sentAccent = Color(0xFF1E3A5F);
     final sender = item.isAnonymous ? 'Anonymous' : item.senderName;
+    final recipient = item.receiver?.displayName.trim().isNotEmpty == true
+        ? item.receiver!.displayName
+        : (item.receiverName.trim().isNotEmpty ? item.receiverName : 'Recipient');
+    final title = isSentView ? 'To: $recipient' : sender;
 
     return Material(
       color: colors.surface,
       borderRadius: BorderRadius.circular(26),
       child: InkWell(
-        onTap: onTap,
+        onTap: isDeleting ? null : onTap,
         borderRadius: BorderRadius.circular(26),
         child: Container(
           padding: const EdgeInsets.all(18),
@@ -343,7 +450,10 @@ class _InspirationInboxTile extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  gradient: item.isAnonymous
+                  color: isSentView ? sentAccent : null,
+                  gradient: isSentView
+                      ? null
+                      : item.isAnonymous
                       ? LinearGradient(
                           colors: [colors.warningSoft, colors.accentSoft],
                         )
@@ -351,10 +461,14 @@ class _InspirationInboxTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
-                  item.isAnonymous
+                  isSentView
+                      ? Icons.north_east_rounded
+                      : item.isAnonymous
                       ? Icons.auto_awesome_outlined
                       : Icons.mail_outline_rounded,
-                  color: item.isAnonymous ? colors.warningText : Colors.white,
+                  color: isSentView
+                      ? Colors.white
+                      : (item.isAnonymous ? colors.warningText : Colors.white),
                 ),
               ),
               const SizedBox(width: 14),
@@ -366,7 +480,7 @@ class _InspirationInboxTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            sender,
+                            title,
                             style: TextStyle(
                               color: colors.textPrimary,
                               fontSize: 14,
@@ -374,6 +488,15 @@ class _InspirationInboxTile extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (isDeleting)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 8),
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -384,13 +507,33 @@ class _InspirationInboxTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            item.isPublic ? 'Public' : 'Private',
+                            isSentView
+                                ? (item.isPublic ? 'Sent - Public' : 'Sent - Private')
+                                : (item.isPublic ? 'Public' : 'Private'),
                             style: TextStyle(
                               color: colors.textMuted,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_vert,
+                            size: 18,
+                            color: colors.textMuted,
+                          ),
+                          onSelected: (value) {
+                            if (value == 'delete') {
+                              onDelete();
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -424,13 +567,10 @@ class _InspirationInboxTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Text(
-                          'Open',
-                          style: TextStyle(
-                            color: colors.brand,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: colors.brand,
+                          size: 18,
                         ),
                       ],
                     ),
@@ -444,3 +584,4 @@ class _InspirationInboxTile extends StatelessWidget {
     );
   }
 }
+

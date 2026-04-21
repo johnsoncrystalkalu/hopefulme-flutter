@@ -26,6 +26,7 @@ import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/messages/presentation/screens/messages_screen.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/notifications/data/notification_repository.dart';
 import 'package:hopefulme_flutter/features/notifications/presentation/screens/notifications_screen.dart';
@@ -860,6 +861,24 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         currentUser: _authController.currentUser,
         username: normalized,
         title: title,
+        onBackToInbox: (threadContext) async {
+          if (!threadContext.mounted) {
+            return;
+          }
+          final navigator = Navigator.of(threadContext);
+          navigator.popUntil((route) => route.isFirst);
+          await navigator.push(
+            MaterialPageRoute<void>(
+              builder: (context) => MessagesScreen(
+                repository: _messageRepository,
+                profileRepository: _profileRepository,
+                updateRepository: _updateRepository,
+                groupRepository: _groupRepository,
+                currentUser: _authController.currentUser,
+              ),
+            ),
+          );
+        },
       ),
     );
 
@@ -1066,6 +1085,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       flyerTemplateRepository: _flyerTemplateRepository,
       currentUser: _authController.currentUser,
       webBaseUrl: _config.webBaseUrl,
+      signWebUrl: _authController.authRepository.createWebSessionUrl,
     );
     await navigator.open(context, uri);
   }

@@ -188,11 +188,11 @@ class ReusableUpdateCard extends StatelessWidget {
                         text: data.body,
                         style: TextStyle(
                           color: bodyColor,
-                          fontSize: data.isGeneratedActivity ? 13.25 : 14,
-                          height: 1.55,
+                          fontSize: data.isGeneratedActivity ? 12.5 : 13.75,
+                          height: 1.62,
                           fontWeight: data.isGeneratedActivity
                               ? FontWeight.w400
-                              : FontWeight.w500,
+                              : FontWeight.w400,
                         ),
                         onMentionTap: onMentionTap,
                         onHashtagTap: onHashtagTap,

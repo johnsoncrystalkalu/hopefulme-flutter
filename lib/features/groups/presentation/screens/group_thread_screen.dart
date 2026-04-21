@@ -1042,6 +1042,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                 )
                               : ListView.builder(
                                   controller: _scrollController,
+                                  keyboardDismissBehavior:
+                                      ScrollViewKeyboardDismissBehavior.onDrag,
                                   padding: const EdgeInsets.fromLTRB(
                                     16,
                                     16,
@@ -1870,11 +1872,18 @@ class _GroupMessageBubble extends StatelessWidget {
                                   onOpenFullImage(message.photoUrl, null),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: Image.network(
-                                  message.photoUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const SizedBox.shrink(),
+                                child: SizedBox(
+                                  width: 224,
+                                  height: 224,
+                                  child: Image.network(
+                                    message.photoUrl,
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.low,
+                                    cacheWidth: 900,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const SizedBox.shrink(),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1890,9 +1899,14 @@ class _GroupMessageBubble extends StatelessWidget {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: Image.memory(
-                                  message.localImageBytes!,
-                                  fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: 224,
+                                  height: 224,
+                                  child: Image.memory(
+                                    message.localImageBytes!,
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.low,
+                                  ),
                                 ),
                               ),
                             ),

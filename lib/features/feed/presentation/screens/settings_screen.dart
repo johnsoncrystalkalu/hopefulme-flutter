@@ -7,6 +7,7 @@ import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
@@ -16,6 +17,7 @@ import 'package:share_plus/share_plus.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     required this.username,
+    required this.authRepository,
     required this.profileRepository,
     required this.themeController,
     required this.onLogout,
@@ -24,6 +26,7 @@ class SettingsScreen extends StatelessWidget {
   });
 
   final String username;
+  final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final ThemeController themeController;
   final Future<void> Function() onLogout;
@@ -51,6 +54,32 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
     AppToast.success(context, 'Official website link copied.');
+  }
+
+  Future<void> _openSignedWebPage(
+    BuildContext context, {
+    required String title,
+    required String rawUrl,
+  }) async {
+    var targetUrl = rawUrl;
+    try {
+      final bridged = await authRepository.createWebSessionUrl(rawUrl);
+      if (bridged.trim().isNotEmpty) {
+        targetUrl = bridged.trim();
+      }
+    } catch (_) {
+      // Fall back to direct URL if signing fails.
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => WebPageScreen(title: title, url: targetUrl),
+      ),
+    );
   }
 
   @override
@@ -150,39 +179,30 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.info_outline_rounded,
             title: 'About',
             subtitle: 'Learn more about HopefulMe.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const WebPageScreen(
-                  title: 'About',
-                  url: 'https://www.ahopefulme.com/about',
-                ),
-              ),
+            onTap: () => _openSignedWebPage(
+              context,
+              title: 'About',
+              rawUrl: 'https://www.ahopefulme.com/about',
             ),
           ),
           _SettingsTile(
             icon: Icons.mail_outline_rounded,
             title: 'Contact',
             subtitle: 'Reach the HopefulMe team.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const WebPageScreen(
-                  title: 'Contact',
-                  url: 'https://www.ahopefulme.com/contact',
-                ),
-              ),
+            onTap: () => _openSignedWebPage(
+              context,
+              title: 'Contact',
+              rawUrl: 'https://www.ahopefulme.com/contact',
             ),
           ),
           _SettingsTile(
             icon: Icons.help_outline_rounded,
             title: 'How It Works',
-            subtitle: 'Learn how HopefulMe works.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => WebPageScreen(
-                  title: 'How It Works',
-                  url: '$webBaseUrl/how-it-works',
-                ),
-              ),
+            subtitle: 'Learn how HopefulMe App works.',
+            onTap: () => _openSignedWebPage(
+              context,
+              title: 'How It Works',
+              rawUrl: '$webBaseUrl/how-it-works',
             ),
           ),
           const SizedBox(height: 14),
@@ -191,26 +211,20 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.description_outlined,
             title: 'Terms',
             subtitle: 'Read the terms of service.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const WebPageScreen(
-                  title: 'Terms',
-                  url: 'https://www.ahopefulme.com/terms',
-                ),
-              ),
+            onTap: () => _openSignedWebPage(
+              context,
+              title: 'Terms',
+              rawUrl: 'https://www.ahopefulme.com/terms',
             ),
           ),
           _SettingsTile(
             icon: Icons.verified_user_outlined,
             title: 'Privacy',
             subtitle: 'Read the privacy policy.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const WebPageScreen(
-                  title: 'Privacy Policy',
-                  url: 'https://www.ahopefulme.com/privacy',
-                ),
-              ),
+            onTap: () => _openSignedWebPage(
+              context,
+              title: 'Privacy Policy',
+              rawUrl: 'https://www.ahopefulme.com/privacy',
             ),
           ),
           const SizedBox(height: 28),

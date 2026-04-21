@@ -119,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, RouteAware {
   static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
   static const _topbarRefreshInterval = Duration(seconds: 60);
+  static const _maxHomeUpdatesRetained = 30;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _homeScrollController = ScrollController();
   final ValueNotifier<_TopBarSnapshot> _topBarSnapshot = ValueNotifier(
@@ -285,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _seedHomeUpdatesFromDashboard(FeedDashboard dashboard) {
     final updates = dashboard.feed
         .where((entry) => entry.type == 'update' || entry.type == 'advert')
+        .take(_maxHomeUpdatesRetained)
         .toList(growable: false);
     if (!mounted) {
       _homeUpdates = updates;
@@ -409,6 +411,9 @@ class _HomeScreenState extends State<HomeScreen>
       if (seenIds.add(entry.id)) {
         merged.add(entry);
       }
+    }
+    if (merged.length > _maxHomeUpdatesRetained) {
+      merged.removeRange(_maxHomeUpdatesRetained, merged.length);
     }
     return List<FeedEntry>.unmodifiable(merged);
   }
@@ -676,6 +681,7 @@ class _HomeScreenState extends State<HomeScreen>
       MaterialPageRoute<void>(
         builder: (context) => SettingsScreen(
           username: username,
+          authRepository: widget.authController.authRepository,
           profileRepository: widget.profileRepository,
           themeController: widget.themeController,
           onLogout: _handleLogout,
@@ -984,6 +990,7 @@ class _HomeScreenState extends State<HomeScreen>
               flyerTemplateRepository: widget.flyerTemplateRepository,
               currentUser: widget.authController.currentUser,
               webBaseUrl: _webBaseUrl,
+              signWebUrl: widget.authController.authRepository.createWebSessionUrl,
             );
             return navigator.open(context, uri);
           },
@@ -3234,9 +3241,7 @@ class _StoriesRow extends StatelessWidget {
                     padding: const EdgeInsets.all(2.5),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
-                      ),
+                      color: Color(0xFF3D5AFE),
                     ),
                     child: _Avatar(
                       imageUrl: user.photoUrl,
@@ -3986,9 +3991,7 @@ class _PostFeedCard extends StatelessWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
-                      ),
+                      color: const Color(0xFF3D5AFE),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -4315,10 +4318,10 @@ class _FeedExploreChip extends StatelessWidget {
           border: Border.all(color: colors.borderStrong),
           boxShadow: [
             BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-              spreadRadius: -10,
+              color: colors.shadow.withValues(alpha: 0.025),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+              spreadRadius: -6,
             ),
           ],
         ),
@@ -4514,12 +4517,12 @@ class _ProfilePhotoReminderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Add a profile photo so people can recognize you in birthdays, chats, and the community feed.',
+                  'Add a profile photo to complete your profile and reach more people in the community.',
                   style: TextStyle(
                     color: colors.textMuted,
-                    fontSize: 12.8,
+                    fontSize: 12,
                     height: 1.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -4706,10 +4709,10 @@ class _SurfaceCard extends StatelessWidget {
         border: Border.all(color: colors.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.055),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-            spreadRadius: -10,
+            color: colors.shadow.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: -6,
           ),
         ],
       ),

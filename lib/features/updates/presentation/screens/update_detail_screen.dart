@@ -647,11 +647,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                                 alpha: 0.82,
                                               )
                                             : colors.textSecondary,
-                                        fontSize: isGeneratedActivity ? 14 : 15,
-                                        height: 1.6,
+                                        fontSize: isGeneratedActivity
+                                            ? 12.5
+                                            : 13.75,
+                                        height: 1.62,
                                         fontWeight: isGeneratedActivity
                                             ? FontWeight.w400
-                                            : FontWeight.w500,
+                                            : FontWeight.w400,
                                       ),
                                       onMentionTap: _openProfile,
                                       onHashtagTap: _openSearchQuery,
@@ -778,40 +780,20 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  FilledButton.tonalIcon(
-                                    onPressed: () => _shareUpdate(detail),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: isDark
-                                          ? Colors.transparent
-                                          : colors.surfaceMuted,
-                                      elevation: 0,
-                                      shadowColor: Colors.transparent,
-                                      surfaceTintColor: Colors.transparent,
-                                      side: isDark
-                                          ? const BorderSide(
-                                              color: Color(0x5594A3B8),
-                                            )
-                                          : null,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.ios_share_outlined,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                    label: const Text(
-                                      //'Share',
-                                      '',
-                                      style: TextStyle(
+                                  const Spacer(),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(999),
+                                    onTap: () => _shareUpdate(detail),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(6),
+                                      child: Icon(
+                                        Icons.ios_share_outlined,
+                                        size: 16,
                                         color: Color(0xFF94A3B8),
-                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
-                                  const Spacer(),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '${detail.views} views',
                                     style: TextStyle(

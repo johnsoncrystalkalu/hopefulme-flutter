@@ -666,6 +666,39 @@ bool _isBirthdayToday(String birthday) {
   final now = DateTime.now();
   return now.day == day && now.month == month;
 }
+String _formatBirthdayForDisplay(String birthday) {
+  final parts = birthday
+      .split('-')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.length < 2) {
+    return birthday;
+  }
+
+  final day = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  if (day == null || month == null || day < 1 || day > 31 || month < 1 || month > 12) {
+    return birthday;
+  }
+
+  const monthLabels = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  return '$day ${monthLabels[month - 1]}';
+}
 
 ProfileDashboard _copyDashboardWithFollow({
   required ProfileDashboard source,
@@ -1939,7 +1972,7 @@ class _AboutTab extends StatelessWidget {
       //MapEntry('Role', profile.role1),
       MapEntry('Gender', profile.gender),
       if (profile.birthday != '-')
-        MapEntry('Birthday', profile.birthday.toString()),
+        MapEntry('Birthday', _formatBirthdayForDisplay(profile.birthday)),
       MapEntry('Location', profile.locationLabel),
       // MapEntry('Hobbies', profile.hobby),
       if (isCurrentUser) MapEntry('Phone', profile.phoneNumber),
@@ -3096,3 +3129,4 @@ String _formatCount(int value) {
   }
   return '$value';
 }
+

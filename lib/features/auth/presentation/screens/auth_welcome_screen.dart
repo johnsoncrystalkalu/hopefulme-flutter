@@ -50,7 +50,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
       accent: Color(0xFF059669), // Emerald Accent
     ),
     _OnboardingSlideData(
-      title: 'Be part of our Outreach programs.',
+      title: 'Be part of our Outreaches.',
       description:
           'Get involved in meaningful community projects and outreach initiatives that change lives.',
       icon: Icons.handshake_rounded,

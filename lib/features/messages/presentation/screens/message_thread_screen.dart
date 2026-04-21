@@ -32,6 +32,7 @@ class MessageThreadScreen extends StatefulWidget {
     required this.currentUser,
     required this.username,
     required this.title,
+    this.onBackToInbox,
     super.key,
   });
 
@@ -41,6 +42,7 @@ class MessageThreadScreen extends StatefulWidget {
   final User? currentUser;
   final String username;
   final String title;
+  final Future<void> Function(BuildContext context)? onBackToInbox;
 
   @override
   State<MessageThreadScreen> createState() => _MessageThreadScreenState();
@@ -59,6 +61,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   bool _isAppForeground = true;
   int _realtimeBurstTicksRemaining = 0;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
   bool _isSending = false;
   bool _showEmojiPicker = false;
   bool _showJumpToBottom = false;
@@ -78,13 +82,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   String _selectedPhotoLabel() {
     final name = _selectedPhoto?.name.trim() ?? '';
     if (name.isEmpty) {
-      return 'Selected image';
+      return 'image';
     }
     final normalized = name.toLowerCase();
     if (normalized.startsWith('scaled_') ||
         normalized.startsWith('image_picker') ||
         normalized.startsWith('resized_')) {
-      return 'Selected image';
+      return 'image';
     }
     return name;
   }
@@ -221,6 +225,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       setState(() {
         _conversation = thread.conversation;
         _messages = mergedMessages;
+        _hasMore = thread.hasMore;
       });
       ActiveChat.currentConversationId = thread.conversation.id;
       if (shouldStickToBottom) {
@@ -308,16 +313,27 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         return;
       }
 
+      final hasNewMessages = thread.messages.isNotEmpty;
+      final conversationChanged = _hasConversationDelta(
+        _conversation,
+        thread.conversation,
+      );
+      if (!hasNewMessages && !conversationChanged) {
+        return;
+      }
+
       final shouldStickToBottom = _isNearBottom() || _messages.isEmpty;
-      final mergedMessages = _mergeMessages(_messages, thread.messages);
+      final nextMessages = hasNewMessages
+          ? _mergeMessages(_messages, thread.messages)
+          : _messages;
       setState(() {
         _conversation = thread.conversation;
-        _messages = mergedMessages;
+        _messages = nextMessages;
       });
-      if (thread.messages.isNotEmpty) {
+      if (hasNewMessages) {
         _primeRealtimeBurst(ticks: 6);
       }
-      if (shouldStickToBottom && thread.messages.isNotEmpty) {
+      if (shouldStickToBottom && hasNewMessages) {
         _scrollToBottomAnimated();
       }
     } catch (_) {
@@ -646,6 +662,66 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _showJumpToBottom = shouldShow;
       });
     }
+    if (_scrollController.position.pixels <= 80) {
+      unawaited(_loadOlder());
+    }
+  }
+
+  Future<void> _loadOlder() async {
+    if (_isLoadingMore || !_hasMore || _messages.isEmpty || !mounted) {
+      return;
+    }
+
+    final firstPersistedMessage = _messages.firstWhere(
+      (message) => message.id > 0,
+      orElse: () => _messages.first,
+    );
+    if (firstPersistedMessage.id <= 0) {
+      return;
+    }
+
+    final previousPixels = _scrollController.hasClients
+        ? _scrollController.position.pixels
+        : 0.0;
+    final previousMaxExtent = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final response = await widget.repository.fetchThread(
+        widget.username,
+        beforeId: firstPersistedMessage.id,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _conversation = response.conversation;
+        _messages = _mergeMessages(response.messages, _messages);
+        _hasMore = response.hasMore;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) {
+          return;
+        }
+        final newMaxExtent = _scrollController.position.maxScrollExtent;
+        final delta = newMaxExtent - previousMaxExtent;
+        final target = previousPixels + delta;
+        _scrollController.jumpTo(target.clamp(0.0, newMaxExtent));
+      });
+    } catch (_) {
+      // Keep pagination resilient and retry on next top reach.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
   }
 
   Future<void> _sendTypingStatus(bool isTyping) async {
@@ -804,7 +880,15 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     }
   }
 
-  void _closeThread() {
+  Future<void> _closeThread() async {
+    final onBackToInbox = widget.onBackToInbox;
+    if (onBackToInbox != null) {
+      await onBackToInbox(context);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop(_hasThreadChanges);
   }
 
@@ -823,7 +907,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _closeThread();
+        unawaited(_closeThread());
       },
       child: Scaffold(
         backgroundColor: colors.scaffold,
@@ -831,7 +915,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
           backgroundColor: colors.surface,
           surfaceTintColor: colors.surface,
           leading: IconButton(
-            onPressed: _closeThread,
+            onPressed: () => unawaited(_closeThread()),
             icon: const Icon(Icons.arrow_back),
           ),
           titleSpacing: 8,
@@ -921,12 +1005,27 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                           )
                         : ListView.builder(
                             controller: _scrollController,
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                            itemCount: _messages.length,
+                            itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
                             itemBuilder: (context, index) {
-                              final item = _messages[index];
-                              final previous = index > 0
-                                  ? _messages[index - 1]
+                              if (_isLoadingMore && index == 0) {
+                                return const Padding(
+                                  padding: EdgeInsets.only(bottom: 10),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                );
+                              }
+                              final messageIndex = _isLoadingMore ? index - 1 : index;
+                              final item = _messages[messageIndex];
+                              final previous = messageIndex > 0
+                                  ? _messages[messageIndex - 1]
                                   : null;
                               final isMine = widget.currentUser != null
                                   ? item.senderId == widget.currentUser!.id
@@ -934,13 +1033,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                               final groupedWithPrevious =
                                   previous != null &&
                                   previous.senderId == item.senderId &&
-                                  !_shouldShowDateDivider(index);
+                                  !_shouldShowDateDivider(messageIndex);
 
                               return Column(
                                 children: [
-                                  if (_shouldShowDateDivider(index))
+                                  if (_shouldShowDateDivider(messageIndex))
                                     _ChatDateDivider(
-                                      label: _dateLabelForIndex(index),
+                                      label: _dateLabelForIndex(messageIndex),
                                     ),
                                   Padding(
                                     padding: EdgeInsets.only(
@@ -1062,26 +1161,33 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                                             BorderRadius.circular(
                                                               14,
                                                             ),
-                                                        child:
-                                                            item.localImageBytes !=
-                                                                null
-                                                            ? Image.memory(
-                                                                item.localImageBytes!,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              )
-                                                            : Image.network(
-                                                                item.photoUrl,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                                errorBuilder:
-                                                                    (
-                                                                      context,
-                                                                      error,
-                                                                      stackTrace,
-                                                                    ) =>
-                                                                        const SizedBox.shrink(),
-                                                              ),
+                                                        child: SizedBox(
+                                                          width: 224,
+                                                          height: 224,
+                                                          child:
+                                                              item.localImageBytes !=
+                                                                  null
+                                                              ? Image.memory(
+                                                                  item.localImageBytes!,
+                                                                  fit: BoxFit.cover,
+                                                                  filterQuality:
+                                                                      FilterQuality.low,
+                                                                )
+                                                              : Image.network(
+                                                                  item.photoUrl,
+                                                                  fit: BoxFit.cover,
+                                                                  filterQuality:
+                                                                      FilterQuality.low,
+                                                                  cacheWidth: 900,
+                                                                  errorBuilder:
+                                                                      (
+                                                                        context,
+                                                                        error,
+                                                                        stackTrace,
+                                                                      ) =>
+                                                                          const SizedBox.shrink(),
+                                                                ),
+                                                        ),
                                                       ),
                                                     ),
                                                     if (item.message.isNotEmpty)
@@ -1455,6 +1561,21 @@ extension on User {
 }
 
 extension on _MessageThreadScreenState {
+  bool _hasConversationDelta(
+    ConversationListItem? previous,
+    ConversationListItem next,
+  ) {
+    if (previous == null) return true;
+    return previous.status != next.status ||
+        previous.typingUserId != next.typingUserId ||
+        previous.typingAt != next.typingAt ||
+        previous.typingUserName != next.typingUserName ||
+        previous.updatedAt != next.updatedAt ||
+        previous.unreadCount != next.unreadCount ||
+        previous.otherUser.isOnline != next.otherUser.isOnline ||
+        previous.otherUser.lastSeen != next.otherUser.lastSeen;
+  }
+
   bool _shouldShowDateDivider(int index) {
     if (index < 0 || index >= _messages.length) return false;
     if (index == 0) return true;
@@ -1489,6 +1610,13 @@ extension on _MessageThreadScreenState {
     List<ChatMessage> existing,
     List<ChatMessage> incoming,
   ) {
+    if (incoming.isEmpty) {
+      return existing;
+    }
+    if (existing.isEmpty) {
+      return incoming;
+    }
+
     final merged = <int, ChatMessage>{};
     for (final message in existing) {
       merged[message.id] = message;

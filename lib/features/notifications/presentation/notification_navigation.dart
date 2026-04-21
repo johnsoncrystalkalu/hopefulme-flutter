@@ -3,6 +3,7 @@ import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/messages/presentation/screens/messages_screen.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/notifications/models/app_notification.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
@@ -138,6 +139,23 @@ class NotificationNavigator {
             currentUser: currentUser,
             username: username,
             title: 'Conversation',
+            onBackToInbox: (threadContext) async {
+              if (!threadContext.mounted) {
+                return;
+              }
+              final navigator = Navigator.of(threadContext);
+              navigator.popUntil((route) => route.isFirst);
+              await navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (context) => MessagesScreen(
+                    repository: messageRepository,
+                    profileRepository: profileRepository,
+                    updateRepository: updateRepository,
+                    currentUser: currentUser,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );

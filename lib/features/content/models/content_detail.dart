@@ -243,6 +243,7 @@ class InspirationDetail {
     required this.id,
     required this.message,
     required this.senderName,
+    required this.receiverName,
     required this.createdAt,
     required this.isAnonymous,
     required this.isPublic,
@@ -253,6 +254,7 @@ class InspirationDetail {
   final int id;
   final String message;
   final String senderName;
+  final String receiverName;
   final String createdAt;
   final bool isAnonymous;
   final bool isPublic;
@@ -264,6 +266,7 @@ class InspirationDetail {
       id: parseInt(json['id']),
       message: _plainText(json['message']?.toString() ?? ''),
       senderName: json['sender_name']?.toString() ?? 'Someone',
+      receiverName: json['receiver_name']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
       isAnonymous: parseBool(json['is_anonymous']),
       isPublic: parseBool(json['is_public']),

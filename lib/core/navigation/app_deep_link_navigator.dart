@@ -42,6 +42,7 @@ class AppDeepLinkNavigator {
     required this.flyerTemplateRepository,
     required this.currentUser,
     required this.webBaseUrl,
+    this.signWebUrl,
   });
 
   final FeedRepository feedRepository;
@@ -55,6 +56,7 @@ class AppDeepLinkNavigator {
   final FlyerTemplateRepository flyerTemplateRepository;
   final User? currentUser;
   final String webBaseUrl;
+  final Future<String> Function(String targetUrl)? signWebUrl;
 
   Future<bool> open(BuildContext context, Uri uri) async {
     final normalized = _normalizeUri(uri);
@@ -510,12 +512,29 @@ class AppDeepLinkNavigator {
     final absoluteUri = uri.hasScheme
         ? uri
         : Uri.parse(webBaseUrl).resolveUri(uri);
+    var targetUrl = absoluteUri.toString();
+
+    final signer = signWebUrl;
+    if (signer != null) {
+      try {
+        final signed = await signer(targetUrl);
+        if (signed.trim().isNotEmpty) {
+          targetUrl = signed.trim();
+        }
+      } catch (_) {
+        // Fall back to unsigned URL if signing fails.
+      }
+    }
+
+    if (!context.mounted) {
+      return true;
+    }
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => WebPageScreen(
           title: title,
-          url: absoluteUri.toString(),
+          url: targetUrl,
           onInternalLinkTap: (uri) async {
             if (!WebPageScreen.shouldUseNativeRouting(
               uri,

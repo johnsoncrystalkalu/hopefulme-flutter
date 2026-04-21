@@ -170,10 +170,10 @@ class FeedAdvertCard extends StatelessWidget {
           border: Border.all(color: colors.borderStrong),
           boxShadow: [
             BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-              spreadRadius: -10,
+              color: colors.shadow.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+              spreadRadius: -6,
             ),
           ],
         ),
