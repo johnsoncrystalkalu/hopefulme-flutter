@@ -129,6 +129,7 @@ class WebPageScreen extends StatefulWidget {
 class _WebPageScreenState extends State<WebPageScreen> {
   late final WebViewController _controller;
   late final WebViewWidget _webView;
+  late final Uri _initialUri;
 
   final ValueNotifier<int> _progress = ValueNotifier<int>(0);
   final ValueNotifier<bool> _hasError = ValueNotifier<bool>(false);
@@ -139,6 +140,8 @@ class _WebPageScreenState extends State<WebPageScreen> {
   void initState() {
     super.initState();
     if (kIsWeb) return;
+
+    _initialUri = _withFlutterSource(Uri.parse(widget.url));
 
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -194,7 +197,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.url));
+      ..loadRequest(_initialUri);
 
     if (controller.platform is AndroidWebViewController) {
       final androidController = controller.platform as AndroidWebViewController;
@@ -205,6 +208,28 @@ class _WebPageScreenState extends State<WebPageScreen> {
 
     _controller = controller;
     _webView = WebViewWidget(controller: _controller);
+  }
+
+  Uri _withFlutterSource(Uri uri) {
+    final host = uri.host.trim().toLowerCase();
+    const allowedHosts = <String>{'ahopefulme.com', 'www.ahopefulme.com'};
+    if (host.isEmpty || !allowedHosts.contains(host)) {
+      return uri;
+    }
+
+    // Preserve signed bridge URLs exactly as they are to avoid invalidating
+    // signature-based links.
+    if (uri.queryParameters.containsKey('signature')) {
+      return uri;
+    }
+
+    if (uri.queryParameters['source'] == 'flutter_app') {
+      return uri;
+    }
+
+    final nextQuery = <String, String>{...uri.queryParameters};
+    nextQuery['source'] = 'flutter_app';
+    return uri.replace(queryParameters: nextQuery);
   }
 
   Future<List<String>> _selectFilesForWebInput(
@@ -388,7 +413,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
   }
 
   Future<void> _openInBrowser() async {
-    final uri = Uri.parse(widget.url);
+    final uri = _withFlutterSource(Uri.parse(widget.url));
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
