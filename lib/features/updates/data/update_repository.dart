@@ -130,6 +130,19 @@ class UpdateRepository {
   Future<void> deleteComment(int commentId) async {
     await _authRepository.delete('comments/$commentId');
   }
+
+  Future<UpdateComment> updateComment({
+    required int commentId,
+    required String comment,
+  }) async {
+    final response = await _authRepository.put(
+      'comments/$commentId',
+      body: {'comment': comment},
+    );
+    return UpdateComment.fromJson(
+      response['comment'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
 }
 
 class LikeResult {

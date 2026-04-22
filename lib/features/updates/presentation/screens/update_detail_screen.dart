@@ -338,7 +338,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 'Reply',
                 style: TextStyle(
                   color: colors.textPrimary,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -518,6 +518,69 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       setState(() {
         _future = widget.repository.fetchUpdate(widget.updateId);
       });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    }
+  }
+
+  Future<void> _editComment(UpdateDetail detail, UpdateComment comment) async {
+    String draft = comment.comment;
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit comment'),
+        content: TextFormField(
+          initialValue: comment.comment,
+          minLines: 2,
+          maxLines: 6,
+          autofocus: true,
+          onChanged: (value) => draft = value,
+          decoration: const InputDecoration(hintText: 'Update your comment...'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, draft.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (updatedText == null || updatedText.isEmpty || updatedText == comment.comment) {
+      return;
+    }
+
+    try {
+      final updated = await widget.repository.updateComment(
+        commentId: comment.id,
+        comment: updatedText,
+      );
+      if (!mounted) return;
+      final merged = UpdateComment(
+        id: updated.id,
+        comment: updated.comment,
+        createdAt: updated.createdAt.isNotEmpty
+            ? updated.createdAt
+            : comment.createdAt,
+        user: updated.user,
+        replies: updated.replies.isNotEmpty ? updated.replies : comment.replies,
+      );
+      setState(() {
+        _future = Future<UpdateDetail>.value(
+          detail.copyWith(
+            comments: detail.comments
+                .map((item) => item.id == comment.id ? merged : item)
+                .toList(),
+          ),
+        );
+      });
+      _shouldRefresh = true;
+      AppToast.success(context, 'Comment updated.');
     } catch (error) {
       if (!mounted) return;
       AppToast.error(context, error);
@@ -929,7 +992,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                               'Comments',
                               style: TextStyle(
                                 color: colors.textPrimary,
-                                fontSize: 17,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -981,6 +1044,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                     onLinkTap: _handleLinkTap,
                                     onReplyTap: () =>
                                         _replyToComment(detail, comment),
+                                    onEdit: () => _editComment(detail, comment),
                                     onDelete: () => _deleteComment(comment),
                                     isOwner:
                                         widget.currentUser?.id ==
@@ -1093,6 +1157,7 @@ class _CommentTile extends StatelessWidget {
     required this.onHashtagTap,
     required this.onLinkTap,
     required this.onReplyTap,
+    required this.onEdit,
     required this.onDelete,
     required this.isOwner,
   });
@@ -1103,6 +1168,7 @@ class _CommentTile extends StatelessWidget {
   final Future<void> Function(String hashtag) onHashtagTap;
   final Future<void> Function(String url) onLinkTap;
   final VoidCallback onReplyTap;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final bool isOwner;
 
@@ -1164,11 +1230,24 @@ class _CommentTile extends StatelessWidget {
                           color: colors.textMuted,
                         ),
                         onSelected: (value) {
+                          if (value == 'edit') {
+                            onEdit();
+                          }
                           if (value == 'delete') {
                             onDelete();
                           }
                         },
                         itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
                           const PopupMenuItem(
                             value: 'delete',
                             child: Row(

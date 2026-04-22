@@ -2254,7 +2254,7 @@ class _HomeSidebar extends StatelessWidget {
                       ),
 
                       _SidebarItemData(
-                        HeroIcons.sparkles,
+                        HeroIcons.rectangleGroup,
                         'Activities',
                         activeItemLabel == 'Activities',
                         onTap: onActivitiesTap,
@@ -2325,7 +2325,7 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onPlayGamesTap,
                       ),
                       _SidebarItemData(
-                        HeroIcons.newspaper,
+                        HeroIcons.cube,
                         'More Features',
                         activeItemLabel == 'More Features',
                         onTap: onOtherMenusTap,
@@ -4012,7 +4012,7 @@ class _PostFeedCard extends StatelessWidget {
                   entry.title,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

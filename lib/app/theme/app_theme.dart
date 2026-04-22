@@ -340,22 +340,26 @@ class AppTheme {
       error: colors.dangerText,
     );
 
+    final baseTextTheme = (brightness == Brightness.dark
+            ? Typography.material2021().white
+            : Typography.material2021().black)
+        .apply(
+      bodyColor: colors.textPrimary,
+      displayColor: colors.textPrimary,
+      fontFamily: 'Inter',
+    );
+
     return ThemeData(
       brightness: brightness,
       useMaterial3: true,
+      fontFamily: 'Inter',
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colors.scaffold,
       dividerColor: colors.border,
       disabledColor: colors.textMuted,
       shadowColor: colors.shadow,
       extensions: <ThemeExtension<dynamic>>[colors],
-      textTheme: (brightness == Brightness.dark
-              ? Typography.material2021().white
-              : Typography.material2021().black)
-          .apply(
-        bodyColor: colors.textPrimary,
-        displayColor: colors.textPrimary,
-      ),
+      textTheme: baseTextTheme,
       progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,

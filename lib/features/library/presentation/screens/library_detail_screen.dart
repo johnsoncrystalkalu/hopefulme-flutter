@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
+import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
@@ -223,7 +224,7 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
                           children: [
                             _MetricChip(
                               icon: Icons.remove_red_eye_outlined,
-                              label: '${item.views} views',
+                              label: '${formatCompactCount(item.views)} views',
                             ),
                             if (item.createdAt.isNotEmpty)
                               _MetricChip(

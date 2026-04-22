@@ -542,7 +542,7 @@ class _FeedStylePostCard extends StatelessWidget {
                   entry.title,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

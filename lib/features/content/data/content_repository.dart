@@ -189,6 +189,24 @@ class ContentRepository {
     );
   }
 
+  Future<ContentComment> updateComment({
+    required int commentId,
+    required String comment,
+  }) async {
+    final response = await _authRepository.put(
+      'comments/$commentId',
+      body: {'comment': comment},
+    );
+
+    return ContentComment.fromJson(
+      response['comment'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
+  Future<void> deleteComment(int commentId) async {
+    await _authRepository.delete('comments/$commentId');
+  }
+
   Future<ContentDetail> createBlog({
     required String title,
     required String content,

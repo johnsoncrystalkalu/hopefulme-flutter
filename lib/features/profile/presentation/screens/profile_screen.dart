@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
+import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
@@ -1749,16 +1751,47 @@ class _ProfileTimeline extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: context.appColors.border),
                   ),
-                  child: Text(
-                    '"${dashboard.profile.quote}"',
-                    style: TextStyle(
-                      color: context.appColors.textSecondary,
-                      fontSize: 14,
-                      height: 1.6,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '"${dashboard.profile.quote}"',
+                        style: TextStyle(
+                          color: context.appColors.textSecondary,
+                          fontSize: 14,
+                          height: 1.6,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                
+                      const SizedBox(height: 10),
+                      
+                Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            HeroIcon(
+                              HeroIcons.magnifyingGlass,
+                              size: 14,
+                              style: HeroIconStyle.outline,
+                              color: context.appColors.textMuted,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '${formatCompactCount(dashboard.profile.views)} Profile Views',
+                              style: TextStyle(
+                                color: context.appColors.textMuted,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
               ],
             ],
           ),
@@ -2253,10 +2286,6 @@ class _ProfileRail extends StatelessWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
-              _OverviewRow(
-                icon: Icons.visibility_outlined,
-                label: '${profile.views} views',
-              ),
               _OverviewRow(
                 icon: Icons.people_outline,
                 label: '${profile.followersCount} followers',

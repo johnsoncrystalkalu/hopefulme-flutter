@@ -45,7 +45,7 @@ class AuthRepository {
       body: <String, dynamic>{
         'login': login,
         'password': password,
-        'device_name': 'app',
+        'device_name': 'App',
       },
     );
 
@@ -70,7 +70,7 @@ class AuthRepository {
         'gender': gender,
         'password': password,
         'password_confirmation': password,
-        'device_name': 'app',
+        'device_name': 'App',
       },
     );
 

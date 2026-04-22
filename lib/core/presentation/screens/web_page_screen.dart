@@ -641,7 +641,7 @@ class _WebPageErrorState extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

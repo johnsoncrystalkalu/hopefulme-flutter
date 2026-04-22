@@ -1,4 +1,5 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
+import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
@@ -163,15 +164,37 @@ class ProfileRepository {
     bool isPublic = false,
     String? preset,
   }) async {
-    await _authRepository.post(
-      'inspire/send/$username',
-      body: {
-        'message': message,
-        'is_anonymous': isAnonymous,
-        'is_public': isPublic,
-        if (preset != null && preset.isNotEmpty) 'preset': preset,
-      },
-    );
+    final normalizedUsername = username.trim().replaceFirst('@', '');
+    final cleanedMessage = _sanitizeInspirationMessage(message);
+    if (cleanedMessage.length < 5) {
+      throw ApiException('Please enter at least 5 plain text characters.');
+    }
+
+    final payload = <String, dynamic>{
+      'message': cleanedMessage,
+      'is_anonymous': isAnonymous,
+      'is_public': isPublic,
+      if (preset != null && preset.isNotEmpty) 'preset': preset,
+    };
+
+    try {
+      await _authRepository.post(
+        'inspire/send/$normalizedUsername',
+        body: payload,
+      );
+    } on ApiException catch (error) {
+      // Keep compatibility with older/forked backends that accept username in body.
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        rethrow;
+      }
+      await _authRepository.post(
+        'inspire/send',
+        body: <String, dynamic>{
+          ...payload,
+          'username': normalizedUsername,
+        },
+      );
+    }
   }
 
   Future<List<String>> fetchInspirationPresets() async {
@@ -195,6 +218,19 @@ class ProfileRepository {
     return ProfileSummary.fromJson(
       response['user'] as Map<String, dynamic>? ?? <String, dynamic>{},
     );
+  }
+
+  String _sanitizeInspirationMessage(String input) {
+    final decoded = input
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+    final withoutTags = decoded.replaceAll(RegExp(r'<[^>]*>'), ' ');
+
+    return withoutTags.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   Future<ProfileSummary> updateCoverPhoto(ApiMultipartFile file) async {

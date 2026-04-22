@@ -189,10 +189,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     ContentComment target,
   ) async {
     final pageContext = context;
-    final controller = TextEditingController();
+    String draftReply = '';
     final replyText = await showModalBottomSheet<String>(
       context: pageContext,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (bottomSheetContext) {
         final colors = bottomSheetContext.appColors;
         return Padding(
@@ -216,9 +217,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: controller,
+                autofocus: true,
                 minLines: 2,
                 maxLines: 5,
+                onChanged: (value) => draftReply = value,
                 decoration: const InputDecoration(
                   hintText: 'Write your reply...',
                 ),
@@ -229,7 +231,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 child: FilledButton(
                   onPressed: () => Navigator.of(
                     bottomSheetContext,
-                  ).pop(controller.text.trim()),
+                  ).pop(draftReply.trim()),
                   child: const Text('Send reply'),
                 ),
               ),
@@ -238,7 +240,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         );
       },
     );
-    controller.dispose();
 
     if (replyText == null || replyText.trim().isEmpty) {
       return;
@@ -264,6 +265,114 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         return;
       }
       AppToast.error(pageContext, error);
+    }
+  }
+
+  bool _isCurrentUserComment(ContentComment comment) {
+    final current = widget.currentUsername?.trim().toLowerCase();
+    final owner = comment.user?.username.trim().toLowerCase();
+    return current != null &&
+        current.isNotEmpty &&
+        owner != null &&
+        owner.isNotEmpty &&
+        current == owner;
+  }
+
+  Future<void> _editComment(ContentDetail detail, ContentComment comment) async {
+    String draft = comment.body;
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit comment'),
+        content: TextFormField(
+          initialValue: comment.body,
+          minLines: 2,
+          maxLines: 6,
+          autofocus: true,
+          onChanged: (value) => draft = value,
+          decoration: const InputDecoration(hintText: 'Update your comment...'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(draft.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (updatedText == null || updatedText.isEmpty || updatedText == comment.body) {
+      return;
+    }
+
+    try {
+      final updated = await widget.repository.updateComment(
+        commentId: comment.id,
+        comment: updatedText,
+      );
+      if (!mounted) return;
+      final merged = ContentComment(
+        id: updated.id,
+        body: updated.body,
+        createdAt: updated.createdAt.isNotEmpty
+            ? updated.createdAt
+            : comment.createdAt,
+        user: updated.user ?? comment.user,
+        replies: updated.replies.isNotEmpty ? updated.replies : comment.replies,
+      );
+      setState(() {
+        _future = Future<ContentDetail>.value(
+          detail.copyWith(
+            comments: detail.comments
+                .map((item) => item.id == comment.id ? merged : item)
+                .toList(),
+          ),
+        );
+      });
+      AppToast.success(context, 'Comment updated.');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    }
+  }
+
+  Future<void> _deleteComment(ContentComment comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete comment'),
+        content: const Text('This comment will be removed permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await widget.repository.deleteComment(comment.id);
+      if (!mounted) return;
+      setState(() {
+        _future = _load();
+      });
+      AppToast.success(context, 'Comment deleted.');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
     }
   }
 
@@ -993,7 +1102,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                           'Comments',
                           style: TextStyle(
                             color: colors.textPrimary,
-                            fontSize: 17,
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -1039,6 +1148,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _ContentCommentTile(
                                 comment: comment,
+                                canManage: _isCurrentUserComment(comment),
                                 onProfileTap: comment.user == null
                                     ? null
                                     : () => openUserProfile(
@@ -1063,6 +1173,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 onHashtagTap: _openSearchQuery,
                                 onReplyTap: () =>
                                     _replyToComment(detail, comment),
+                                onEditTap: () => _editComment(detail, comment),
+                                onDeleteTap: () => _deleteComment(comment),
                                 onLinkTap: _handleLinkTap,
                               ),
                             ),
@@ -1341,18 +1453,24 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
 class _ContentCommentTile extends StatelessWidget {
   const _ContentCommentTile({
     required this.comment,
+    required this.canManage,
     required this.onProfileTap,
     required this.onMentionTap,
     required this.onHashtagTap,
     required this.onReplyTap,
+    required this.onEditTap,
+    required this.onDeleteTap,
     required this.onLinkTap,
   });
 
   final ContentComment comment;
+  final bool canManage;
   final VoidCallback? onProfileTap;
   final Future<void> Function(String username) onMentionTap;
   final Future<void> Function(String hashtag) onHashtagTap;
   final VoidCallback onReplyTap;
+  final VoidCallback onEditTap;
+  final VoidCallback onDeleteTap;
   final Future<void> Function(String url) onLinkTap;
 
   @override
@@ -1425,17 +1543,49 @@ class _ContentCommentTile extends StatelessWidget {
                   onLinkTap: onLinkTap,
                 ),
                 const SizedBox(height: 10),
-                InkWell(
-                  onTap: onReplyTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Text(
-                    'Reply',
-                    style: TextStyle(
-                      color: colors.brand,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  children: [
+                    InkWell(
+                      onTap: onReplyTap,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Text(
+                        'Reply',
+                        style: TextStyle(
+                          color: colors.brand,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (canManage)
+                      InkWell(
+                        onTap: onEditTap,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Text(
+                          'Edit',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    if (canManage)
+                      InkWell(
+                        onTap: onDeleteTap,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 if (comment.replies.isNotEmpty) ...[
                   const SizedBox(height: 12),

@@ -416,172 +416,132 @@ class _InspirationInboxTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    const sentAccent = Color(0xFF1E3A5F);
+    const sentAccent = Color(0xFF274A73);
     final sender = item.isAnonymous ? 'Anonymous' : item.senderName;
     final recipient = item.receiver?.displayName.trim().isNotEmpty == true
         ? item.receiver!.displayName
         : (item.receiverName.trim().isNotEmpty ? item.receiverName : 'Recipient');
     final title = isSentView ? 'To: $recipient' : sender;
 
-    return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(26),
-      child: InkWell(
-        onTap: isDeleting ? null : onTap,
-        borderRadius: BorderRadius.circular(26),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                colors.surface,
-                colors.accentSoft.withValues(alpha: 0.42),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: colors.borderStrong),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isSentView ? sentAccent : null,
-                  gradient: isSentView
-                      ? null
-                      : item.isAnonymous
-                      ? LinearGradient(
-                          colors: [colors.warningSoft, colors.accentSoft],
-                        )
-                      : colors.brandGradient,
-                  borderRadius: BorderRadius.circular(18),
+    return InkWell(
+      onTap: isDeleting ? null : onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.border.withValues(alpha: 0.7)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isSentView
+                        ? sentAccent.withValues(alpha: 0.12)
+                        : colors.surfaceMuted.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    isSentView
+                        ? Icons.north_east_rounded
+                        : item.isAnonymous
+                        ? Icons.person_2_sharp
+                        : Icons.mail_outline_rounded,
+                    size: 25,
+                    color: isSentView
+                        ? sentAccent
+                        : (item.isAnonymous
+                              ? colors.warningText
+                              : colors.textSecondary),
+                  ),
                 ),
-                child: Icon(
-                  isSentView
-                      ? Icons.north_east_rounded
-                      : item.isAnonymous
-                      ? Icons.auto_awesome_outlined
-                      : Icons.mail_outline_rounded,
-                  color: isSentView
-                      ? Colors.white
-                      : (item.isAnonymous ? colors.warningText : Colors.white),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        if (isDeleting)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            isSentView
-                                ? (item.isPublic ? 'Sent - Public' : 'Sent - Private')
-                                : (item.isPublic ? 'Public' : 'Private'),
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert,
-                            size: 18,
-                            color: colors.textMuted,
-                          ),
-                          onSelected: (value) {
-                            if (value == 'delete') {
-                              onDelete();
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      ],
+                const Spacer(),
+                if (isDeleting)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.message,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 14,
-                        height: 1.55,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 14,
-                          color: colors.textMuted,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            formatDetailedTimestamp(item.createdAt),
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: colors.brand,
-                          size: 18,
-                        ),
-                      ],
+                  ),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  splashRadius: 16,
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: colors.textMuted,
+                  ),
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Text('Delete'),
                     ),
                   ],
                 ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              item.message,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 13,
+                  color: colors.textMuted,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    formatDetailedTimestamp(item.createdAt),
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colors.textMuted,
+                  size: 17,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
-

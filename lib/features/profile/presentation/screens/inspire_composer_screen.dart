@@ -216,7 +216,7 @@ const SizedBox(height: 24),
             ),
             const SizedBox(height: 8),
             Text(
-              'Write something kind, honest, and uplifting.',
+              'Write something inspiring and uplifting. (max 500 characters)',
               style: TextStyle(color: colors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 20),
