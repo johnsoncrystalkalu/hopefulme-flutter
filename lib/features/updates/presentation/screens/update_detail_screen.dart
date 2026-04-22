@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
@@ -44,6 +45,7 @@ class UpdateDetailScreen extends StatefulWidget {
     required this.messageRepository,
     this.searchRepository,
     this.initialLiked = false,
+    this.autofocusComment = false,
     super.key,
   });
 
@@ -56,6 +58,7 @@ class UpdateDetailScreen extends StatefulWidget {
   final MessageRepository messageRepository;
   final SearchRepository? searchRepository;
   final bool initialLiked;
+  final bool autofocusComment;
 
   @override
   State<UpdateDetailScreen> createState() => _UpdateDetailScreenState();
@@ -71,6 +74,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   bool _isSubmittingComment = false;
   bool _isLoadingMoreComments = false;
   bool _shouldRefresh = false;
+  bool _didRequestInitialCommentFocus = false;
 
   @override
   void initState() {
@@ -99,6 +103,18 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       widget.updateId,
       commentPage: commentPage,
     );
+  }
+
+  void _maybeRequestInitialCommentFocus() {
+    if (_didRequestInitialCommentFocus || !widget.autofocusComment) {
+      return;
+    }
+    _didRequestInitialCommentFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _commentFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -543,6 +559,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 if (detail == null) {
                   return const SizedBox.shrink();
                 }
+                _maybeRequestInitialCommentFocus();
 
                 final colors = context.appColors;
                 final isGeneratedActivity =
@@ -710,8 +727,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                             ? Icons.favorite
                                             : Icons.favorite_border,
                                         iconFill: _liked ? 1 : 0,
-                                        label: '${detail.likesCount}',
-                                        color: const Color(0xFFFF4D6D),
+                                        label: formatCompactCount(
+                                          detail.likesCount,
+                                        ),
+                                        color: _liked
+                                            ? const Color(0xFFFF4D6D)
+                                            : colors.icon,
                                         background: const Color(0xFFFFF1F4),
                                         darkBackground: const Color(
                                           0x221A1618,
@@ -725,7 +746,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                     onTap: () => _commentFocusNode.requestFocus(),
                                     child: _DetailActionPill(
                                       icon: Icons.chat_bubble_outline,
-                                      label: '${detail.commentsCount}',
+                                      label: formatCompactCount(
+                                        detail.commentsCount,
+                                      ),
                                       color: colors.icon,
                                       background: const Color(0x00000000),
                                     ),
@@ -738,11 +761,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       icon: Icons.ios_share_outlined,
                                       color: colors.icon,
                                       background: const Color(0x00000000),
+                                      iconSize: 14.5,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '${detail.views} views',
+                                    '${formatCompactCount(detail.views)} views',
                                     style: TextStyle(
                                       color: colors.textMuted,
                                       fontSize: 12,
@@ -867,6 +891,7 @@ class _DetailActionPill extends StatelessWidget {
     this.darkBackground,
     this.label,
     this.iconFill,
+    this.iconSize = 16,
   });
 
   final IconData icon;
@@ -875,6 +900,7 @@ class _DetailActionPill extends StatelessWidget {
   final Color background;
   final Color? darkBackground;
   final double? iconFill;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -895,7 +921,7 @@ class _DetailActionPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color, fill: iconFill),
+          Icon(icon, size: iconSize, color: color, fill: iconFill),
           if (label != null) ...[
             const SizedBox(width: 6),
             Text(

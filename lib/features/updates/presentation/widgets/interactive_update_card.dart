@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
@@ -25,6 +26,7 @@ class InteractiveUpdateCard extends StatefulWidget {
     required this.views,
     required this.updateRepository,
     required this.onOpenUpdate,
+    this.onOpenComment,
     this.currentUser,
     this.ownerUsername,
     this.onOpenProfile,
@@ -50,6 +52,7 @@ class InteractiveUpdateCard extends StatefulWidget {
   final int views;
   final UpdateRepository updateRepository;
   final Future<void> Function() onOpenUpdate;
+  final Future<void> Function()? onOpenComment;
   final User? currentUser;
   final String? ownerUsername;
   final Future<void> Function(String username)? onOpenProfile;
@@ -66,14 +69,9 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   late int _likesCount;
   late int _commentsCount;
   late String _body;
-  final TextEditingController _inlineCommentController =
-      TextEditingController();
-  final FocusNode _inlineCommentFocusNode = FocusNode();
   bool _liked = false;
   bool _busy = false;
   bool _isDeleted = false;
-  bool _showInlineCommentComposer = false;
-  bool _isSubmittingInlineComment = false;
   late AnimationController _likeController;
 
   bool get _isOwner => widget.currentUser?.username == widget.ownerUsername;
@@ -86,7 +84,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     _likesCount = widget.likesCount;
     _commentsCount = widget.commentsCount;
     _body = widget.body;
-    _liked = widget.isLiked; // ✅ init from backend
+    _liked = widget.isLiked;
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -97,8 +95,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
 
   @override
   void dispose() {
-    _inlineCommentController.dispose();
-    _inlineCommentFocusNode.dispose();
     _likeController.dispose();
     super.dispose();
   }
@@ -121,12 +117,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _body = widget.body;
       _likesCount = widget.likesCount;
       _commentsCount = widget.commentsCount;
-      _liked = widget.isLiked; // ✅ restore from backend on refresh
+      _liked = widget.isLiked;
       _isDeleted = false;
-      _showInlineCommentComposer = false;
-      _isSubmittingInlineComment = false;
-      _inlineCommentController.clear();
-      _inlineCommentFocusNode.unfocus();
     }
   }
 
@@ -292,56 +284,12 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   }
 
   Future<void> _handleCommentTap() async {
-    final shouldShow = !_showInlineCommentComposer;
-    setState(() {
-      _showInlineCommentComposer = shouldShow;
-    });
-    if (shouldShow) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _inlineCommentFocusNode.requestFocus();
-        }
-      });
-    } else {
-      _inlineCommentFocusNode.unfocus();
-    }
-  }
-
-  Future<void> _submitInlineComment() async {
-    final comment = _inlineCommentController.text.trim();
-    if (comment.isEmpty || _isSubmittingInlineComment) {
+    final onOpenComment = widget.onOpenComment;
+    if (onOpenComment != null) {
+      await onOpenComment();
       return;
     }
-
-    setState(() {
-      _isSubmittingInlineComment = true;
-    });
-    try {
-      await widget.updateRepository.addComment(
-        updateId: widget.updateId,
-        comment: comment,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _commentsCount += 1;
-        _showInlineCommentComposer = false;
-      });
-      _inlineCommentController.clear();
-      AppToast.success(context, 'Comment posted.');
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      AppToast.error(context, error);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmittingInlineComment = false;
-        });
-      }
-    }
+    await widget.onOpenUpdate();
   }
 
   @override
@@ -422,10 +370,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   child: _ActionPill(
                     icon: _liked ? Icons.favorite : Icons.favorite_border,
                     iconFill: _liked ? 1 : 0,
-                    label: '$_likesCount',
-                    color: _liked
-                        ? const Color(0xFFFF4D6D)
-                        : colors.icon,
+                    label: formatCompactCount(_likesCount),
+                    color: _liked ? const Color(0xFFFF4D6D) : colors.icon,
                     background: const Color(0xFFFFF1F4),
                     darkBackground: const Color(0x221A1618),
                   ),
@@ -437,7 +383,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                 onTap: _handleCommentTap,
                 child: _ActionPill(
                   icon: Icons.chat_bubble_outline,
-                  label: '$_commentsCount',
+                  label: formatCompactCount(_commentsCount),
                   color: colors.icon,
                   background: const Color(0x00000000),
                 ),
@@ -450,99 +396,10 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   icon: Icons.ios_share_outlined,
                   color: colors.icon,
                   background: const Color(0x00000000),
+                  iconSize: 16,
                 ),
               ),
             ],
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: _showInlineCommentComposer
-                ? Padding(
-                    key: const ValueKey('inline_comment'),
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _inlineCommentController,
-                                  focusNode: _inlineCommentFocusNode,
-                                  minLines: 1,
-                                  maxLines: 3,
-                                  textInputAction: TextInputAction.send,
-                                  onSubmitted: (_) => _submitInlineComment(),
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Write a comment...',
-                                    border: InputBorder.none,
-                                    hintStyle: TextStyle(
-                                      color: colors.textMuted,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  style: TextStyle(
-                                    color: colors.textPrimary,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Post comment',
-                                onPressed: _isSubmittingInlineComment
-                                    ? null
-                                    : _submitInlineComment,
-                                icon: _isSubmittingInlineComment
-                                    ? SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: colors.brand,
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.send_rounded,
-                                        size: 18,
-                                        color: colors.brand,
-                                      ),
-                              ),
-                            ],
-                          ),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 0,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              onPressed: () => widget.onOpenUpdate(),
-                              child: Text(
-                                'View all comments',
-                                style: TextStyle(
-                                  color: colors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('inline_comment_hidden')),
           ),
         ],
       ),
@@ -558,6 +415,7 @@ class _ActionPill extends StatelessWidget {
     this.darkBackground,
     this.label,
     this.iconFill,
+    this.iconSize = 19,
   });
 
   final IconData icon;
@@ -566,6 +424,7 @@ class _ActionPill extends StatelessWidget {
   final Color background;
   final Color? darkBackground;
   final double? iconFill;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -586,7 +445,7 @@ class _ActionPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 19, color: color, fill: iconFill),
+          Icon(icon, size: iconSize, color: color, fill: iconFill),
           if (label != null) ...[
             const SizedBox(width: 6),
             Text(

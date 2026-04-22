@@ -492,7 +492,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _openUpdate(ProfileContentItem item) async {
+  Future<void> _openUpdate(
+    ProfileContentItem item, {
+    bool autofocusComment = false,
+  }) async {
     final navigator = Navigator.of(context);
     if (_requireDashboard() == null) {
       return;
@@ -506,6 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           repository: widget.updateRepository,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
+          autofocusComment: autofocusComment,
         ),
       ),
     );
@@ -625,6 +629,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         updateRepository: widget.updateRepository,
                         currentUser: widget.currentUser,
                         onOpenUpdate: _openUpdate,
+                        onOpenComment: (item) =>
+                            _openUpdate(item, autofocusComment: true),
                         onSeeAllUpdates: _openUpdatesFeed,
                       ),
                       if (widget.currentUser?.isAdmin == true) ...[
@@ -1775,6 +1781,7 @@ class _ProfileUpdatesTab extends StatefulWidget {
     required this.updateRepository,
     required this.currentUser,
     required this.onOpenUpdate,
+    required this.onOpenComment,
     required this.onSeeAllUpdates,
     super.key,
   });
@@ -1784,6 +1791,7 @@ class _ProfileUpdatesTab extends StatefulWidget {
   final UpdateRepository updateRepository;
   final User? currentUser;
   final Future<void> Function(ProfileContentItem item) onOpenUpdate;
+  final Future<void> Function(ProfileContentItem item) onOpenComment;
   final Future<void> Function() onSeeAllUpdates;
 
   @override
@@ -1932,6 +1940,7 @@ class _ProfileUpdatesTabState extends State<_ProfileUpdatesTab> {
                   currentUser: widget.currentUser,
                   updateRepository: widget.updateRepository,
                   onOpenUpdate: () => widget.onOpenUpdate(item),
+                  onOpenComment: () => widget.onOpenComment(item),
                 ),
               ),
             ),
@@ -2440,6 +2449,7 @@ class _UpdateCard extends StatelessWidget {
     required this.currentUser,
     required this.updateRepository,
     required this.onOpenUpdate,
+    required this.onOpenComment,
   });
 
   final ProfileContentItem item;
@@ -2447,6 +2457,7 @@ class _UpdateCard extends StatelessWidget {
   final User? currentUser;
   final UpdateRepository updateRepository;
   final Future<void> Function() onOpenUpdate;
+  final Future<void> Function() onOpenComment;
 
   @override
   Widget build(BuildContext context) {
@@ -2465,6 +2476,7 @@ class _UpdateCard extends StatelessWidget {
       views: item.views,
       updateRepository: updateRepository,
       onOpenUpdate: onOpenUpdate,
+      onOpenComment: onOpenComment,
       currentUser: currentUser,
       ownerUsername: profile.username,
       onOpenProfile: null,

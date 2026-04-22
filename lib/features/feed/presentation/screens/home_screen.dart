@@ -737,7 +737,10 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  Future<void> _openUpdateDetail(FeedEntry entry) async {
+  Future<void> _openUpdateDetail(
+    FeedEntry entry, {
+    bool autofocusComment = false,
+  }) async {
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -763,6 +766,7 @@ class _HomeScreenState extends State<HomeScreen>
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           searchRepository: widget.searchRepository,
+          autofocusComment: autofocusComment,
         ),
       ),
     );
@@ -1271,6 +1275,11 @@ class _HomeScreenState extends State<HomeScreen>
                                                     _openMeetNewFriends,
                                                 onOpenProfile: _openUserProfile,
                                                 onOpenUpdate: _openUpdateDetail,
+                                                onOpenUpdateComment:
+                                                    (entry) => _openUpdateDetail(
+                                                      entry,
+                                                      autofocusComment: true,
+                                                    ),
                                                 onOpenPost: _openPostDetail,
                                                 onOpenPostById: _openPostById,
                                                 onOpenBlog: _openBlogDetail,
@@ -1333,6 +1342,11 @@ class _HomeScreenState extends State<HomeScreen>
                                               _openMeetNewFriends,
                                           onOpenProfile: _openUserProfile,
                                           onOpenUpdate: _openUpdateDetail,
+                                          onOpenUpdateComment: (entry) =>
+                                              _openUpdateDetail(
+                                                entry,
+                                                autofocusComment: true,
+                                              ),
                                           onOpenPost: _openPostDetail,
                                           onOpenPostById: _openPostById,
                                           onOpenBlog: _openBlogDetail,
@@ -2591,6 +2605,7 @@ class _HomeContent extends StatelessWidget {
     required this.onMeetNewFriendsTap,
     required this.onOpenProfile,
     required this.onOpenUpdate,
+    required this.onOpenUpdateComment,
     required this.onOpenPost,
     required this.onOpenPostById,
     required this.onOpenBlog,
@@ -2619,6 +2634,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(FeedEntry entry) onOpenUpdateComment;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(int postId) onOpenPostById;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
@@ -2671,6 +2687,7 @@ class _HomeContent extends StatelessWidget {
                   currentUser: user,
                   onOpenProfile: onOpenProfile,
                   onOpenUpdate: onOpenUpdate,
+                  onOpenComment: onOpenUpdateComment,
                   onOpenPost: onOpenPost,
                   onOpenBlog: onOpenBlog,
                   onOpenHashtag: onOpenHashtag,
@@ -2739,6 +2756,7 @@ class _HomeContent extends StatelessWidget {
                   currentUser: user,
                   onOpenProfile: onOpenProfile,
                   onOpenUpdate: onOpenUpdate,
+                  onOpenComment: onOpenUpdateComment,
                   onOpenPost: onOpenPost,
                   onOpenBlog: onOpenBlog,
                   onOpenHashtag: onOpenHashtag,
@@ -3831,6 +3849,7 @@ class _FeedEntryCard extends StatelessWidget {
     required this.currentUser,
     required this.onOpenProfile,
     required this.onOpenUpdate,
+    required this.onOpenComment,
     required this.onOpenPost,
     required this.onOpenBlog,
     required this.onOpenHashtag,
@@ -3842,6 +3861,7 @@ class _FeedEntryCard extends StatelessWidget {
   final User? currentUser;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(FeedEntry entry) onOpenComment;
   final Future<void> Function(FeedEntry entry) onOpenPost;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
   final Future<void> Function(String hashtag) onOpenHashtag;
@@ -3869,6 +3889,7 @@ class _FeedEntryCard extends StatelessWidget {
       currentUser: currentUser,
       onOpenProfile: onOpenProfile,
       onOpenUpdate: onOpenUpdate,
+      onOpenComment: onOpenComment,
       onOpenHashtag: onOpenHashtag,
       onOpenLink: onOpenLink,
       updateRepository: updateRepository,
@@ -4019,6 +4040,7 @@ class _UpdateFeedCard extends StatelessWidget {
     required this.currentUser,
     required this.onOpenProfile,
     required this.onOpenUpdate,
+    required this.onOpenComment,
     required this.onOpenHashtag,
     required this.onOpenLink,
     required this.updateRepository,
@@ -4028,6 +4050,7 @@ class _UpdateFeedCard extends StatelessWidget {
   final User? currentUser;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(FeedEntry entry) onOpenComment;
   final Future<void> Function(String hashtag) onOpenHashtag;
   final Future<void> Function(String url) onOpenLink;
   final UpdateRepository updateRepository;
@@ -4053,6 +4076,7 @@ class _UpdateFeedCard extends StatelessWidget {
         views: entry.views,
         updateRepository: updateRepository,
         onOpenUpdate: () => onOpenUpdate(entry),
+        onOpenComment: () => onOpenComment(entry),
         currentUser: currentUser,
         ownerUsername: entry.user?.username,
         onOpenProfile: onOpenProfile,

@@ -199,7 +199,10 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
     );
   }
 
-  Future<void> _openUpdate(FeedEntry entry) async {
+  Future<void> _openUpdate(
+    FeedEntry entry, {
+    bool autofocusComment = false,
+  }) async {
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -210,6 +213,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           searchRepository: widget.searchRepository,
+          autofocusComment: autofocusComment,
         ),
       ),
     );
@@ -373,6 +377,8 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
                       currentUser: widget.currentUser,
                       onOpenProfile: _openProfile,
                       onOpenUpdate: _openUpdate,
+                      onOpenComment: (entry) =>
+                          _openUpdate(entry, autofocusComment: true),
                       onOpenHashtag: _openSearchQuery,
                       onOpenLink: _handleLinkTap,
                     ),
@@ -462,6 +468,7 @@ class _UpdatesFeedRow extends StatelessWidget {
     required this.currentUser,
     required this.onOpenProfile,
     required this.onOpenUpdate,
+    required this.onOpenComment,
     required this.onOpenHashtag,
     required this.onOpenLink,
     super.key,
@@ -473,6 +480,7 @@ class _UpdatesFeedRow extends StatelessWidget {
   final User? currentUser;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
+  final Future<void> Function(FeedEntry entry) onOpenComment;
   final Future<void> Function(String hashtag) onOpenHashtag;
   final Future<void> Function(String url) onOpenLink;
 
@@ -514,6 +522,7 @@ class _UpdatesFeedRow extends StatelessWidget {
         isLiked: entry.isLiked,
         onOpenProfile: onOpenProfile,
         onOpenUpdate: () => onOpenUpdate(entry),
+        onOpenComment: () => onOpenComment(entry),
         onOpenHashtag: onOpenHashtag,
         onOpenLink: onOpenLink,
       ),

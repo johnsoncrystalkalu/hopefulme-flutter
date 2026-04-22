@@ -121,7 +121,10 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
     }
   }
 
-  Future<void> _openUpdate(ProfileContentItem item) async {
+  Future<void> _openUpdate(
+    ProfileContentItem item, {
+    bool autofocusComment = false,
+  }) async {
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -130,6 +133,7 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
           repository: widget.updateRepository,
           profileRepository: widget.repository,
           messageRepository: widget.messageRepository,
+          autofocusComment: autofocusComment,
         ),
       ),
     );
@@ -183,6 +187,8 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
                     views: item.views,
                     updateRepository: widget.updateRepository,
                     onOpenUpdate: () => _openUpdate(item),
+                    onOpenComment: () =>
+                        _openUpdate(item, autofocusComment: true),
                     currentUser: widget.currentUser,
                     ownerUsername: widget.profile.username,
                     isVerified: widget.profile.isVerified,
