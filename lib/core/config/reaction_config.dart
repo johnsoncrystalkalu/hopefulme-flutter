@@ -12,7 +12,7 @@ class ReactionConfig {
   // Broader expressive reactions for updates/feed content.
   static const List<String> updateQuick = <String>[
     '\u{1F973}',
-    '\u2728',
+    '\u{1F525}',
     '\u{1F602}',
     '\u{1F4AA}',
     '\u{1F625}',

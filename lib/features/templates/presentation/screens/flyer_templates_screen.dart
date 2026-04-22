@@ -137,70 +137,54 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: colors.brand.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: colors.brand.withValues(alpha: 0.25),
+                        color: colors.border,
                       ),
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: colors.brand.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Icon(
-                            Icons.photo,
-                            size: 16,
-                            color: colors.brand,
-                          ),
+                        Icon(
+                          Icons.photo,
+                          size: 16,
+                          color: colors.textMuted,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Text(
-                              //   'Why we added this feature',
-                              //   style: TextStyle(
-                              //     color: colors.textPrimary,
-                              //     fontSize: 12.5,
-                              //     fontWeight: FontWeight.w800,
-                              //   ),
-                              // ),
-                             // const SizedBox(height: 6),
-                              Text(
-                                'Create your own HopefulMe flyers, birthday cards and posters. Share them and invite more friends to the community.',
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 12,
-                                  height: 1.45,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                          
-                            ],
+                          child: Text(
+                            'Create flyers, cards, and posters. Share and invite friends.',
+                            style: TextStyle(
+                              color: colors.textSecondary,
+                              fontSize: 12,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Choose a template category and create your flyer.',
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  Align(
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Choose a template category',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   SizedBox(
                     height: 44,
                     child: ListView.separated(

@@ -16,7 +16,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  static const Color _libraryAccent = Color(0xFFEA580C);
+  static const Color _libraryAccent = Color(0xFFD97706);
   final ScrollController _scrollController = ScrollController();
   final List<LibraryItem> _items = <LibraryItem>[];
   List<LibraryItem> _featured = <LibraryItem>[];
@@ -256,7 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 class _LibraryHero extends StatelessWidget {
   const _LibraryHero({required this.total});
 
-  static const Color _libraryAccent = Color(0xFFEA580C);
+  static const Color _libraryAccent = Color(0xFFD97706);
   final int total;
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
@@ -47,6 +49,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _currentPage = 0;
   int _lastPage = 1;
   int _unreadCount = 0;
+  bool _didAutoMarkAllRead = false;
   String? _error;
 
   @override
@@ -86,6 +89,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _lastPage = page.lastPage;
         _unreadCount = page.unreadCount;
       });
+      _autoMarkAllReadIfNeeded(pageUnreadCount: page.unreadCount);
     } catch (error) {
       setState(() {
         _error = error.toString();
@@ -97,6 +101,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         });
       }
     }
+  }
+
+  void _autoMarkAllReadIfNeeded({required int pageUnreadCount}) {
+    if (_didAutoMarkAllRead || pageUnreadCount <= 0 || _items.isEmpty) {
+      return;
+    }
+    _didAutoMarkAllRead = true;
+    unawaited(_markAllRead(silent: true));
   }
 
   Future<void> _loadMore() async {
@@ -132,28 +144,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _markAllRead() async {
-    await widget.repository.markAllRead();
-    setState(() {
-      _unreadCount = 0;
-      for (var index = 0; index < _items.length; index++) {
-        final item = _items[index];
-        _items[index] = AppNotification(
-          id: item.id,
-          type: item.type,
-          message: item.message,
-          preview: item.preview,
-          url: item.url,
-          contentType: item.contentType,
-          contentId: item.contentId,
-          inspirationId: item.inspirationId,
-          icon: item.icon,
-          avatarUrl: item.avatarUrl,
-          isRead: true,
-          createdAt: item.createdAt,
-        );
+  Future<void> _markAllRead({bool silent = false}) async {
+    try {
+      await widget.repository.markAllRead();
+      if (!mounted) {
+        return;
       }
-    });
+      setState(() {
+        _unreadCount = 0;
+        for (var index = 0; index < _items.length; index++) {
+          final item = _items[index];
+          _items[index] = AppNotification(
+            id: item.id,
+            type: item.type,
+            message: item.message,
+            preview: item.preview,
+            url: item.url,
+            contentType: item.contentType,
+            contentId: item.contentId,
+            inspirationId: item.inspirationId,
+            icon: item.icon,
+            avatarUrl: item.avatarUrl,
+            isRead: true,
+            createdAt: item.createdAt,
+          );
+        }
+      });
+    } catch (error) {
+      if (!silent && mounted) {
+        AppToast.error(context, error);
+      }
+    }
   }
 
   Future<void> _markRead(AppNotification item) async {
@@ -213,33 +234,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Notifications',
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              _unreadCount > 0
-                  ? '$_unreadCount unread notifications'
-                  : 'You are all caught up',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        title: Text(
+          'Notifications',
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [
           if (_unreadCount > 0)
             TextButton(
-              onPressed: _markAllRead,
+              onPressed: () => _markAllRead(),
               child: const Text('Mark all read'),
             ),
         ],
@@ -291,15 +297,15 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Material(
-      color: item.isRead ? colors.surface : colors.unreadSurface,
-      borderRadius: BorderRadius.circular(22),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            color: item.isRead ? colors.surface : colors.unreadSurface,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: item.isRead ? colors.border : colors.borderStrong,
             ),
@@ -308,7 +314,7 @@ class _NotificationTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 22,
+                radius: 20,
                 backgroundImage: item.avatarUrl.isNotEmpty
                     ? NetworkImage(
                         ImageUrlResolver.avatar(item.avatarUrl, size: 66),
@@ -325,31 +331,24 @@ class _NotificationTile extends StatelessWidget {
                       item.message,
                       style: TextStyle(
                         color: colors.textPrimary,
-                        fontSize: 13.5,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 13.25,
+                        height: 1.45,
+                        fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w600,
                       ),
                     ),
                     if (item.preview.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          item.preview,
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item.preview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       formatDetailedTimestamp(item.createdAt),
                       style: TextStyle(color: colors.textMuted, fontSize: 11),
@@ -359,7 +358,7 @@ class _NotificationTile extends StatelessWidget {
               ),
               if (!item.isRead)
                 Padding(
-                  padding: EdgeInsets.only(left: 10, top: 4),
+                  padding: const EdgeInsets.only(left: 10, top: 4),
                   child: CircleAvatar(radius: 4, backgroundColor: colors.brand),
                 ),
             ],

@@ -35,10 +35,11 @@ class WebPageScreen extends StatefulWidget {
       return false;
     }
 
-    final segments = uri.pathSegments
+    final rawSegments = uri.pathSegments
         .where((segment) => segment.trim().isNotEmpty)
         .map((segment) => segment.trim().toLowerCase())
         .toList(growable: false);
+    final segments = _stripRoutingPrefixes(rawSegments);
     if (segments.isEmpty) {
       return true;
     }
@@ -122,6 +123,18 @@ class WebPageScreen extends StatefulWidget {
     };
 
     return reserved.contains(segment);
+  }
+
+  static List<String> _stripRoutingPrefixes(List<String> segments) {
+    if (segments.isEmpty) {
+      return segments;
+    }
+
+    if (segments.first == 'app') {
+      return segments.skip(1).toList(growable: false);
+    }
+
+    return segments;
   }
 
   @override
@@ -222,9 +235,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
         androidController.setOnShowFileSelector(_selectFilesForWebInput),
       );
       // Enable hardware acceleration and optimize for performance
-      unawaited(
-        androidController.setMediaPlaybackRequiresUserGesture(true),
-      );
+      unawaited(androidController.setMediaPlaybackRequiresUserGesture(true));
     }
 
     _controller = controller;

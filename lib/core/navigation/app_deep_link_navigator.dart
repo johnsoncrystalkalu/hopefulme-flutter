@@ -64,9 +64,10 @@ class AppDeepLinkNavigator {
       return false;
     }
 
-    final segments = normalized.pathSegments
+    final rawSegments = normalized.pathSegments
         .where((segment) => segment.isNotEmpty)
         .toList();
+    final segments = _stripRoutingPrefixes(rawSegments);
 
     if (segments.isEmpty) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -432,6 +433,19 @@ class AppDeepLinkNavigator {
     }
 
     return _openWebPage(context, normalized, title: 'HopefulMe');
+  }
+
+  List<String> _stripRoutingPrefixes(List<String> segments) {
+    if (segments.isEmpty) {
+      return segments;
+    }
+
+    final first = segments.first.toLowerCase();
+    if (first == 'app') {
+      return segments.skip(1).toList(growable: false);
+    }
+
+    return segments;
   }
 
   Uri? _normalizeUri(Uri uri) {

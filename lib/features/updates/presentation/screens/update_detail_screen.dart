@@ -94,8 +94,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 240),
-      lowerBound: 0.9,
-      upperBound: 1.15,
+      lowerBound: 1.0,
+      upperBound: 1.12,
     )..value = 1;
   }
 
@@ -144,8 +144,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _toggleLike(UpdateDetail detail) async {
-    final defaultReaction =
-        detail.myReaction?.trim().isNotEmpty == true ? detail.myReaction!.trim() : '\u2764\uFE0F';
+    final defaultReaction = detail.myReaction?.trim().isNotEmpty == true
+        ? detail.myReaction!.trim()
+        : '\u2764\uFE0F';
     final result = _liked
         ? await widget.repository.toggleLike(detail.id)
         : await widget.repository.toggleLike(
@@ -206,7 +207,10 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                           horizontal: 6,
                           vertical: 4,
                         ),
-                        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
                       ),
                     ),
                   )
@@ -587,7 +591,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 onPressed: _close,
                 icon: const Icon(Icons.arrow_back),
               ),
-             // title: const Text('Update'),
+              // title: const Text('Update'),
               actions: [
                 if (detail != null)
                   PopupMenuButton<String>(
@@ -814,37 +818,28 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                         label: formatCompactCount(
                                           detail.likesCount,
                                         ),
+                                        iconSize: 18,
                                         color: _liked
-                                            ? const Color(0xFFFF4D6D)
+                                            ? const Color(0xFFef4444)
                                             : colors.icon,
-                                        background: const Color(0xFFFFF1F4),
-                                        darkBackground: const Color(
-                                          0x221A1618,
-                                        ),
+                                        background: const Color(0xFFFFF7F6),
+                                        darkBackground: const Color(0x221A1618),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 4),
                                   InkWell(
                                     borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _commentFocusNode.requestFocus(),
+                                    onTap: () =>
+                                        _commentFocusNode.requestFocus(),
                                     child: _DetailActionPill(
                                       icon: Icons.chat_bubble_outline,
                                       label: formatCompactCount(
                                         detail.commentsCount,
                                       ),
+                                      iconSize: 18,
                                       color: colors.icon,
                                       background: const Color(0x00000000),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _shareUpdate(detail),
-                                    child: _DetailActionPill(
-                                      icon: Icons.ios_share_outlined,
-                                      color: colors.icon,
-                                      background: const Color(0x00000000),
-                                      iconSize: 16.5,
                                     ),
                                   ),
                                   const Spacer(),
@@ -857,8 +852,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       ),
                                       decoration: BoxDecoration(
                                         color: colors.surfaceMuted,
-                                        borderRadius: BorderRadius.circular(999),
-                                        border: Border.all(color: colors.border),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: colors.border,
+                                        ),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -899,13 +898,14 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                         ],
                                       ),
                                     ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${formatCompactCount(detail.views)} views',
-                                    style: TextStyle(
-                                      color: colors.textMuted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => _shareUpdate(detail),
+                                    child: _DetailActionPill(
+                                      icon: Icons.ios_share_outlined,
+                                      color: colors.icon,
+                                      background: const Color(0x00000000),
+                                      iconSize: 16.5,
                                     ),
                                   ),
                                 ],
@@ -1042,16 +1042,27 @@ class _DetailActionPill extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLikePill = icon == Icons.favorite || icon == Icons.favorite_border;
     final hasLikeBg = isLikePill && iconFill != null && iconFill! > 0;
-    final effectiveLightBackground = hasLikeBg ? background : Colors.transparent;
-    final effectiveDarkBackground = hasLikeBg
-        ? (darkBackground ?? Colors.transparent)
+    final effectiveLightBackground = hasLikeBg
+        ? background
         : Colors.transparent;
+    final effectiveDarkBackground = hasLikeBg
+        ? Colors.transparent
+        : Colors.transparent;
+    final effectiveBorder = isDark && hasLikeBg
+        ? Border.all(color: color.withValues(alpha: 0.26), width: 0.75)
+        : null;
+    final horizontalPadding = isLikePill ? 10.0 : 12.0;
+    final verticalPadding = isLikePill ? 6.0 : 8.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: isDark ? effectiveDarkBackground : effectiveLightBackground,
         borderRadius: BorderRadius.circular(16),
+        border: effectiveBorder,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

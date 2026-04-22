@@ -22,6 +22,7 @@ class SettingsScreen extends StatelessWidget {
     required this.themeController,
     required this.onLogout,
     required this.onCheckForUpdates,
+    this.onInternalLinkTap,
     super.key,
   });
 
@@ -31,6 +32,7 @@ class SettingsScreen extends StatelessWidget {
   final ThemeController themeController;
   final Future<void> Function() onLogout;
   final Future<void> Function() onCheckForUpdates;
+  final Future<bool> Function(Uri uri)? onInternalLinkTap;
 
   static const _officialWebsiteUrl = 'https://www.ahopefulme.com';
   static const _inviteMessage =
@@ -77,7 +79,11 @@ class SettingsScreen extends StatelessWidget {
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => WebPageScreen(title: title, url: targetUrl),
+        builder: (context) => WebPageScreen(
+          title: title,
+          url: targetUrl,
+          onInternalLinkTap: onInternalLinkTap,
+        ),
       ),
     );
   }

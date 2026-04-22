@@ -97,8 +97,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
-      lowerBound: 0.9,
-      upperBound: 1.15,
+      lowerBound: 1.0,
+      upperBound: 1.12,
     )..value = 1;
   }
 
@@ -119,7 +119,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final likedChanged = oldWidget.isLiked != widget.isLiked;
     final myReactionChanged = oldWidget.myReaction != widget.myReaction;
     final reactionsPreviewChanged =
-        oldWidget.reactionsPreview.join('|') != widget.reactionsPreview.join('|');
+        oldWidget.reactionsPreview.join('|') !=
+        widget.reactionsPreview.join('|');
 
     if (updateChanged ||
         bodyChanged ||
@@ -144,7 +145,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _busy = true;
     });
     try {
-      final defaultReaction = (_myReaction != null && _myReaction!.trim().isNotEmpty)
+      final defaultReaction =
+          (_myReaction != null && _myReaction!.trim().isNotEmpty)
           ? _myReaction!.trim()
           : '\u2764\uFE0F';
       final result = _liked
@@ -401,7 +403,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final visibleReactions = _reactionsPreview
         .take(ReactionConfig.updatePreviewMax)
         .toList(growable: false);
-    final hiddenReactionCount = _reactionsPreview.length - visibleReactions.length;
     if (_isDeleted) {
       return const SizedBox.shrink();
     }
@@ -480,8 +481,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                       icon: _liked ? Icons.favorite : Icons.favorite_border,
                       iconFill: _liked ? 1 : 0,
                       label: formatCompactCount(_likesCount),
-                      color: _liked ? const Color(0xFFFF4D6D) : colors.icon,
-                      background: const Color(0xFFFFF1F4),
+                      color: _liked ? const Color(0xFFef4444) : colors.icon,
+                      background: const Color(0xFFFFF7F6),
                       darkBackground: const Color(0x221A1618),
                     ),
                   ),
@@ -498,6 +499,43 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   background: const Color(0x00000000),
                 ),
               ),
+              const Spacer(),
+              if (_reactionsPreview.isNotEmpty)
+                Tooltip(
+                  message: 'Hold like button to react',
+                  triggerMode: TooltipTriggerMode.longPress,
+                  textStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...visibleReactions.map(
+                          (emoji) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _shareUpdate,
@@ -508,46 +546,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   iconSize: 16,
                 ),
               ),
-              const Spacer(),
-              if (_reactionsPreview.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ...visibleReactions
-                          .map(
-                            (emoji) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 2),
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ),
-                      if (hiddenReactionCount > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4),
-                          child: Text(
-                            '+$hiddenReactionCount',
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
             ],
           ),
         ],
@@ -580,16 +578,27 @@ class _ActionPill extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLikePill = icon == Icons.favorite || icon == Icons.favorite_border;
     final hasLikeBg = isLikePill && iconFill != null && iconFill! > 0;
-    final effectiveLightBackground = hasLikeBg ? background : Colors.transparent;
-    final effectiveDarkBackground = hasLikeBg
-        ? (darkBackground ?? Colors.transparent)
+    final effectiveLightBackground = hasLikeBg
+        ? background
         : Colors.transparent;
+    final effectiveDarkBackground = hasLikeBg
+        ? Colors.transparent
+        : Colors.transparent;
+    final effectiveBorder = isDark && hasLikeBg
+        ? Border.all(color: color.withValues(alpha: 0.26), width: 0.75)
+        : null;
+    final horizontalPadding = isLikePill ? 10.0 : 12.0;
+    final verticalPadding = isLikePill ? 6.0 : 8.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: isDark ? effectiveDarkBackground : effectiveLightBackground,
         borderRadius: BorderRadius.circular(16),
+        border: effectiveBorder,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

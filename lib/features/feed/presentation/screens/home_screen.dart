@@ -692,6 +692,27 @@ class _HomeScreenState extends State<HomeScreen>
           themeController: widget.themeController,
           onLogout: _handleLogout,
           onCheckForUpdates: widget.onCheckForUpdates,
+          onInternalLinkTap: (uri) async {
+            if (!context.mounted) {
+              return false;
+            }
+            final navigator = AppDeepLinkNavigator(
+              feedRepository: widget.feedRepository,
+              contentRepository: widget.contentRepository,
+              profileRepository: widget.profileRepository,
+              messageRepository: widget.messageRepository,
+              groupRepository: widget.groupRepository,
+              updateRepository: widget.updateRepository,
+              searchRepository: widget.searchRepository,
+              libraryRepository: widget.libraryRepository,
+              flyerTemplateRepository: widget.flyerTemplateRepository,
+              currentUser: widget.authController.currentUser,
+              webBaseUrl: _webBaseUrl,
+              signWebUrl:
+                  widget.authController.authRepository.createWebSessionUrl,
+            );
+            return navigator.open(context, uri);
+          },
         ),
       ),
     );
@@ -1002,7 +1023,8 @@ class _HomeScreenState extends State<HomeScreen>
               flyerTemplateRepository: widget.flyerTemplateRepository,
               currentUser: widget.authController.currentUser,
               webBaseUrl: _webBaseUrl,
-              signWebUrl: widget.authController.authRepository.createWebSessionUrl,
+              signWebUrl:
+                  widget.authController.authRepository.createWebSessionUrl,
             );
             return navigator.open(context, uri);
           },
@@ -1283,8 +1305,8 @@ class _HomeScreenState extends State<HomeScreen>
                                                     _openMeetNewFriends,
                                                 onOpenProfile: _openUserProfile,
                                                 onOpenUpdate: _openUpdateDetail,
-                                                onOpenUpdateComment:
-                                                    (entry) => _openUpdateDetail(
+                                                onOpenUpdateComment: (entry) =>
+                                                    _openUpdateDetail(
                                                       entry,
                                                       autofocusComment: true,
                                                     ),
