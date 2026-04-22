@@ -371,6 +371,8 @@ class ProfileContentItem {
     required this.views,
     required this.createdAt,
     this.isLiked = false,
+    this.myReaction,
+    this.reactionsPreview = const <String>[],
   });
 
   final int id;
@@ -385,6 +387,8 @@ class ProfileContentItem {
   final int views;
   final String createdAt;
   final bool isLiked;
+  final String? myReaction;
+  final List<String> reactionsPreview;
 
   factory ProfileContentItem.fromJson(Map<String, dynamic> json) {
     return ProfileContentItem(
@@ -402,6 +406,14 @@ class ProfileContentItem {
       views: parseInt(json['views']),
       createdAt: json['created_at']?.toString() ?? '',
       isLiked: parseBool(json['is_liked']),
+      myReaction: json['my_reaction']?.toString().trim().isNotEmpty == true
+          ? json['my_reaction']?.toString().trim()
+          : null,
+      reactionsPreview:
+          (json['reactions_preview'] as List<dynamic>? ?? const <dynamic>[])
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .toList(),
     );
   }
 }

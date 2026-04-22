@@ -68,6 +68,7 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
   int _page = 1;
   late String _selectedCategory;
   String? _error;
+  double _lastLoadMoreTriggerPixels = -1;
 
   @override
   void initState() {
@@ -155,8 +156,18 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 240) {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    // Trigger pagination when the remaining scroll distance is short.
+    if (position.extentAfter <= 320) {
+      // Avoid repeating the same trigger on tiny pixel deltas.
+      final delta = (position.pixels - _lastLoadMoreTriggerPixels).abs();
+      if (delta < 80) {
+        return;
+      }
+      _lastLoadMoreTriggerPixels = position.pixels;
       _loadMore();
     }
   }
@@ -242,6 +253,7 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
               onRefresh: _loadInitial,
               child: ListView.separated(
                 controller: _scrollController,
+                cacheExtent: 900,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 itemCount: _items.length + (_isLoadingMore ? 1 : 0) + 1,
                 separatorBuilder: (context, index) =>
@@ -271,12 +283,15 @@ class _PostsFeedScreenState extends State<PostsFeedScreen> {
                   }
 
                   final entry = _items[itemIndex];
-                  return _FeedStylePostCard(
-                    entry: entry,
-                    onOpenPost: _openPost,
-                    onOpenProfile: _openProfile,
-                    onOpenHashtag: _openSearchQuery,
-                    onOpenLink: _handleLinkTap,
+                  return RepaintBoundary(
+                    key: ValueKey<int>(entry.id),
+                    child: _FeedStylePostCard(
+                      entry: entry,
+                      onOpenPost: _openPost,
+                      onOpenProfile: _openProfile,
+                      onOpenHashtag: _openSearchQuery,
+                      onOpenLink: _handleLinkTap,
+                    ),
                   );
                 },
               ),
@@ -507,6 +522,8 @@ class _FeedStylePostCard extends StatelessWidget {
                 child: Image.network(
                   entry.photoUrl,
                   fit: BoxFit.cover,
+                  filterQuality: FilterQuality.low,
+                  cacheWidth: (MediaQuery.of(context).size.width * 2).round(),
                   errorBuilder: (context, error, stackTrace) => const SizedBox(
                     height: 180,
                     child: Center(
@@ -555,9 +572,7 @@ class _FeedStylePostCard extends StatelessWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
-                      ),
+                      color: const Color(0xFF3D5AFE),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(

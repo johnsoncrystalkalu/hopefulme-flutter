@@ -20,6 +20,8 @@ class UpdateDetail {
     this.commentsLastPage = 1,
     this.commentsTotal = 0,
     this.isLiked = false,
+    this.myReaction,
+    this.reactionsPreview = const <String>[],
   });
 
   final int id;
@@ -38,6 +40,8 @@ class UpdateDetail {
   final int commentsLastPage;
   final int commentsTotal;
   final bool isLiked;
+  final String? myReaction;
+  final List<String> reactionsPreview;
 
   bool get hasMoreComments => commentsCurrentPage < commentsLastPage;
 
@@ -74,6 +78,14 @@ class UpdateDetail {
         fallback: parseInt(json['comments_count'], fallback: comments.length),
       ),
       isLiked: parseBool(json['is_liked']),
+      myReaction: json['my_reaction']?.toString().trim().isNotEmpty == true
+          ? json['my_reaction']?.toString().trim()
+          : null,
+      reactionsPreview:
+          (json['reactions_preview'] as List<dynamic>? ?? const <dynamic>[])
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .toList(),
     );
   }
 
@@ -94,6 +106,8 @@ class UpdateDetail {
     int? commentsLastPage,
     int? commentsTotal,
     bool? isLiked,
+    String? myReaction,
+    List<String>? reactionsPreview,
   }) {
     return UpdateDetail(
       id: id ?? this.id,
@@ -112,6 +126,8 @@ class UpdateDetail {
       commentsLastPage: commentsLastPage ?? this.commentsLastPage,
       commentsTotal: commentsTotal ?? this.commentsTotal,
       isLiked: isLiked ?? this.isLiked,
+      myReaction: myReaction ?? this.myReaction,
+      reactionsPreview: reactionsPreview ?? this.reactionsPreview,
     );
   }
 }

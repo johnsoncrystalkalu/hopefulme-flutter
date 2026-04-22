@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/config/reaction_config.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -34,6 +35,8 @@ class InteractiveUpdateCard extends StatefulWidget {
     this.onOpenLink,
     this.isVerified = false,
     this.isLiked = false,
+    this.myReaction,
+    this.reactionsPreview = const <String>[],
     super.key,
   });
 
@@ -59,6 +62,8 @@ class InteractiveUpdateCard extends StatefulWidget {
   final Future<void> Function(String hashtag)? onOpenHashtag;
   final Future<void> Function(String url)? onOpenLink;
   final bool isLiked;
+  final String? myReaction;
+  final List<String> reactionsPreview;
 
   @override
   State<InteractiveUpdateCard> createState() => _InteractiveUpdateCardState();
@@ -69,6 +74,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   late int _likesCount;
   late int _commentsCount;
   late String _body;
+  late List<String> _reactionsPreview;
+  String? _myReaction;
   bool _liked = false;
   bool _busy = false;
   bool _isDeleted = false;
@@ -85,6 +92,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     _commentsCount = widget.commentsCount;
     _body = widget.body;
     _liked = widget.isLiked;
+    _myReaction = widget.myReaction;
+    _reactionsPreview = List<String>.from(widget.reactionsPreview);
     _likeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -108,16 +117,23 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final likesChanged = oldWidget.likesCount != widget.likesCount;
     final commentsChanged = oldWidget.commentsCount != widget.commentsCount;
     final likedChanged = oldWidget.isLiked != widget.isLiked;
+    final myReactionChanged = oldWidget.myReaction != widget.myReaction;
+    final reactionsPreviewChanged =
+        oldWidget.reactionsPreview.join('|') != widget.reactionsPreview.join('|');
 
     if (updateChanged ||
         bodyChanged ||
         likesChanged ||
         commentsChanged ||
-        likedChanged) {
+        likedChanged ||
+        myReactionChanged ||
+        reactionsPreviewChanged) {
       _body = widget.body;
       _likesCount = widget.likesCount;
       _commentsCount = widget.commentsCount;
       _liked = widget.isLiked;
+      _myReaction = widget.myReaction;
+      _reactionsPreview = List<String>.from(widget.reactionsPreview);
       _isDeleted = false;
     }
   }
@@ -128,7 +144,15 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _busy = true;
     });
     try {
-      final result = await widget.updateRepository.toggleLike(widget.updateId);
+      final defaultReaction = (_myReaction != null && _myReaction!.trim().isNotEmpty)
+          ? _myReaction!.trim()
+          : '\u2764\uFE0F';
+      final result = _liked
+          ? await widget.updateRepository.toggleLike(widget.updateId)
+          : await widget.updateRepository.toggleLike(
+              widget.updateId,
+              reaction: defaultReaction,
+            );
       _likeController
         ..forward()
         ..reverse();
@@ -136,6 +160,85 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       setState(() {
         _liked = result.liked;
         _likesCount = result.count;
+        _myReaction = result.myReaction;
+        _reactionsPreview = result.reactionsPreview;
+        _busy = false;
+      });
+    } finally {
+      if (mounted && _busy) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickReaction() async {
+    if (_busy) return;
+
+    final selected = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        final colors = dialogContext.appColors;
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        return Dialog(
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? colors.surface : Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: colors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: ReactionConfig.updateQuick.map((emoji) {
+                return InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => Navigator.of(dialogContext).pop(emoji),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected.trim().isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+    });
+    try {
+      final result = await widget.updateRepository.toggleLike(
+        widget.updateId,
+        reaction: selected,
+      );
+      if (!mounted) return;
+      setState(() {
+        _liked = result.liked;
+        _likesCount = result.count;
+        _myReaction = result.myReaction;
+        _reactionsPreview = result.reactionsPreview;
       });
     } finally {
       if (mounted) {
@@ -295,6 +398,10 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final visibleReactions = _reactionsPreview
+        .take(ReactionConfig.updatePreviewMax)
+        .toList(growable: false);
+    final hiddenReactionCount = _reactionsPreview.length - visibleReactions.length;
     if (_isDeleted) {
       return const SizedBox.shrink();
     }
@@ -365,15 +472,18 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _toggleLike,
-                child: ScaleTransition(
-                  scale: _likeController,
-                  child: _ActionPill(
-                    icon: _liked ? Icons.favorite : Icons.favorite_border,
-                    iconFill: _liked ? 1 : 0,
-                    label: formatCompactCount(_likesCount),
-                    color: _liked ? const Color(0xFFFF4D6D) : colors.icon,
-                    background: const Color(0xFFFFF1F4),
-                    darkBackground: const Color(0x221A1618),
+                onLongPress: _pickReaction,
+                child: RepaintBoundary(
+                  child: ScaleTransition(
+                    scale: _likeController,
+                    child: _ActionPill(
+                      icon: _liked ? Icons.favorite : Icons.favorite_border,
+                      iconFill: _liked ? 1 : 0,
+                      label: formatCompactCount(_likesCount),
+                      color: _liked ? const Color(0xFFFF4D6D) : colors.icon,
+                      background: const Color(0xFFFFF1F4),
+                      darkBackground: const Color(0x221A1618),
+                    ),
                   ),
                 ),
               ),
@@ -388,7 +498,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   background: const Color(0x00000000),
                 ),
               ),
-              const Spacer(),
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _shareUpdate,
@@ -399,6 +508,46 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   iconSize: 16,
                 ),
               ),
+              const Spacer(),
+              if (_reactionsPreview.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ...visibleReactions
+                          .map(
+                            (emoji) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                              child: Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ),
+                      if (hiddenReactionCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Text(
+                            '+$hiddenReactionCount',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ],

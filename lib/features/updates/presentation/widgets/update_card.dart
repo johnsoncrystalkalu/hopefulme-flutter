@@ -42,6 +42,7 @@ class ReusableUpdateCard extends StatelessWidget {
     this.onMentionTap,
     this.onHashtagTap,
     this.onLinkTap,
+    this.belowContent,
     this.headerTrailing,
     this.footer,
     super.key,
@@ -54,6 +55,7 @@ class ReusableUpdateCard extends StatelessWidget {
   final Future<void> Function(String username)? onMentionTap;
   final Future<void> Function(String hashtag)? onHashtagTap;
   final Future<void> Function(String url)? onLinkTap;
+  final Widget? belowContent;
   final Widget? headerTrailing;
   final Widget? footer;
 
@@ -206,8 +208,8 @@ class ReusableUpdateCard extends StatelessWidget {
                           fontSize: data.isGeneratedActivity ? 12.5 : 13.75,
                           height: 1.62,
                           fontWeight: data.isGeneratedActivity
-                              ? FontWeight.w400
-                              : FontWeight.w400,
+                              ? FontWeight.w500
+                              : FontWeight.w500,
                         ),
                         onMentionTap: onMentionTap,
                         onHashtagTap: onHashtagTap,
@@ -243,6 +245,7 @@ class ReusableUpdateCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (belowContent != null) belowContent!,
           if (footer != null) ...[
             const SizedBox(height: 12),
             Container(

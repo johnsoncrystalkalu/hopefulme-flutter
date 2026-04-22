@@ -193,6 +193,8 @@ class _ProfileUpdatesScreenState extends State<ProfileUpdatesScreen> {
                     ownerUsername: widget.profile.username,
                     isVerified: widget.profile.isVerified,
                     isLiked: item.isLiked,
+                    myReaction: item.myReaction,
+                    reactionsPreview: item.reactionsPreview,
                   );
                 },
               ),

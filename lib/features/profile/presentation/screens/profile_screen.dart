@@ -2481,6 +2481,8 @@ class _UpdateCard extends StatelessWidget {
       ownerUsername: profile.username,
       onOpenProfile: null,
       isLiked: item.isLiked,
+      myReaction: item.myReaction,
+      reactionsPreview: item.reactionsPreview,
     );
   }
 }

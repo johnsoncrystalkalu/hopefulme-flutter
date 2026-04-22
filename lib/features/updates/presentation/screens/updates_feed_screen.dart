@@ -520,6 +520,8 @@ class _UpdatesFeedRow extends StatelessWidget {
         ownerUsername: entry.user?.username,
         isVerified: entry.user?.isVerified ?? false,
         isLiked: entry.isLiked,
+        myReaction: entry.myReaction,
+        reactionsPreview: entry.reactionsPreview,
         onOpenProfile: onOpenProfile,
         onOpenUpdate: () => onOpenUpdate(entry),
         onOpenComment: () => onOpenComment(entry),

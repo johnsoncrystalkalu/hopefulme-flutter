@@ -137,6 +137,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _hasMoreHomeUpdates = true;
   int _homeUpdatesPage = 1;
   bool _homePaginationInFlight = false;
+  double _lastHomePaginationTriggerPixels = -1;
   bool _isTopbarRefreshInFlight = false;
   int? _highlightedUpdateId;
   Timer? _highlightedUpdateTimer;
@@ -314,6 +315,11 @@ class _HomeScreenState extends State<HomeScreen>
     }
     final position = _homeScrollController.position;
     if (position.extentAfter <= 320) {
+      final delta = (position.pixels - _lastHomePaginationTriggerPixels).abs();
+      if (delta < 80) {
+        return;
+      }
+      _lastHomePaginationTriggerPixels = position.pixels;
       _homePaginationInFlight = true;
       unawaited(
         _loadMoreHomeUpdates().whenComplete(() {
@@ -759,6 +765,8 @@ class _HomeScreenState extends State<HomeScreen>
             user: entry.user!,
             comments: const [],
             isLiked: entry.isLiked,
+            myReaction: entry.myReaction,
+            reactionsPreview: entry.reactionsPreview,
           ),
           currentUser: widget.authController.currentUser,
           repository: widget.updateRepository,
@@ -1228,7 +1236,7 @@ class _HomeScreenState extends State<HomeScreen>
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          cacheExtent: 700,
+                          cacheExtent: 420,
                           slivers: [
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(
@@ -4083,6 +4091,8 @@ class _UpdateFeedCard extends StatelessWidget {
         onOpenHashtag: onOpenHashtag,
         onOpenLink: onOpenLink,
         isLiked: entry.isLiked,
+        myReaction: entry.myReaction,
+        reactionsPreview: entry.reactionsPreview,
       ),
     );
   }

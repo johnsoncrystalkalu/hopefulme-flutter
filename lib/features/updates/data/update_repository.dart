@@ -53,14 +53,30 @@ class UpdateRepository {
     );
   }
 
-  Future<LikeResult> toggleLike(int id) async {
-    final response = await _authRepository.post('likes/update/$id');
+  Future<LikeResult> toggleLike(int id, {String? reaction}) async {
+    final response = reaction == null
+        ? await _authRepository.post('likes/update/$id')
+        : await _authRepository.post(
+            'likes/update/$id',
+            body: {'reaction': reaction},
+          );
+
+    final previews = (response['reactions_preview'] as List<dynamic>? ??
+            const <dynamic>[])
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+
     return LikeResult(
       liked: parseBool(
         response['is_liked'],
         fallback: parseBool(response['liked']),
       ),
       count: parseInt(response['count']),
+      myReaction: response['my_reaction']?.toString().trim().isNotEmpty == true
+          ? response['my_reaction']?.toString().trim()
+          : null,
+      reactionsPreview: previews,
     );
   }
 
@@ -117,8 +133,15 @@ class UpdateRepository {
 }
 
 class LikeResult {
-  const LikeResult({required this.liked, required this.count});
+  const LikeResult({
+    required this.liked,
+    required this.count,
+    this.myReaction,
+    this.reactionsPreview = const <String>[],
+  });
 
   final bool liked;
   final int count;
+  final String? myReaction;
+  final List<String> reactionsPreview;
 }

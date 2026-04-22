@@ -137,6 +137,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
   final ValueNotifier<bool> _hasError = ValueNotifier<bool>(false);
   final ValueNotifier<String?> _errorMessage = ValueNotifier<String?>(null);
   bool _isShowingFallbackDocument = false;
+  int _lastProgressUpdate = 0;
 
   @override
   void initState() {
@@ -147,6 +148,9 @@ class _WebPageScreenState extends State<WebPageScreen> {
 
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36 HopefulMe',
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -157,10 +161,14 @@ class _WebPageScreenState extends State<WebPageScreen> {
             _hasError.value = false;
             _errorMessage.value = null;
             _progress.value = 0;
+            _lastProgressUpdate = 0;
           },
           onProgress: (progress) {
-            if (_progress.value != progress) {
-              _progress.value = progress;
+            // Throttle progress updates to every 10% to reduce rebuild overhead
+            final throttledProgress = (progress ~/ 10) * 10;
+            if (_lastProgressUpdate != throttledProgress) {
+              _lastProgressUpdate = throttledProgress;
+              _progress.value = throttledProgress;
             }
           },
           onPageFinished: (_) {
@@ -212,6 +220,10 @@ class _WebPageScreenState extends State<WebPageScreen> {
       final androidController = controller.platform as AndroidWebViewController;
       unawaited(
         androidController.setOnShowFileSelector(_selectFilesForWebInput),
+      );
+      // Enable hardware acceleration and optimize for performance
+      unawaited(
+        androidController.setMediaPlaybackRequiresUserGesture(true),
       );
     }
 
@@ -425,6 +437,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
     _hasError.value = false;
     _errorMessage.value = null;
     _progress.value = 0;
+    _lastProgressUpdate = 0;
     await _controller.reload();
   }
 
@@ -448,6 +461,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
 
   @override
   void dispose() {
+    _lastProgressUpdate = 0;
     _progress.dispose();
     _hasError.dispose();
     _errorMessage.dispose();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
+import 'package:hopefulme_flutter/core/config/reaction_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -143,7 +144,14 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _toggleLike(UpdateDetail detail) async {
-    final result = await widget.repository.toggleLike(detail.id);
+    final defaultReaction =
+        detail.myReaction?.trim().isNotEmpty == true ? detail.myReaction!.trim() : '\u2764\uFE0F';
+    final result = _liked
+        ? await widget.repository.toggleLike(detail.id)
+        : await widget.repository.toggleLike(
+            detail.id,
+            reaction: defaultReaction,
+          );
     _shouldRefresh = true;
     _likeController
       ..forward()
@@ -151,7 +159,82 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     setState(() {
       _liked = result.liked;
       _future = Future.value(
-        detail.copyWith(likesCount: result.count, isLiked: result.liked),
+        detail.copyWith(
+          likesCount: result.count,
+          isLiked: result.liked,
+          myReaction: result.myReaction,
+          reactionsPreview: result.reactionsPreview,
+        ),
+      );
+    });
+  }
+
+  Future<void> _pickReaction(UpdateDetail detail) async {
+    final selected = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (sheetContext) {
+        final colors = sheetContext.appColors;
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        return Dialog(
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? colors.surface : Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: colors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: ReactionConfig.updateQuick
+                  .map(
+                    (emoji) => InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () => Navigator.of(sheetContext).pop(emoji),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected.trim().isEmpty) {
+      return;
+    }
+
+    final result = await widget.repository.toggleLike(
+      detail.id,
+      reaction: selected,
+    );
+    _shouldRefresh = true;
+    setState(() {
+      _liked = result.liked;
+      _future = Future.value(
+        detail.copyWith(
+          likesCount: result.count,
+          isLiked: result.liked,
+          myReaction: result.myReaction,
+          reactionsPreview: result.reactionsPreview,
+        ),
       );
     });
   }
@@ -670,8 +753,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                             : 13.75,
                                         height: 1.62,
                                         fontWeight: isGeneratedActivity
-                                            ? FontWeight.w400
-                                            : FontWeight.w400,
+                                            ? FontWeight.w500
+                                            : FontWeight.w500,
                                       ),
                                       onMentionTap: _openProfile,
                                       onHashtagTap: _openSearchQuery,
@@ -720,6 +803,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   InkWell(
                                     borderRadius: BorderRadius.circular(16),
                                     onTap: () => _toggleLike(detail),
+                                    onLongPress: () => _pickReaction(detail),
                                     child: ScaleTransition(
                                       scale: _likeController,
                                       child: _DetailActionPill(
@@ -753,7 +837,6 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       background: const Color(0x00000000),
                                     ),
                                   ),
-                                  const Spacer(),
                                   InkWell(
                                     borderRadius: BorderRadius.circular(16),
                                     onTap: () => _shareUpdate(detail),
@@ -761,9 +844,61 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       icon: Icons.ios_share_outlined,
                                       color: colors.icon,
                                       background: const Color(0x00000000),
-                                      iconSize: 14.5,
+                                      iconSize: 16.5,
                                     ),
                                   ),
+                                  const Spacer(),
+                                  if (detail.reactionsPreview.isNotEmpty)
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.surfaceMuted,
+                                        borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(color: colors.border),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ...detail.reactionsPreview
+                                              .take(
+                                                ReactionConfig.updatePreviewMax,
+                                              )
+                                              .map(
+                                                (emoji) => Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 2,
+                                                      ),
+                                                  child: Text(
+                                                    emoji,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          if (detail.reactionsPreview.length >
+                                              ReactionConfig.updatePreviewMax)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 3,
+                                              ),
+                                              child: Text(
+                                                '+${detail.reactionsPreview.length - ReactionConfig.updatePreviewMax}',
+                                                style: TextStyle(
+                                                  color: colors.textMuted,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
                                   const SizedBox(width: 8),
                                   Text(
                                     '${formatCompactCount(detail.views)} views',
@@ -891,7 +1026,7 @@ class _DetailActionPill extends StatelessWidget {
     this.darkBackground,
     this.label,
     this.iconFill,
-    this.iconSize = 16,
+    this.iconSize = 17,
   });
 
   final IconData icon;

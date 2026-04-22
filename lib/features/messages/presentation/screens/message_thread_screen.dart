@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/config/reaction_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -50,15 +51,6 @@ class MessageThreadScreen extends StatefulWidget {
 
 class _MessageThreadScreenState extends State<MessageThreadScreen>
     with WidgetsBindingObserver {
-  static const List<String> _quickReactions = <String>[
-    '❤️',
-    '😂',
-    '😮',
-    '😢',
-    '🙏',
-    '👍',
-  ];
-
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
@@ -825,35 +817,47 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
                 color: colors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: colors.borderStrong),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: 0.12),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                    spreadRadius: -12,
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border),
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _quickReactions
-                          .map(
-                            (emoji) => _ReactionQuickButton(
-                              emoji: emoji,
-                              onTap: () => Navigator.of(
-                                sheetContext,
-                              ).pop('react:$emoji'),
-                            ),
-                          )
-                          .toList(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: ReactionConfig.chatQuick
+                            .map(
+                              (emoji) => InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () => Navigator.of(
+                                  sheetContext,
+                                ).pop('react:$emoji'),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 3,
+                                  ),
+                                  child: Text(
+                                    emoji,
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     SingleChildScrollView(
@@ -1718,36 +1722,6 @@ class _BubbleActionButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReactionQuickButton extends StatelessWidget {
-  const _ReactionQuickButton({
-    required this.emoji,
-    required this.onTap,
-  });
-
-  final String emoji;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          emoji,
-          style: const TextStyle(fontSize: 18),
         ),
       ),
     );

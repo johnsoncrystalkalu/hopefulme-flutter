@@ -163,6 +163,8 @@ class FeedEntry {
     required this.linkUrl,
     this.isSponsored = false,
     this.isLiked = false,
+    this.myReaction,
+    this.reactionsPreview = const <String>[],
   });
 
   final int id;
@@ -181,6 +183,8 @@ class FeedEntry {
   final String linkUrl;
   final bool isSponsored;
   final bool isLiked;
+  final String? myReaction;
+  final List<String> reactionsPreview;
 
   factory FeedEntry.fromJson(Map<String, dynamic> json) {
     final userJson = json['user'] as Map<String, dynamic>?;
@@ -215,6 +219,14 @@ class FeedEntry {
       linkUrl: json['url']?.toString() ?? json['update_link']?.toString() ?? '',
       isSponsored: parseBool(json['is_sponsored']),
       isLiked: parseBool(json['is_liked']),
+      myReaction: json['my_reaction']?.toString().trim().isNotEmpty == true
+          ? json['my_reaction']?.toString().trim()
+          : null,
+      reactionsPreview:
+          (json['reactions_preview'] as List<dynamic>? ?? const <dynamic>[])
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .toList(),
     );
   }
 
