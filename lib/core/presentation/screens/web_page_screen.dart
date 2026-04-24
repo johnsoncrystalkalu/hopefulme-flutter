@@ -56,6 +56,13 @@ class WebPageScreen extends StatefulWidget {
       return true;
     }
 
+    if (head == 'login' ||
+        head == 'register' ||
+        head == 'forgot-password' ||
+        head == 'welcome') {
+      return true;
+    }
+
     const nativeHeads = <String>{
       'updates',
       'social',
@@ -218,11 +225,15 @@ class _WebPageScreenState extends State<WebPageScreen> {
             }
 
             final linkHandler = widget.onInternalLinkTap;
-            if (linkHandler == null) {
-              return NavigationDecision.navigate;
+            if (linkHandler != null && uri != null) {
+              final handled = await linkHandler(uri);
+              if (handled) {
+                return NavigationDecision.prevent;
+              }
             }
 
-            if (uri == null ||
+            if (linkHandler == null ||
+                uri == null ||
                 !WebPageScreen.shouldUseNativeRouting(
                   uri,
                   originUrl: widget.url,

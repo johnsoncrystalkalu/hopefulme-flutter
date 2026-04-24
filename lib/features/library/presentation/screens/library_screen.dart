@@ -262,10 +262,10 @@ class _LibraryHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _libraryAccent,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(26),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,21 +274,21 @@ class _LibraryHero extends StatelessWidget {
             'Resources',
             style: TextStyle(
               color: Color.fromRGBO(255, 255, 255, 0.7),
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           const Text(
             'HopefulMe Library',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 28,
+              fontSize: 26,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             '$total titles available for reading, study, and growth.',
             style: const TextStyle(

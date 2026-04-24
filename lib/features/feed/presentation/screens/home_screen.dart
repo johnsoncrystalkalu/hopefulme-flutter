@@ -1627,6 +1627,9 @@ class _HomeTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? colors.textSecondary
+        : colors.icon;
     final isCompactTopBar = MediaQuery.sizeOf(context).width < 360;
     return SafeArea(
       bottom: false,
@@ -1647,7 +1650,7 @@ class _HomeTopBar extends StatelessWidget {
                 icon: HeroIcon(
                   HeroIcons.bars3,
                   size: isCompactTopBar ? 24 : 26,
-                  color: colors.icon,
+                  color: iconColor,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1793,6 +1796,9 @@ class _BadgeTopBarIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final iconColor = Theme.of(context).brightness == Brightness.dark
+        ? colors.textSecondary
+        : colors.icon;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1802,7 +1808,7 @@ class _BadgeTopBarIcon extends StatelessWidget {
           child: HeroIcon(
             icon,
             size: iconSize,
-            color: colors.icon,
+            color: iconColor,
             style: solid ? HeroIconStyle.solid : HeroIconStyle.outline,
           ),
         ),

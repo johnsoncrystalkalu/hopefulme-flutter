@@ -70,15 +70,16 @@ class InteractiveUpdateCard extends StatefulWidget {
 }
 
 class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late int _likesCount;
   late int _commentsCount;
   late String _body;
   late List<String> _reactionsPreview;
-  String? _myReaction;
   bool _liked = false;
   bool _busy = false;
   bool _isDeleted = false;
+  final GlobalKey _likeTapTargetKey = GlobalKey();
+  OverlayEntry? _reactionOverlayEntry;
   late AnimationController _likeController;
 
   bool get _isOwner => widget.currentUser?.username == widget.ownerUsername;
@@ -92,7 +93,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     _commentsCount = widget.commentsCount;
     _body = widget.body;
     _liked = widget.isLiked;
-    _myReaction = widget.myReaction;
     _reactionsPreview = List<String>.from(widget.reactionsPreview);
     _likeController = AnimationController(
       vsync: this,
@@ -104,6 +104,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
 
   @override
   void dispose() {
+    _hideReactionOverlay();
     _likeController.dispose();
     super.dispose();
   }
@@ -117,7 +118,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final likesChanged = oldWidget.likesCount != widget.likesCount;
     final commentsChanged = oldWidget.commentsCount != widget.commentsCount;
     final likedChanged = oldWidget.isLiked != widget.isLiked;
-    final myReactionChanged = oldWidget.myReaction != widget.myReaction;
     final reactionsPreviewChanged =
         oldWidget.reactionsPreview.join('|') !=
         widget.reactionsPreview.join('|');
@@ -127,15 +127,14 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         likesChanged ||
         commentsChanged ||
         likedChanged ||
-        myReactionChanged ||
         reactionsPreviewChanged) {
       _body = widget.body;
       _likesCount = widget.likesCount;
       _commentsCount = widget.commentsCount;
       _liked = widget.isLiked;
-      _myReaction = widget.myReaction;
       _reactionsPreview = List<String>.from(widget.reactionsPreview);
       _isDeleted = false;
+      _hideReactionOverlay();
     }
   }
 
@@ -145,16 +144,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       _busy = true;
     });
     try {
-      final defaultReaction =
-          (_myReaction != null && _myReaction!.trim().isNotEmpty)
-          ? _myReaction!.trim()
-          : '\u2764\uFE0F';
-      final result = _liked
-          ? await widget.updateRepository.toggleLike(widget.updateId)
-          : await widget.updateRepository.toggleLike(
-              widget.updateId,
-              reaction: defaultReaction,
-            );
+      final result = await widget.updateRepository.toggleLike(widget.updateId);
       _likeController
         ..forward()
         ..reverse();
@@ -162,7 +152,6 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       setState(() {
         _liked = result.liked;
         _likesCount = result.count;
-        _myReaction = result.myReaction;
         _reactionsPreview = result.reactionsPreview;
         _busy = false;
       });
@@ -175,71 +164,98 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     }
   }
 
+  Future<void> _handleLikeTap() async {
+    if (_busy) return;
+    if (_reactionOverlayEntry != null) {
+      _hideReactionOverlay();
+    }
+    await _toggleLike();
+  }
+
   Future<void> _pickReaction() async {
     if (_busy) return;
+    if (_reactionOverlayEntry != null) {
+      _hideReactionOverlay();
+      return;
+    }
+    final renderObject = _likeTapTargetKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox) {
+      return;
+    }
+    final likeGlobalTopLeft = renderObject.localToGlobal(Offset.zero);
+    final media = MediaQuery.of(context);
+    final safeTop = media.padding.top + 8;
+    final estimatedPickerHeight = 54.0;
+    final estimatedGap = 8.0;
+    final desiredTop =
+        likeGlobalTopLeft.dy - estimatedPickerHeight - estimatedGap;
+    final overlayTop = desiredTop < safeTop ? safeTop : desiredTop;
 
-    final selected = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        final colors = dialogContext.appColors;
-        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-        return Dialog(
-          elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
-          backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? colors.surface : Colors.white,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: colors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final entry = OverlayEntry(
+      builder: (overlayContext) {
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) => _hideReactionOverlay(),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: ReactionConfig.updateQuick.map((emoji) {
-                return InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () => Navigator.of(dialogContext).pop(emoji),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 4,
-                    ),
-                    child: Text(emoji, style: const TextStyle(fontSize: 24)),
+              ),
+              Positioned(
+                top: overlayTop,
+                left: 12,
+                right: 12,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 170),
+                    tween: Tween<double>(begin: 0.94, end: 1),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value.clamp(0, 1),
+                        child: Transform.scale(scale: value, child: child),
+                      );
+                    },
+                    child: _InlineReactionPicker(onSelect: _submitReaction),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
+    _reactionOverlayEntry = entry;
+    overlay.insert(entry);
+  }
 
-    if (selected == null || selected.trim().isEmpty) {
+  void _hideReactionOverlay() {
+    _reactionOverlayEntry?.remove();
+    _reactionOverlayEntry = null;
+  }
+
+  Future<void> _submitReaction(String selected) async {
+    final reaction = selected.trim();
+    if (_busy || reaction.isEmpty) {
       return;
     }
-
+    _hideReactionOverlay();
     setState(() {
       _busy = true;
     });
     try {
       final result = await widget.updateRepository.toggleLike(
         widget.updateId,
-        reaction: selected,
+        reaction: reaction,
       );
       if (!mounted) return;
       setState(() {
         _liked = result.liked;
         _likesCount = result.count;
-        _myReaction = result.myReaction;
         _reactionsPreview = result.reactionsPreview;
       });
     } finally {
@@ -249,6 +265,13 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
         });
       }
     }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (_reactionOverlayEntry != null) {
+      _hideReactionOverlay();
+    }
+    return false;
   }
 
   Future<void> _editUpdate() async {
@@ -414,149 +437,166 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final activityBadgeLabel = isGeneratedActivity ? widget.updateType : '';
     final hasImage = widget.photoUrl.trim().isNotEmpty;
 
-    return ReusableUpdateCard(
-      key: ValueKey('update-card-${widget.updateId}'),
-      data: UpdateCardData(
-        title: widget.title,
-        subtitle: 'UPDATE',
-        metaLeading: widget.device.isEmpty ? 'Web' : widget.device,
-        metaTrailing: formatRelativeTimestamp(widget.createdAt),
-        body: _body,
-        photoUrl: widget.photoUrl,
-        avatarUrl: widget.avatarUrl,
-        fallbackLabel: widget.fallbackLabel,
-        isVerified: widget.isVerified,
-        isGeneratedActivity: isGeneratedActivity,
-        activityBadgeLabel: activityBadgeLabel,
-      ),
-      onHeaderTap: widget.ownerUsername == null || widget.onOpenProfile == null
-          ? null
-          : () => widget.onOpenProfile!(widget.ownerUsername!),
-      onCardTap: () => widget.onOpenUpdate(),
-      onImageTap: _openFullImage,
-      onMentionTap: widget.onOpenProfile,
-      onHashtagTap: widget.onOpenHashtag,
-      onLinkTap: widget.onOpenLink,
-      footerTopSpacing: hasImage ? 0 : 14,
-      footerPadding: const EdgeInsets.fromLTRB(10, 8, 5, 8),
-      footerShowTopBorder: !hasImage,
-      headerTrailing: PopupMenuButton<String>(
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-        iconSize: 20,
-        splashRadius: 18,
-        icon: Icon(Icons.more_horiz, color: colors.icon),
-        onSelected: (value) async {
-          switch (value) {
-            case 'view':
-              await widget.onOpenUpdate();
-              break;
-            case 'edit':
-              await _editUpdate();
-              break;
-            case 'delete':
-              await _deleteUpdate();
-              break;
-            case 'share':
-              await _shareUpdate();
-              break;
-          }
-        },
-        itemBuilder: (context) => [
-          const PopupMenuItem(value: 'view', child: Text('View Post')),
-          const PopupMenuItem(value: 'share', child: Text('Share To...')),
-          if (_canEdit)
-            const PopupMenuItem(value: 'edit', child: Text('Edit Update')),
-          if (_isOwner)
-            const PopupMenuItem(value: 'delete', child: Text('Delete Update')),
-        ],
-      ),
-      footer: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _toggleLike,
-                onLongPress: _pickReaction,
-                child: RepaintBoundary(
-                  child: ScaleTransition(
-                    scale: _likeController,
-                    child: _ActionPill(
-                      icon: _liked ? Icons.favorite : Icons.favorite_border,
-                      iconFill: _liked ? 1 : 0,
-                      iconSize: 23,
-                      label: formatCompactCount(_likesCount),
-                      color: _liked ? const Color(0xFFef4444) : colors.icon,
-                      background: const Color(0xFFFFF7F6),
-                      darkBackground: const Color(0x221A1618),
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: ReusableUpdateCard(
+        key: ValueKey('update-card-${widget.updateId}'),
+        data: UpdateCardData(
+          title: widget.title,
+          subtitle: 'UPDATE',
+          metaLeading: widget.device.isEmpty ? 'Web' : widget.device,
+          metaTrailing: formatRelativeTimestamp(widget.createdAt),
+          body: _body,
+          photoUrl: widget.photoUrl,
+          avatarUrl: widget.avatarUrl,
+          fallbackLabel: widget.fallbackLabel,
+          isVerified: widget.isVerified,
+          isGeneratedActivity: isGeneratedActivity,
+          activityBadgeLabel: activityBadgeLabel,
+        ),
+        onHeaderTap:
+            widget.ownerUsername == null || widget.onOpenProfile == null
+            ? null
+            : () => widget.onOpenProfile!(widget.ownerUsername!),
+        onCardTap: () => widget.onOpenUpdate(),
+        onImageTap: _openFullImage,
+        onMentionTap: widget.onOpenProfile,
+        onHashtagTap: widget.onOpenHashtag,
+        onLinkTap: widget.onOpenLink,
+        footerTopSpacing: hasImage ? 0 : 14,
+        footerPadding: const EdgeInsets.fromLTRB(10, 8, 5, 8),
+        footerShowTopBorder: !hasImage,
+        headerTrailing: PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+          iconSize: 20,
+          splashRadius: 18,
+          icon: Icon(Icons.more_horiz, color: colors.icon),
+          onSelected: (value) async {
+            switch (value) {
+              case 'view':
+                await widget.onOpenUpdate();
+                break;
+              case 'edit':
+                await _editUpdate();
+                break;
+              case 'delete':
+                await _deleteUpdate();
+                break;
+              case 'share':
+                await _shareUpdate();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'view', child: Text('View Post')),
+            const PopupMenuItem(value: 'share', child: Text('Share To...')),
+            if (_canEdit)
+              const PopupMenuItem(value: 'edit', child: Text('Edit Update')),
+            if (_isOwner)
+              const PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete Update'),
+              ),
+          ],
+        ),
+        footer: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                KeyedSubtree(
+                  key: _likeTapTargetKey,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: _handleLikeTap,
+                    onLongPress: _pickReaction,
+                    child: RepaintBoundary(
+                      child: ScaleTransition(
+                        scale: _likeController,
+                        child: _ActionPill(
+                          icon: _liked ? Icons.favorite : Icons.favorite_border,
+                          iconFill: _liked ? 1 : 0,
+                          iconSize: 23,
+                          label: formatCompactCount(_likesCount),
+                          color: _liked ? const Color(0xFFe84242) : colors.icon,
+                          background: const Color(0xFFFFF7F6),
+                          darkBackground: const Color(0x221A1618),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 0),
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _handleCommentTap,
-                child: _ActionPill(
-                  icon: Icons.chat_bubble_outline,
-                  label: formatCompactCount(_commentsCount),
-                  iconSize: 22,
-                  color: colors.icon,
-                  background: const Color(0x00000000),
-                ),
-              ),
-              const Spacer(),
-              if (_reactionsPreview.isNotEmpty)
-                Tooltip(
-                  message: 'Hold like button to react',
-                  triggerMode: TooltipTriggerMode.longPress,
-                  textStyle: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                const SizedBox(width: 0),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _handleCommentTap,
+                  child: _ActionPill(
+                    icon: Icons.chat_bubble_outline,
+                    label: formatCompactCount(_commentsCount),
+                    iconSize: 22,
+                    color: colors.icon,
+                    background: const Color(0x00000000),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
+                ),
+                const Spacer(),
+                if (_reactionsPreview.isNotEmpty)
+                  Tooltip(
+                    message: 'Hold Like to react',
+                    triggerMode: TooltipTriggerMode.longPress,
+                    textStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                     decoration: BoxDecoration(
-                      color: colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: colors.border),
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.96),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ...visibleReactions.map(
-                          (emoji) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 13),
+                    waitDuration: const Duration(milliseconds: 250),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...visibleReactions.map(
+                            (emoji) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                              ),
+                              child: Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 14),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _shareUpdate,
+                  child: _ActionPill(
+                    icon: Icons.ios_share_outlined,
+                    color: colors.icon,
+                    background: const Color(0x00000000),
+                    iconSize: 18,
+                  ),
                 ),
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _shareUpdate,
-                child: _ActionPill(
-                  icon: Icons.ios_share_outlined,
-                  color: colors.icon,
-                  background: const Color(0x00000000),
-                  iconSize: 18,
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -624,6 +664,46 @@ class _ActionPill extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _InlineReactionPicker extends StatelessWidget {
+  const _InlineReactionPicker({required this.onSelect});
+
+  final Future<void> Function(String emoji) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.1),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ReactionConfig.updateQuick.map((emoji) {
+          return InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => onSelect(emoji),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

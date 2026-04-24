@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/config/reaction_config.dart';
-import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
@@ -77,6 +76,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   bool _isLoadingMoreComments = false;
   bool _shouldRefresh = false;
   bool _didRequestInitialCommentFocus = false;
+  final GlobalKey _likeTapTargetKey = GlobalKey();
+  OverlayEntry? _reactionOverlayEntry;
 
   @override
   void initState() {
@@ -121,6 +122,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
   @override
   void dispose() {
+    _hideReactionOverlay();
     _likeController.dispose();
     _commentController.dispose();
     _commentFocusNode.dispose();
@@ -145,15 +147,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _toggleLike(UpdateDetail detail) async {
-    final defaultReaction = detail.myReaction?.trim().isNotEmpty == true
-        ? detail.myReaction!.trim()
-        : '\u2764\uFE0F';
-    final result = _liked
-        ? await widget.repository.toggleLike(detail.id)
-        : await widget.repository.toggleLike(
-            detail.id,
-            reaction: defaultReaction,
-          );
+    _hideReactionOverlay();
+    final result = await widget.repository.toggleLike(detail.id);
     _shouldRefresh = true;
     _likeController
       ..forward()
@@ -172,63 +167,80 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _pickReaction(UpdateDetail detail) async {
-    final selected = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (sheetContext) {
-        final colors = sheetContext.appColors;
-        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
-        return Dialog(
-          elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
-          backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? colors.surface : Colors.white,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: colors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+    if (_reactionOverlayEntry != null) {
+      _hideReactionOverlay();
+      return;
+    }
+    final renderObject = _likeTapTargetKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox) {
+      return;
+    }
+    final likeGlobalTopLeft = renderObject.localToGlobal(Offset.zero);
+    final media = MediaQuery.of(context);
+    final safeTop = media.padding.top + 8;
+    final estimatedPickerHeight = 54.0;
+    final estimatedGap = 8.0;
+    final desiredTop =
+        likeGlobalTopLeft.dy - estimatedPickerHeight - estimatedGap;
+    final overlayTop = desiredTop < safeTop ? safeTop : desiredTop;
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final entry = OverlayEntry(
+      builder: (overlayContext) {
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) => _hideReactionOverlay(),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: ReactionConfig.updateQuick
-                  .map(
-                    (emoji) => InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => Navigator.of(sheetContext).pop(emoji),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 4,
-                        ),
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                      ),
+              ),
+              Positioned(
+                top: overlayTop,
+                left: 12,
+                right: 12,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 170),
+                    tween: Tween<double>(begin: 0.94, end: 1),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value.clamp(0, 1),
+                        child: Transform.scale(scale: value, child: child),
+                      );
+                    },
+                    child: _InlineReactionPicker(
+                      onSelect: (emoji) => _submitReaction(detail, emoji),
                     ),
-                  )
-                  .toList(),
-            ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
+    _reactionOverlayEntry = entry;
+    overlay.insert(entry);
+  }
 
-    if (selected == null || selected.trim().isEmpty) {
+  void _hideReactionOverlay() {
+    _reactionOverlayEntry?.remove();
+    _reactionOverlayEntry = null;
+  }
+
+  Future<void> _submitReaction(UpdateDetail detail, String selected) async {
+    final reaction = selected.trim();
+    if (reaction.isEmpty) {
       return;
     }
-
+    _hideReactionOverlay();
     final result = await widget.repository.toggleLike(
       detail.id,
-      reaction: selected,
+      reaction: reaction,
     );
     _shouldRefresh = true;
     setState(() {
@@ -242,6 +254,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         ),
       );
     });
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (_reactionOverlayEntry != null) {
+      _hideReactionOverlay();
+    }
+    return false;
   }
 
   Future<void> _submitComment(UpdateDetail detail) async {
@@ -631,453 +650,468 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UpdateDetail>(
-      future: _future,
-      builder: (context, snapshot) {
-        final detail = snapshot.data;
-        final isOwner =
-            detail != null &&
-            widget.currentUser?.username == detail.user.username;
-        final isAdmin = widget.currentUser?.isAdmin == true;
-        final canEdit =
-            detail != null &&
-            (isOwner || isAdmin) &&
-            detail.type.trim().toLowerCase() == 'update';
-        final canDelete = detail != null && (isOwner || isAdmin);
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: FutureBuilder<UpdateDetail>(
+        future: _future,
+        builder: (context, snapshot) {
+          final detail = snapshot.data;
+          final isOwner =
+              detail != null &&
+              widget.currentUser?.username == detail.user.username;
+          final isAdmin = widget.currentUser?.isAdmin == true;
+          final canEdit =
+              detail != null &&
+              (isOwner || isAdmin) &&
+              detail.type.trim().toLowerCase() == 'update';
+          final canDelete = detail != null && (isOwner || isAdmin);
 
-        return PopScope<Object?>(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop) {
-              return;
-            }
-            _close();
-          },
-          child: Scaffold(
-            backgroundColor: context.appColors.scaffold,
-            appBar: AppBar(
-              backgroundColor: context.appColors.surface,
-              surfaceTintColor: context.appColors.surface,
-              leading: IconButton(
-                onPressed: _close,
-                icon: const Icon(Icons.arrow_back),
+          return PopScope<Object?>(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) {
+                return;
+              }
+              _close();
+            },
+            child: Scaffold(
+              backgroundColor: context.appColors.scaffold,
+              appBar: AppBar(
+                backgroundColor: context.appColors.surface,
+                surfaceTintColor: context.appColors.surface,
+                leading: IconButton(
+                  onPressed: _close,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+                // title: const Text('Update'),
+                actions: [
+                  if (detail != null)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_horiz),
+                      onSelected: (value) async {
+                        switch (value) {
+                          case 'share':
+                            await _shareUpdate(detail);
+                            break;
+                          case 'edit':
+                            await _editUpdate(detail);
+                            break;
+                          case 'delete':
+                            await _deleteUpdate(detail);
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'share',
+                          child: Text('Share To...'),
+                        ),
+                        if (canEdit)
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit Update'),
+                          ),
+                        if (canDelete)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete Update'),
+                          ),
+                      ],
+                    ),
+                ],
               ),
-              // title: const Text('Update'),
-              actions: [
-                if (detail != null)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz),
-                    onSelected: (value) async {
-                      switch (value) {
-                        case 'share':
-                          await _shareUpdate(detail);
-                          break;
-                        case 'edit':
-                          await _editUpdate(detail);
-                          break;
-                        case 'delete':
-                          await _deleteUpdate(detail);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'share',
-                        child: Text('Share To...'),
-                      ),
-                      if (canEdit)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Edit Update'),
-                        ),
-                      if (canDelete)
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete Update'),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
-            body: Builder(
-              builder: (context) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+              body: Builder(
+                builder: (context) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                if (snapshot.hasError && !snapshot.hasData) {
-                  return AppStatusState.fromError(
-                    error: snapshot.error ?? 'Unable to load this update.',
-                    actionLabel: 'Try again',
-                    onAction: _refresh,
-                  );
-                }
+                  if (snapshot.hasError && !snapshot.hasData) {
+                    return AppStatusState.fromError(
+                      error: snapshot.error ?? 'Unable to load this update.',
+                      actionLabel: 'Try again',
+                      onAction: _refresh,
+                    );
+                  }
 
-                if (detail == null) {
-                  return const SizedBox.shrink();
-                }
-                _maybeRequestInitialCommentFocus();
+                  if (detail == null) {
+                    return const SizedBox.shrink();
+                  }
+                  _maybeRequestInitialCommentFocus();
 
-                final colors = context.appColors;
-                final isGeneratedActivity =
-                    detail.type.trim().toLowerCase() != 'update';
+                  final colors = context.appColors;
+                  final isGeneratedActivity =
+                      detail.type.trim().toLowerCase() != 'update';
 
-                return RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                18,
-                                18,
-                                18,
-                                12,
-                              ),
-                              child: Row(
-                                children: [
-                                  InkWell(
-                                    onTap: () =>
-                                        _openProfile(detail.user.username),
-                                    borderRadius: BorderRadius.circular(999),
-                                    child: AppAvatar(
-                                      imageUrl: detail.user.photoUrl,
-                                      label: detail.user.displayName,
-                                      radius: 22,
-                                      size: 66,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () =>
-                                          _openProfile(detail.user.username),
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          VerifiedNameText(
-                                            name: detail.user.displayName,
-                                            verified: detail.user.isVerified,
-                                            style: TextStyle(
-                                              color: colors.textPrimary,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            detail.device.isNotEmpty
-                                                ? '${formatRelativeTimestamp(detail.createdAt)} · ${detail.device}'
-                                                : formatRelativeTimestamp(
-                                                    detail.createdAt,
-                                                  ),
-                                            style: TextStyle(
-                                              color: colors.textMuted,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (detail.status.isNotEmpty)
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: colors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   18,
-                                  0,
+                                  18,
                                   18,
                                   12,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
                                   children: [
-                                    RichDisplayText(
-                                      text: detail.status,
-                                      style: TextStyle(
-                                        color: isGeneratedActivity
-                                            ? colors.textMuted.withValues(
-                                                alpha: 0.82,
-                                              )
-                                            : colors.textSecondary,
-                                        fontSize: isGeneratedActivity
-                                            ? 12.5
-                                            : 13.75,
-                                        height: 1.62,
-                                        fontWeight: isGeneratedActivity
-                                            ? FontWeight.w500
-                                            : FontWeight.w500,
+                                    InkWell(
+                                      onTap: () =>
+                                          _openProfile(detail.user.username),
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: AppAvatar(
+                                        imageUrl: detail.user.photoUrl,
+                                        label: detail.user.displayName,
+                                        radius: 22,
+                                        size: 66,
                                       ),
-                                      onMentionTap: _openProfile,
-                                      onHashtagTap: _openSearchQuery,
-                                      onLinkTap: _handleLinkTap,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () =>
+                                            _openProfile(detail.user.username),
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            VerifiedNameText(
+                                              name: detail.user.displayName,
+                                              verified: detail.user.isVerified,
+                                              style: TextStyle(
+                                                color: colors.textPrimary,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              detail.device.isNotEmpty
+                                                  ? '${formatRelativeTimestamp(detail.createdAt)} · ${detail.device}'
+                                                  : formatRelativeTimestamp(
+                                                      detail.createdAt,
+                                                    ),
+                                              style: TextStyle(
+                                                color: colors.textMuted,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            if (detail.photoUrl.isNotEmpty)
-                              InkWell(
-                                onTap: () => _openFullImage(
-                                  detail,
-                                  detail.originalPhotoUrl.isNotEmpty
-                                      ? detail.originalPhotoUrl
-                                      : detail.photoUrl,
-                                ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: 260,
-                                    maxHeight:
-                                        MediaQuery.of(context).size.height *
-                                        0.58,
+                              if (detail.status.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    0,
+                                    18,
+                                    12,
                                   ),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: AppNetworkImage(
-                                      imageUrl:
-                                          detail.originalPhotoUrl.isNotEmpty
-                                          ? detail.originalPhotoUrl
-                                          : detail.photoUrl,
-                                      fit: BoxFit.cover,
-                                      backgroundColor: colors.surfaceMuted,
-                                      placeholderLabel: detail.user.displayName,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      RichDisplayText(
+                                        text: detail.status,
+                                        style: TextStyle(
+                                          color: isGeneratedActivity
+                                              ? colors.textMuted.withValues(
+                                                  alpha: 0.82,
+                                                )
+                                              : colors.textSecondary,
+                                          fontSize: isGeneratedActivity
+                                              ? 12.5
+                                              : 13.75,
+                                          height: 1.62,
+                                          fontWeight: isGeneratedActivity
+                                              ? FontWeight.w500
+                                              : FontWeight.w500,
+                                        ),
+                                        onMentionTap: _openProfile,
+                                        onHashtagTap: _openSearchQuery,
+                                        onLinkTap: _handleLinkTap,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (detail.photoUrl.isNotEmpty)
+                                InkWell(
+                                  onTap: () => _openFullImage(
+                                    detail,
+                                    detail.originalPhotoUrl.isNotEmpty
+                                        ? detail.originalPhotoUrl
+                                        : detail.photoUrl,
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: 260,
+                                      maxHeight:
+                                          MediaQuery.of(context).size.height *
+                                          0.58,
+                                    ),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: AppNetworkImage(
+                                        imageUrl:
+                                            detail.originalPhotoUrl.isNotEmpty
+                                            ? detail.originalPhotoUrl
+                                            : detail.photoUrl,
+                                        fit: BoxFit.cover,
+                                        backgroundColor: colors.surfaceMuted,
+                                        placeholderLabel:
+                                            detail.user.displayName,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            Container(
-                              padding: const EdgeInsets.fromLTRB(10, 6, 5, 8),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(color: colors.border),
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(10, 6, 5, 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(color: colors.border),
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _toggleLike(detail),
-                                    onLongPress: () => _pickReaction(detail),
-                                    child: ScaleTransition(
-                                      scale: _likeController,
+                                child: Row(
+                                  children: [
+                                    KeyedSubtree(
+                                      key: _likeTapTargetKey,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(16),
+                                        onTap: () => _toggleLike(detail),
+                                        onLongPress: () =>
+                                            _pickReaction(detail),
+                                        child: ScaleTransition(
+                                          scale: _likeController,
+                                          child: _DetailActionPill(
+                                            icon: _liked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            iconFill: _liked ? 1 : 0,
+                                            label: formatCompactCount(
+                                              detail.likesCount,
+                                            ),
+                                            iconSize: 23,
+                                            color: _liked
+                                                ? const Color(0xFFe84242)
+                                                : colors.icon,
+                                            background: const Color(0xFFFFF7F6),
+                                            darkBackground: const Color(
+                                              0x221A1618,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () =>
+                                          _commentFocusNode.requestFocus(),
                                       child: _DetailActionPill(
-                                        icon: _liked
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        iconFill: _liked ? 1 : 0,
+                                        icon: Icons.chat_bubble_outline,
                                         label: formatCompactCount(
-                                          detail.likesCount,
+                                          detail.commentsCount,
                                         ),
-                                        iconSize: 23,
-                                        color: _liked
-                                            ? const Color(0xFFef4444)
-                                            : colors.icon,
-                                        background: const Color(0xFFFFF7F6),
-                                        darkBackground: const Color(0x221A1618),
+                                        iconSize: 22,
+                                        color: colors.icon,
+                                        background: const Color(0x00000000),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () =>
-                                        _commentFocusNode.requestFocus(),
-                                    child: _DetailActionPill(
-                                      icon: Icons.chat_bubble_outline,
-                                      label: formatCompactCount(
-                                        detail.commentsCount,
-                                      ),
-                                      iconSize: 22,
-                                      color: colors.icon,
-                                      background: const Color(0x00000000),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  if (detail.reactionsPreview.isNotEmpty)
-                                    Container(
-                                      margin: const EdgeInsets.only(right: 8),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colors.surfaceMuted,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
+                                    const Spacer(),
+                                    if (detail.reactionsPreview.isNotEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 4,
                                         ),
-                                        border: Border.all(
-                                          color: colors.border,
+                                        decoration: BoxDecoration(
+                                          color: colors.surfaceMuted,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          border: Border.all(
+                                            color: colors.border,
+                                          ),
                                         ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ...detail.reactionsPreview
-                                              .take(
-                                                ReactionConfig.updatePreviewMax,
-                                              )
-                                              .map(
-                                                (emoji) => Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 2,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ...detail.reactionsPreview
+                                                .take(
+                                                  ReactionConfig
+                                                      .updatePreviewMax,
+                                                )
+                                                .map(
+                                                  (emoji) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 2,
+                                                        ),
+                                                    child: Text(
+                                                      emoji,
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
                                                       ),
-                                                  child: Text(
-                                                    emoji,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                          if (detail.reactionsPreview.length >
-                                              ReactionConfig.updatePreviewMax)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                left: 3,
-                                              ),
-                                              child: Text(
-                                                '+${detail.reactionsPreview.length - ReactionConfig.updatePreviewMax}',
-                                                style: TextStyle(
-                                                  color: colors.textMuted,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
+                                            if (detail.reactionsPreview.length >
+                                                ReactionConfig.updatePreviewMax)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 3,
+                                                ),
+                                                child: Text(
+                                                  '+${detail.reactionsPreview.length - ReactionConfig.updatePreviewMax}',
+                                                  style: TextStyle(
+                                                    color: colors.textMuted,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                        ],
+                                          ],
+                                        ),
+                                      ),
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () => _shareUpdate(detail),
+                                      child: _DetailActionPill(
+                                        icon: Icons.ios_share_outlined,
+                                        color: colors.icon,
+                                        background: const Color(0x00000000),
+                                        iconSize: 18,
                                       ),
                                     ),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _shareUpdate(detail),
-                                    child: _DetailActionPill(
-                                      icon: Icons.ios_share_outlined,
-                                      color: colors.icon,
-                                      background: const Color(0x00000000),
-                                      iconSize: 18,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Comments',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _commentController,
-                                    focusNode: _commentFocusNode,
-                                    minLines: 1,
-                                    maxLines: 3,
-                                    decoration: InputDecoration(
-                                      hintText: 'Enter comment...',
-                                      filled: true,
-                                      fillColor: colors.surfaceMuted,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                AppSendActionButton(
-                                  onPressed: _isSubmittingComment
-                                      ? null
-                                      : () => _submitComment(detail),
-                                  isBusy: _isSubmittingComment,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            if (detail.comments.isEmpty)
-                              Text(
-                                'No comments yet.',
-                                style: TextStyle(color: colors.textMuted),
-                              )
-                            else
-                              ...detail.comments.map(
-                                (comment) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _CommentTile(
-                                    comment: comment,
-                                    onProfileTap: () =>
-                                        _openProfile(comment.user.username),
-                                    onMentionTap: _openProfile,
-                                    onHashtagTap: _openSearchQuery,
-                                    onLinkTap: _handleLinkTap,
-                                    onReplyTap: () =>
-                                        _replyToComment(detail, comment),
-                                    onEdit: () => _editComment(detail, comment),
-                                    onDelete: () => _deleteComment(comment),
-                                    isOwner:
-                                        widget.currentUser?.id ==
-                                        comment.user.id,
-                                  ),
-                                ),
-                              ),
-                            if (detail.hasMoreComments) ...[
-                              const SizedBox(height: 4),
-                              Center(
-                                child: TextButton(
-                                  onPressed: _isLoadingMoreComments
-                                      ? null
-                                      : () => _loadMoreComments(detail),
-                                  child: Text(
-                                    _isLoadingMoreComments
-                                        ? 'Loading comments...'
-                                        : 'Load more comments',
-                                  ),
+                                  ],
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: colors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Comments',
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _commentController,
+                                      focusNode: _commentFocusNode,
+                                      minLines: 1,
+                                      maxLines: 3,
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter comment...',
+                                        filled: true,
+                                        fillColor: colors.surfaceMuted,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  AppSendActionButton(
+                                    onPressed: _isSubmittingComment
+                                        ? null
+                                        : () => _submitComment(detail),
+                                    isBusy: _isSubmittingComment,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              if (detail.comments.isEmpty)
+                                Text(
+                                  'No comments yet.',
+                                  style: TextStyle(color: colors.textMuted),
+                                )
+                              else
+                                ...detail.comments.map(
+                                  (comment) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _CommentTile(
+                                      comment: comment,
+                                      onProfileTap: () =>
+                                          _openProfile(comment.user.username),
+                                      onMentionTap: _openProfile,
+                                      onHashtagTap: _openSearchQuery,
+                                      onLinkTap: _handleLinkTap,
+                                      onReplyTap: () =>
+                                          _replyToComment(detail, comment),
+                                      onEdit: () =>
+                                          _editComment(detail, comment),
+                                      onDelete: () => _deleteComment(comment),
+                                      isOwner:
+                                          widget.currentUser?.id ==
+                                          comment.user.id,
+                                    ),
+                                  ),
+                                ),
+                              if (detail.hasMoreComments) ...[
+                                const SizedBox(height: 4),
+                                Center(
+                                  child: TextButton(
+                                    onPressed: _isLoadingMoreComments
+                                        ? null
+                                        : () => _loadMoreComments(detail),
+                                    child: Text(
+                                      _isLoadingMoreComments
+                                          ? 'Loading comments...'
+                                          : 'Load more comments',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -1149,6 +1183,46 @@ class _DetailActionPill extends StatelessWidget {
   }
 }
 
+class _InlineReactionPicker extends StatelessWidget {
+  const _InlineReactionPicker({required this.onSelect});
+
+  final Future<void> Function(String emoji) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.10),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ReactionConfig.updateQuick.map((emoji) {
+          return InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => onSelect(emoji),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 class _CommentTile extends StatelessWidget {
   const _CommentTile({
     required this.comment,
@@ -1182,16 +1256,10 @@ class _CommentTile extends StatelessWidget {
         InkWell(
           onTap: onProfileTap,
           borderRadius: BorderRadius.circular(999),
-          child: CircleAvatar(
+          child: AppAvatar(
+            imageUrl: comment.user.photoUrl,
+            label: comment.user.displayName,
             radius: 18,
-            backgroundImage: comment.user.photoUrl.isNotEmpty
-                ? NetworkImage(
-                    ImageUrlResolver.avatar(comment.user.photoUrl, size: 56),
-                  )
-                : null,
-            child: comment.user.photoUrl.isEmpty
-                ? const Icon(Icons.person)
-                : null,
           ),
         ),
         const SizedBox(width: 12),

@@ -183,7 +183,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     textPrimary: Color(0xFFF0F4FF), // Cool off-white with blue tint
     textSecondary: Color(0xFF90A5BE), // Secondary copy
     textMuted: Color(0xFF647890), // Readable muted copy
-    icon: Color(0xFF6F829A), // Less bold icons
+    icon: Color(0xFF8095AF), // More visible muted icon tone
 
     sidebar: Color(0xFF0C1220), // Deepest brand-tinted black
     sidebarSurface: Color.fromRGBO(61, 90, 254, 0.08), // Brand-tinted overlay

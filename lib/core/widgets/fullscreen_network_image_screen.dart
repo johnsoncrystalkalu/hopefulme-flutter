@@ -305,25 +305,57 @@ class _FullscreenNetworkImageScreenState
         surfaceTintColor: Colors.black,
         scrolledUnderElevation: 0,
         foregroundColor: Colors.white,
+        flexibleSpace: (widget.authorName ?? '').trim().isEmpty
+            ? null
+            : SafeArea(
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 220),
+                        child: Text(
+                          widget.authorName!.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         actions: [
-          if ((widget.authorName ?? '').trim().isNotEmpty)
+          if (widget.primaryActionLabel != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    widget.authorName!.trim(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: OutlinedButton(
+                onPressed: _isRunningAction
+                    ? null
+                    : () => _runExternalAction(widget.onPrimaryAction),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.38)),
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
                   ),
+                  textStyle: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: Text(
+                  widget.primaryActionLabel!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -472,34 +504,12 @@ class _FullscreenNetworkImageScreenState
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.primaryActionLabel != null ||
-                          widget.secondaryActionLabel != null)
+                      if (widget.secondaryActionLabel != null)
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           alignment: WrapAlignment.center,
                           children: [
-                            if (widget.primaryActionLabel != null)
-                              FilledButton.tonal(
-                                onPressed: () =>
-                                    _runExternalAction(widget.onPrimaryAction),
-                                style: FilledButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: Colors.white.withValues(
-                                    alpha: 0.17,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 9,
-                                  ),
-                                  minimumSize: const Size(0, 36),
-                                  textStyle: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: Text(widget.primaryActionLabel!),
-                              ),
                             if (widget.secondaryActionLabel != null)
                               FilledButton.tonal(
                                 onPressed: () => _runExternalAction(
@@ -524,8 +534,7 @@ class _FullscreenNetworkImageScreenState
                               ),
                           ],
                         ),
-                      if (widget.primaryActionLabel != null ||
-                          widget.secondaryActionLabel != null)
+                      if (widget.secondaryActionLabel != null)
                         const SizedBox(height: 8),
                       Center(
                         child: Container(

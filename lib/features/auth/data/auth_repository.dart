@@ -245,9 +245,12 @@ class AuthRepository {
         ? (response['data'] as Map)['access_token']?.toString()
         : null;
 
-    if (token != null && token.isNotEmpty) {
-      await _apiClient.saveToken(token);
+    if (token == null || token.isEmpty) {
+      throw ApiException(
+        'Could not start your session. Please sign in again.',
+      );
     }
+    await _apiClient.saveToken(token);
 
     Map<String, dynamic>? userJson;
     userJson ??= response['user'] as Map<String, dynamic>?;

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/login_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
@@ -107,6 +111,30 @@ class AppDeepLinkNavigator {
     }
 
     switch (segments.first.toLowerCase()) {
+      case 'welcome':
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AuthWelcomeScreen.routeName,
+          (_) => false,
+        );
+        return true;
+      case 'login':
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          LoginScreen.routeName,
+          (_) => false,
+        );
+        return true;
+      case 'register':
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          RegisterScreen.routeName,
+          (_) => false,
+        );
+        return true;
+      case 'forgot-password':
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          ForgotPasswordScreen.routeName,
+          (_) => false,
+        );
+        return true;
       case 'updates':
         await Navigator.of(context).push(
           MaterialPageRoute<void>(

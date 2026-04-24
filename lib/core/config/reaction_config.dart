@@ -6,17 +6,18 @@ class ReactionConfig {
     '\u2764\uFE0F',
     '\u{1F44D}',
     '\u{1F602}',
-    '\u{1F622}',
+    '\u{1F64F}',
   ];
 
   // Broader expressive reactions for updates/feed content.
   static const List<String> updateQuick = <String>[
-    '\u{1F973}',
+    '\u2764\uFE0F',
+    '\u{1F917}',
     '\u{1F525}',
     '\u{1F602}',
+    '\u{1F973}',
+    '\u{1F64F}',
     '\u{1F4AA}',
-    '\u{1F625}',
-    '\u{1F917}',
   ];
 
   static const int updatePreviewMax = 4;

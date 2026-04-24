@@ -8,6 +8,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/reaction_config.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -2052,19 +2053,10 @@ class _GroupMessageBubble extends StatelessWidget {
                 child: InkWell(
                   onTap: onProfileTap,
                   borderRadius: BorderRadius.circular(999),
-                  child: CircleAvatar(
+                  child: AppAvatar(
+                    imageUrl: message.sender?.photoUrl ?? '',
+                    label: message.sender?.displayName ?? 'Member',
                     radius: 14,
-                    backgroundImage: message.sender?.photoUrl.isNotEmpty == true
-                        ? NetworkImage(
-                            ImageUrlResolver.avatar(
-                              message.sender!.photoUrl,
-                              size: 42,
-                            ),
-                          )
-                        : null,
-                    child: message.sender?.photoUrl.isEmpty ?? true
-                        ? const Icon(Icons.person, size: 14)
-                        : null,
                   ),
                 ),
               )

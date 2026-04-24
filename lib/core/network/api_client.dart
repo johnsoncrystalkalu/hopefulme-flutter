@@ -25,35 +25,40 @@ class ApiClient {
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, dynamic>? queryParameters,
-  }) => _sendJsonRequest(
-    () async => _httpClient
+  }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
+    final response = await _httpClient
         .get(
           await _buildUri(path, queryParameters: queryParameters),
-          headers: await _headers(),
+          headers: _headersForToken(token),
         )
-        .timeout(AppConfig.requestTimeout),
-  );
+        .timeout(AppConfig.requestTimeout);
+    return (response, token);
+  });
 
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
-  }) => _sendJsonRequest(
-    () async => _httpClient
+  }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
+    final response = await _httpClient
         .post(
           await _buildUri(path),
-          headers: await _headers(),
+          headers: _headersForToken(token),
           body: jsonEncode(body ?? <String, dynamic>{}),
         )
-        .timeout(AppConfig.requestTimeout),
-  );
+        .timeout(AppConfig.requestTimeout);
+    return (response, token);
+  });
 
   Future<Map<String, dynamic>> postMultipart(
     String path, {
     Map<String, String>? fields,
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
   }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
     final request = http.MultipartRequest('POST', await _buildUri(path));
-    request.headers.addAll(await _multipartHeaders());
+    request.headers.addAll(_multipartHeadersForToken(token));
     if (fields != null && fields.isNotEmpty) {
       request.fields.addAll(fields);
     }
@@ -68,7 +73,7 @@ class ApiClient {
     }
 
     final streamed = await request.send().timeout(AppConfig.requestTimeout);
-    return http.Response.fromStream(streamed);
+    return (await http.Response.fromStream(streamed), token);
   });
 
   Future<Map<String, dynamic>> putMultipart(
@@ -76,8 +81,9 @@ class ApiClient {
     Map<String, String>? fields,
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
   }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
     final request = http.MultipartRequest('POST', await _buildUri(path));
-    request.headers.addAll(await _multipartHeaders());
+    request.headers.addAll(_multipartHeadersForToken(token));
     request.fields['_method'] = 'PUT';
     if (fields != null && fields.isNotEmpty) {
       request.fields.addAll(fields);
@@ -93,40 +99,46 @@ class ApiClient {
     }
 
     final streamed = await request.send().timeout(AppConfig.requestTimeout);
-    return http.Response.fromStream(streamed);
+    return (await http.Response.fromStream(streamed), token);
   });
 
   Future<Map<String, dynamic>> patch(
     String path, {
     Map<String, dynamic>? body,
-  }) => _sendJsonRequest(
-    () async => _httpClient
+  }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
+    final response = await _httpClient
         .patch(
           await _buildUri(path),
-          headers: await _headers(),
+          headers: _headersForToken(token),
           body: jsonEncode(body ?? <String, dynamic>{}),
         )
-        .timeout(AppConfig.requestTimeout),
-  );
+        .timeout(AppConfig.requestTimeout);
+    return (response, token);
+  });
 
   Future<Map<String, dynamic>> put(
     String path, {
     Map<String, dynamic>? body,
-  }) => _sendJsonRequest(
-    () async => _httpClient
+  }) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
+    final response = await _httpClient
         .put(
           await _buildUri(path),
-          headers: await _headers(),
+          headers: _headersForToken(token),
           body: jsonEncode(body ?? <String, dynamic>{}),
         )
-        .timeout(AppConfig.requestTimeout),
-  );
+        .timeout(AppConfig.requestTimeout);
+    return (response, token);
+  });
 
-  Future<Map<String, dynamic>> delete(String path) => _sendJsonRequest(
-    () async => _httpClient
-        .delete(await _buildUri(path), headers: await _headers())
-        .timeout(AppConfig.requestTimeout),
-  );
+  Future<Map<String, dynamic>> delete(String path) => _sendJsonRequest(() async {
+    final token = await tokenStorage.readToken();
+    final response = await _httpClient
+        .delete(await _buildUri(path), headers: _headersForToken(token))
+        .timeout(AppConfig.requestTimeout);
+    return (response, token);
+  });
 
   Future<void> saveToken(String token) => tokenStorage.saveToken(token);
 
@@ -150,8 +162,7 @@ class ApiClient {
     );
   }
 
-  Future<Map<String, String>> _headers() async {
-    final token = await tokenStorage.readToken();
+  Map<String, String> _headersForToken(String? token) {
     return <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -160,8 +171,7 @@ class ApiClient {
     };
   }
 
-  Future<Map<String, String>> _multipartHeaders() async {
-    final token = await tokenStorage.readToken();
+  Map<String, String> _multipartHeadersForToken(String? token) {
     return <String, String>{
       'Accept': 'application/json',
       'X-Client-Platform': 'app',
@@ -170,11 +180,11 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> _sendJsonRequest(
-    Future<http.Response> Function() request,
+    Future<(http.Response, String?)> Function() request,
   ) async {
     try {
-      final response = await request();
-      return _decodeResponse(response);
+      final (response, tokenUsed) = await request();
+      return _decodeResponse(response, tokenUsed: tokenUsed);
     } on TimeoutException {
       throw ApiException(
         kDebugMode
@@ -225,7 +235,10 @@ class ApiClient {
     return base;
   }
 
-  Map<String, dynamic> _decodeResponse(http.Response response) {
+  Map<String, dynamic> _decodeResponse(
+    http.Response response, {
+    String? tokenUsed,
+  }) {
     final rawBody = _readResponseBody(response);
     final hasBody = rawBody.trim().isNotEmpty;
 
@@ -243,7 +256,7 @@ class ApiClient {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return <String, dynamic>{};
       }
-      _notifyUnauthorizedIfNeeded(response.statusCode);
+      _notifyUnauthorizedIfNeeded(response.statusCode, tokenUsed: tokenUsed);
       throw ApiException(
         kDebugMode
             ? 'Unexpected response (${response.statusCode}): content-type was $contentType'
@@ -279,15 +292,23 @@ class ApiClient {
               'Request failed (${response.statusCode})'
             : _userFriendlyHttpError(response.statusCode));
 
-    _notifyUnauthorizedIfNeeded(response.statusCode);
+    _notifyUnauthorizedIfNeeded(response.statusCode, tokenUsed: tokenUsed);
     throw ApiException(message, statusCode: response.statusCode);
   }
 
-  void _notifyUnauthorizedIfNeeded(int statusCode) {
+  void _notifyUnauthorizedIfNeeded(int statusCode, {String? tokenUsed}) {
     if (statusCode != 401 || _onUnauthorized == null) {
       return;
     }
-    Future<void>.microtask(() => _onUnauthorized!.call());
+    Future<void>.microtask(() async {
+      // Ignore stale 401s from older requests if token already changed.
+      final activeToken = await tokenStorage.readToken();
+      final hasTokenUsed = tokenUsed != null && tokenUsed.isNotEmpty;
+      if (!hasTokenUsed || activeToken != tokenUsed) {
+        return;
+      }
+      await _onUnauthorized!.call();
+    });
   }
 
   String _userFriendlyHttpError(int statusCode) {
