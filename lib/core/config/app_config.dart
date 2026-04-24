@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  const AppConfig({required this.baseUrl});
+  const AppConfig({required this.baseUrl, required this.iosAppStoreId});
 
   static const String appName = 'HopefulMe';
   static const Duration requestTimeout = Duration(seconds: 35);
@@ -9,6 +9,7 @@ class AppConfig {
   static const String oneSignalAppId = '416d7ded-013d-47fa-8269-f876e432e460';
 
   final String baseUrl;
+  final String iosAppStoreId;
 
   String get webBaseUrl {
     final normalized = baseUrl.trim();
@@ -23,11 +24,13 @@ class AppConfig {
 
   factory AppConfig.fromEnvironment() {
     const configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+    const configuredIosAppStoreId = String.fromEnvironment('IOS_APP_STORE_ID');
 
     return AppConfig(
       baseUrl: configuredBaseUrl.isNotEmpty
           ? configuredBaseUrl
           : _defaultBaseUrl(),
+      iosAppStoreId: configuredIosAppStoreId.trim(),
     );
   }
 

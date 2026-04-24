@@ -7,6 +7,9 @@ import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
+import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
@@ -17,6 +20,8 @@ import 'package:share_plus/share_plus.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     required this.username,
+    required this.isVerified,
+    this.currentUser,
     required this.authRepository,
     required this.profileRepository,
     required this.themeController,
@@ -27,6 +32,8 @@ class SettingsScreen extends StatelessWidget {
   });
 
   final String username;
+  final bool isVerified;
+  final User? currentUser;
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final ThemeController themeController;
@@ -92,6 +99,8 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
+    final safeUsername = username.trim().replaceFirst('@', '');
+    final displayName = currentUser?.displayName.trim() ?? '';
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -103,140 +112,275 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          const _SettingsSectionTitle('Account'),
-          _SettingsTile(
-            icon: Icons.person_outline_rounded,
-            title: 'Edit Profile',
-            subtitle: 'Update your name, bio, email and preferences.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => EditProfileScreen(
-                  username: username,
-                  repository: profileRepository,
+          _SettingsHeader(
+            username: safeUsername,
+            displayName: displayName,
+            photoUrl: currentUser?.photoUrl ?? '',
+            isVerified: isVerified,
+          ),
+          const SizedBox(height: 16),
+          _SettingsGroup(
+            title: 'Account',
+            children: [
+              _SettingsTile(
+                icon: Icons.person_outline_rounded,
+                title: 'Edit Profile',
+                subtitle: 'Update your name, bio, email and preferences.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => EditProfileScreen(
+                      username: username,
+                      repository: profileRepository,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.photo_camera_outlined,
-            title: 'Change Photo',
-            subtitle: 'Update your profile and cover photo.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => EditProfileMediaScreen(
-                  username: username,
-                  repository: profileRepository,
+              _SettingsTile(
+                icon: Icons.photo_camera_outlined,
+                title: 'Change Photo',
+                subtitle: 'Update your profile and cover photo.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => EditProfileMediaScreen(
+                      username: username,
+                      repository: profileRepository,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.logout_rounded,
-            title: 'Log Out',
-            subtitle: 'Sign out of your HopefulMe account.',
-            onTap: () async {
-              await onLogout();
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
+              _SettingsTile(
+                icon: Icons.logout_rounded,
+                title: 'Log Out',
+                subtitle: 'Sign out of your HopefulMe account.',
+                onTap: () async {
+                  await onLogout();
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                emphasizeDanger: true,
+              ),
+            ],
           ),
           const SizedBox(height: 14),
-          const _SettingsSectionTitle('Appearance'),
-          AnimatedBuilder(
-            animation: themeController,
-            builder: (context, _) {
-              return _ThemeToggleTile(
-                isDarkMode: themeController.isDarkMode,
-                onChanged: (value) => themeController.setThemeMode(
-                  value ? ThemeMode.dark : ThemeMode.light,
+          _SettingsGroup(
+            title: 'Appearance',
+            children: [
+              AnimatedBuilder(
+                animation: themeController,
+                builder: (context, _) {
+                  return _ThemeToggleTile(
+                    isDarkMode: themeController.isDarkMode,
+                    onChanged: (value) => themeController.setThemeMode(
+                      value ? ThemeMode.dark : ThemeMode.light,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _SettingsGroup(
+            title: 'Community',
+            children: [
+              _SettingsTile(
+                icon: Icons.ios_share_outlined,
+                title: 'Invite Friends',
+                subtitle: 'Share HopefulMe on WhatsApp, mail, and more.',
+                onTap: () => _shareInviteLink(context),
+              ),
+              _SettingsTile(
+                icon: Icons.language_rounded,
+                title: 'Official Website',
+                subtitle: 'www.ahopefulme.com',
+                onTap: () => _copyOfficialWebsiteLink(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _SettingsGroup(
+            title: 'Support',
+            children: [
+              _SettingsTile(
+                icon: Icons.system_update_alt_rounded,
+                title: 'Check for Updates',
+                subtitle: 'Check if a new app version is available.',
+                onTap: () async {
+                  AppToast.success(context, 'Checking for updates...');
+                  await onCheckForUpdates();
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.info_outline_rounded,
+                title: 'About',
+                subtitle: 'Learn more about HopefulMe.',
+                onTap: () => _openSignedWebPage(
+                  context,
+                  title: 'About',
+                  rawUrl: 'https://www.ahopefulme.com/about',
                 ),
-              );
-            },
+              ),
+              _SettingsTile(
+                icon: Icons.mail_outline_rounded,
+                title: 'Contact',
+                subtitle: 'Reach the HopefulMe team.',
+                onTap: () => _openSignedWebPage(
+                  context,
+                  title: 'Contact',
+                  rawUrl: 'https://www.ahopefulme.com/contact',
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.help_outline_rounded,
+                title: 'How It Works',
+                subtitle: 'Learn how HopefulMe App works.',
+                onTap: () => _openSignedWebPage(
+                  context,
+                  title: 'How It Works',
+                  rawUrl: '$webBaseUrl/how-it-works',
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
-          const _SettingsSectionTitle('Community'),
-          _SettingsTile(
-            icon: Icons.ios_share_outlined,
-            title: 'Invite Friends',
-            subtitle: 'Share HopefulMe on WhatsApp, mail, and more.',
-            onTap: () => _shareInviteLink(context),
-          ),
-          const SizedBox(height: 14),
-          const _SettingsSectionTitle('Official'),
-          _SettingsTile(
-            icon: Icons.language_rounded,
-            title: 'Official Website',
-            subtitle: 'www.ahopefulme.com',
-            onTap: () => _copyOfficialWebsiteLink(context),
-          ),
-          const SizedBox(height: 14),
-          const _SettingsSectionTitle('Support'),
-          _SettingsTile(
-            icon: Icons.system_update_alt_rounded,
-            title: 'Check for Updates',
-            subtitle: 'Check if a new app version is available.',
-            onTap: () async {
-              AppToast.success(context, 'Checking for updates...');
-              await onCheckForUpdates();
-            },
-          ),
-          _SettingsTile(
-            icon: Icons.info_outline_rounded,
-            title: 'About',
-            subtitle: 'Learn more about HopefulMe.',
-            onTap: () => _openSignedWebPage(
-              context,
-              title: 'About',
-              rawUrl: 'https://www.ahopefulme.com/about',
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.mail_outline_rounded,
-            title: 'Contact',
-            subtitle: 'Reach the HopefulMe team.',
-            onTap: () => _openSignedWebPage(
-              context,
-              title: 'Contact',
-              rawUrl: 'https://www.ahopefulme.com/contact',
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.help_outline_rounded,
-            title: 'How It Works',
-            subtitle: 'Learn how HopefulMe App works.',
-            onTap: () => _openSignedWebPage(
-              context,
-              title: 'How It Works',
-              rawUrl: '$webBaseUrl/how-it-works',
-            ),
-          ),
-          const SizedBox(height: 14),
-          const _SettingsSectionTitle('Legal'),
-          _SettingsTile(
-            icon: Icons.description_outlined,
-            title: 'Terms',
-            subtitle: 'Read the terms of service.',
-            onTap: () => _openSignedWebPage(
-              context,
-              title: 'Terms',
-              rawUrl: 'https://www.ahopefulme.com/terms',
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Privacy',
-            subtitle: 'Read the privacy policy.',
-            onTap: () => _openSignedWebPage(
-              context,
-              title: 'Privacy Policy',
-              rawUrl: 'https://www.ahopefulme.com/privacy',
-            ),
+          _SettingsGroup(
+            title: 'Legal',
+            children: [
+              _SettingsTile(
+                icon: Icons.description_outlined,
+                title: 'Terms',
+                subtitle: 'Read the terms of service.',
+                onTap: () => _openSignedWebPage(
+                  context,
+                  title: 'Terms',
+                  rawUrl: 'https://www.ahopefulme.com/terms',
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.verified_user_outlined,
+                title: 'Privacy',
+                subtitle: 'Read the privacy policy.',
+                onTap: () => _openSignedWebPage(
+                  context,
+                  title: 'Privacy Policy',
+                  rawUrl: 'https://www.ahopefulme.com/privacy',
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 28),
           const _SettingsFooter(),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader({
+    required this.username,
+    required this.displayName,
+    required this.photoUrl,
+    required this.isVerified,
+  });
+
+  final String username;
+  final String displayName;
+  final String photoUrl;
+  final bool isVerified;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final handle = username.trim().isEmpty ? 'hopefulme' : username;
+    final resolvedName = displayName.trim().isEmpty
+        ? handle
+        : displayName.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.borderStrong),
+      ),
+      child: Row(
+        children: [
+          AppAvatar(imageUrl: photoUrl, label: resolvedName, radius: 19),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                VerifiedNameText(
+                  name: resolvedName,
+                  verified: isVerified,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '@$handle',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final visibleChildren = children.whereType<Widget>().toList(
+      growable: false,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SettingsSectionTitle(title),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.borderStrong),
+          ),
+          child: Column(
+            children: List.generate(visibleChildren.length, (index) {
+              final isLast = index == visibleChildren.length - 1;
+              return Column(
+                children: [
+                  visibleChildren[index],
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: colors.border.withValues(alpha: 0.65),
+                    ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -270,58 +414,53 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.emphasizeDanger = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool emphasizeDanger;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.borderStrong),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: colors.accentSoft,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: colors.brand, size: 20),
+    final actionColor = emphasizeDanger ? colors.dangerText : colors.brand;
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: emphasizeDanger ? colors.dangerSoft : colors.accentSoft,
+          borderRadius: BorderRadius.circular(14),
         ),
-        title: Text(
-          title,
+        child: Icon(icon, color: actionColor, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: emphasizeDanger ? colors.dangerText : colors.textPrimary,
+          fontSize: 14.2,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Text(
+          subtitle,
           style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w700,
+            color: colors.textMuted,
+            fontSize: 12.1,
+            fontWeight: FontWeight.w500,
+            height: 1.35,
           ),
         ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Text(
-            subtitle,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 12.2,
-              fontWeight: FontWeight.w500,
-              height: 1.35,
-            ),
-          ),
-        ),
-        trailing: Icon(Icons.chevron_right_rounded, color: colors.textMuted),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
+      trailing: Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }
@@ -336,47 +475,39 @@ class _ThemeToggleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.borderStrong),
+    return SwitchListTile(
+      value: isDarkMode,
+      onChanged: onChanged,
+      secondary: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: colors.accentSoft,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+          color: colors.brand,
+          size: 20,
+        ),
       ),
-      child: SwitchListTile(
-        value: isDarkMode,
-        onChanged: onChanged,
-        secondary: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: colors.accentSoft,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-            color: colors.brand,
-            size: 20,
-          ),
+      title: Text(
+        'Dark Theme',
+        style: TextStyle(
+          color: colors.textPrimary,
+          fontSize: 14.2,
+          fontWeight: FontWeight.w700,
         ),
-        title: Text(
-          'Dark Theme',
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Text(
-          isDarkMode ? 'Dark mode is on.' : 'Light mode is on.',
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 12.2,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       ),
+      subtitle: Text(
+        isDarkMode ? 'Dark mode is on.' : 'Light mode is on.',
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: 12.1,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     );
   }
 }

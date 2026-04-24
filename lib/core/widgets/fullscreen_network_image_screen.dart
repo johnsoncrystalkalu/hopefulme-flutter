@@ -11,6 +11,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
   const FullscreenNetworkImageScreen({
     required this.imageUrls,
     this.initialIndex = 0,
+    this.authorName,
+    this.authorUsername,
     this.primaryActionLabel,
     this.secondaryActionLabel,
     this.onPrimaryAction,
@@ -20,6 +22,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
 
   final List<String> imageUrls;
   final int initialIndex;
+  final String? authorName;
+  final String? authorUsername;
   final String? primaryActionLabel;
   final String? secondaryActionLabel;
   final Future<void> Function()? onPrimaryAction;
@@ -28,6 +32,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
   static Future<void> show(
     BuildContext context, {
     required String imageUrl,
+    String? authorName,
+    String? authorUsername,
     String? primaryActionLabel,
     String? secondaryActionLabel,
     Future<void> Function()? onPrimaryAction,
@@ -41,6 +47,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
       context,
       imageUrls: <String>[imageUrl],
       initialIndex: 0,
+      authorName: authorName,
+      authorUsername: authorUsername,
       primaryActionLabel: primaryActionLabel,
       secondaryActionLabel: secondaryActionLabel,
       onPrimaryAction: onPrimaryAction,
@@ -52,6 +60,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
     BuildContext context, {
     required List<String> imageUrls,
     int initialIndex = 0,
+    String? authorName,
+    String? authorUsername,
     String? primaryActionLabel,
     String? secondaryActionLabel,
     Future<void> Function()? onPrimaryAction,
@@ -77,6 +87,8 @@ class FullscreenNetworkImageScreen extends StatefulWidget {
         builder: (_) => FullscreenNetworkImageScreen(
           imageUrls: filteredUrls,
           initialIndex: safeInitialIndex,
+          authorName: authorName,
+          authorUsername: authorUsername,
           primaryActionLabel: primaryActionLabel,
           secondaryActionLabel: secondaryActionLabel,
           onPrimaryAction: onPrimaryAction,
@@ -95,9 +107,12 @@ class _FullscreenNetworkImageScreenState
     extends State<FullscreenNetworkImageScreen> {
   bool _isSaving = false;
   late final PageController _pageController;
+  late final List<TransformationController> _zoomControllers;
   late int _currentIndex;
   double _verticalDragOffset = 0;
   bool _isRunningAction = false;
+  bool _isInteractingWithImage = false;
+  bool _isZoomed = false;
 
   String get _currentImageUrl => widget.imageUrls[_currentIndex];
 
@@ -106,12 +121,31 @@ class _FullscreenNetworkImageScreenState
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    _zoomControllers = List<TransformationController>.generate(
+      widget.imageUrls.length,
+      (_) => TransformationController(),
+    );
   }
 
   @override
   void dispose() {
+    for (final controller in _zoomControllers) {
+      controller.dispose();
+    }
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _updateZoomStateForCurrentIndex() {
+    final currentScale = _zoomControllers[_currentIndex].value
+        .getMaxScaleOnAxis();
+    final nextZoomed = currentScale > 1.01;
+    if (_isZoomed == nextZoomed) {
+      return;
+    }
+    setState(() {
+      _isZoomed = nextZoomed;
+    });
   }
 
   Future<void> _showImageActions() async {
@@ -271,10 +305,36 @@ class _FullscreenNetworkImageScreenState
         surfaceTintColor: Colors.black,
         scrolledUnderElevation: 0,
         foregroundColor: Colors.white,
+        actions: [
+          if ((widget.authorName ?? '').trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    widget.authorName!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onVerticalDragUpdate: (details) {
+          if (_isZoomed || _isInteractingWithImage) {
+            return;
+          }
           final nextOffset = _verticalDragOffset + details.delta.dy;
           if (nextOffset <= 0) {
             if (_verticalDragOffset != 0) {
@@ -289,6 +349,9 @@ class _FullscreenNetworkImageScreenState
           });
         },
         onVerticalDragEnd: (details) {
+          if (_isZoomed || _isInteractingWithImage) {
+            return;
+          }
           final velocity = details.primaryVelocity ?? 0;
           if (velocity > 850 || _verticalDragOffset > 120) {
             Navigator.of(context).maybePop();
@@ -311,16 +374,51 @@ class _FullscreenNetworkImageScreenState
                   onLongPress: _showImageActions,
                   child: PageView.builder(
                     controller: _pageController,
+                    physics: _isZoomed
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(),
                     itemCount: widget.imageUrls.length,
                     onPageChanged: (index) {
                       setState(() {
                         _currentIndex = index;
+                        _verticalDragOffset = 0;
+                        _isInteractingWithImage = false;
                       });
+                      _updateZoomStateForCurrentIndex();
                     },
                     itemBuilder: (context, index) {
                       return InteractiveViewer(
+                        transformationController: _zoomControllers[index],
                         minScale: 1,
                         maxScale: 4,
+                        panEnabled: true,
+                        scaleEnabled: true,
+                        onInteractionStart: (_) {
+                          if (_isInteractingWithImage) {
+                            return;
+                          }
+                          setState(() {
+                            _isInteractingWithImage = true;
+                          });
+                        },
+                        onInteractionUpdate: (_) {
+                          if (index != _currentIndex) {
+                            return;
+                          }
+                          _updateZoomStateForCurrentIndex();
+                        },
+                        onInteractionEnd: (_) {
+                          if (index != _currentIndex) {
+                            return;
+                          }
+                          _updateZoomStateForCurrentIndex();
+                          if (!_isInteractingWithImage) {
+                            return;
+                          }
+                          setState(() {
+                            _isInteractingWithImage = false;
+                          });
+                        },
                         child: SizedBox.expand(
                           child: AppNetworkImage(
                             imageUrl: widget.imageUrls[index],
@@ -383,9 +481,8 @@ class _FullscreenNetworkImageScreenState
                           children: [
                             if (widget.primaryActionLabel != null)
                               FilledButton.tonal(
-                                onPressed: () => _runExternalAction(
-                                  widget.onPrimaryAction,
-                                ),
+                                onPressed: () =>
+                                    _runExternalAction(widget.onPrimaryAction),
                                 style: FilledButton.styleFrom(
                                   foregroundColor: Colors.white,
                                   backgroundColor: Colors.white.withValues(

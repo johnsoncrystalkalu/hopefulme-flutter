@@ -54,6 +54,9 @@ class HopefulMeApp extends StatefulWidget {
 
 class _HopefulMeAppState extends State<HopefulMeApp>
     with WidgetsBindingObserver {
+  static const String _iosAppStoreId = String.fromEnvironment(
+    'IOS_APP_STORE_ID',
+  );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   late final AuthController _authController;
@@ -80,6 +83,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _hasShownSoftUpdatePromptThisSession = false;
   bool _isVersionCheckInFlight = false;
   bool _isRatingPromptInFlight = false;
+  bool _isHandlingForcedUnauthorizedLogout = false;
   bool _hasTrackedRatingLaunchThisSession = false;
   bool _isHandlingNotificationOpen = false;
   DateTime? _lastNotificationOpenAt;
@@ -88,10 +92,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   // Keep the version check responsive without hitting the endpoint too often.
   DateTime? _lastVersionCheck;
   static const Duration _versionCheckCooldown = Duration(minutes: 5);
-  static const int _minimumLaunchesForRatingPrompt = 6;
-  static const Duration _ratingPromptCooldown = Duration(days: 45);
+  static const int _minimumLaunchesForRatingPrompt = 12;
+  static const Duration _ratingPromptCooldown = Duration(days: 120);
   static const String _ratingLaunchCountKey = 'rating_prompt_launch_count';
   static const String _ratingLastPromptAtKey = 'rating_prompt_last_prompt_at';
+  static const String _ratingCompletedKey = 'rating_prompt_completed';
 
   @override
   void initState() {
@@ -110,6 +115,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     _authController = AuthController(authRepository: AuthRepository(apiClient))
       ..restoreSession();
+    apiClient.setUnauthorizedHandler(_handleUnauthorizedSession);
 
     _feedRepository = FeedRepository(
       _authController.authRepository,
@@ -505,6 +511,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     _isRatingPromptInFlight = true;
     try {
       final prefs = await SharedPreferences.getInstance();
+      final alreadyCompleted = prefs.getBool(_ratingCompletedKey) ?? false;
+      if (alreadyCompleted) {
+        return;
+      }
+
       var launchCount = prefs.getInt(_ratingLaunchCountKey) ?? 0;
       if (incrementLaunchCount) {
         launchCount += 1;
@@ -540,6 +551,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       }
 
       await _launchRatingFlow(inAppReview);
+      await prefs.setBool(_ratingCompletedKey, true);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Rating prompt failed: $e');
@@ -550,14 +562,23 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   }
 
   Future<void> _launchRatingFlow(InAppReview inAppReview) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (kIsWeb) {
+      return;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
       await inAppReview.openStoreListing();
       return;
     }
 
-    final available = await inAppReview.isAvailable();
-    if (available) {
-      await inAppReview.requestReview();
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final appStoreId = _iosAppStoreId.trim();
+      if (appStoreId.isNotEmpty) {
+        await inAppReview.openStoreListing(appStoreId: appStoreId);
+        return;
+      }
+
+      await inAppReview.openStoreListing();
     }
   }
 
@@ -591,7 +612,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
               ),
             ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Rate app'),
+            child: const Text('Rate now'),
           ),
         ],
       ),
@@ -1152,6 +1173,29 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         ),
       ),
     );
+  }
+
+  Future<void> _handleUnauthorizedSession() async {
+    if (_isHandlingForcedUnauthorizedLogout) {
+      return;
+    }
+    _isHandlingForcedUnauthorizedLogout = true;
+    try {
+      await _authController.forceLocalLogout();
+      if (!mounted) {
+        return;
+      }
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null) {
+        return;
+      }
+      navigator.pushNamedAndRemoveUntil(
+        LoginScreen.routeName,
+        (route) => false,
+      );
+    } finally {
+      _isHandlingForcedUnauthorizedLogout = false;
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

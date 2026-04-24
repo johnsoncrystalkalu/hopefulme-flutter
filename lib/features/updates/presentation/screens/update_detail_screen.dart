@@ -6,6 +6,7 @@ import 'package:hopefulme_flutter/core/config/reaction_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -551,7 +552,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       ),
     );
 
-    if (updatedText == null || updatedText.isEmpty || updatedText == comment.comment) {
+    if (updatedText == null ||
+        updatedText.isEmpty ||
+        updatedText == comment.comment) {
       return;
     }
 
@@ -598,8 +601,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     );
   }
 
-  Future<void> _openFullImage(String imageUrl) {
-    return FullscreenNetworkImageScreen.show(context, imageUrl: imageUrl);
+  Future<void> _openFullImage(UpdateDetail detail, String imageUrl) {
+    return FullscreenNetworkImageScreen.show(
+      context,
+      imageUrl: imageUrl,
+      authorName: detail.user.displayName,
+      authorUsername: detail.user.username,
+    );
   }
 
   Future<void> _openSearchQuery(String query) {
@@ -742,20 +750,11 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                     onTap: () =>
                                         _openProfile(detail.user.username),
                                     borderRadius: BorderRadius.circular(999),
-                                    child: CircleAvatar(
+                                    child: AppAvatar(
+                                      imageUrl: detail.user.photoUrl,
+                                      label: detail.user.displayName,
                                       radius: 22,
-                                      backgroundImage:
-                                          detail.user.photoUrl.isNotEmpty
-                                          ? NetworkImage(
-                                              ImageUrlResolver.avatar(
-                                                detail.user.photoUrl,
-                                                size: 66,
-                                              ),
-                                            )
-                                          : null,
-                                      child: detail.user.photoUrl.isEmpty
-                                          ? const Icon(Icons.person)
-                                          : null,
+                                      size: 66,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -833,6 +832,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                             if (detail.photoUrl.isNotEmpty)
                               InkWell(
                                 onTap: () => _openFullImage(
+                                  detail,
                                   detail.originalPhotoUrl.isNotEmpty
                                       ? detail.originalPhotoUrl
                                       : detail.photoUrl,
@@ -858,12 +858,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   ),
                                 ),
                               ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                18,
-                                14,
-                                18,
-                                16,
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(10, 6, 5, 8),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: colors.border),
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -881,7 +881,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                         label: formatCompactCount(
                                           detail.likesCount,
                                         ),
-                                        iconSize: 18,
+                                        iconSize: 23,
                                         color: _liked
                                             ? const Color(0xFFef4444)
                                             : colors.icon,
@@ -900,7 +900,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       label: formatCompactCount(
                                         detail.commentsCount,
                                       ),
-                                      iconSize: 18,
+                                      iconSize: 22,
                                       color: colors.icon,
                                       background: const Color(0x00000000),
                                     ),
@@ -968,7 +968,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                       icon: Icons.ios_share_outlined,
                                       color: colors.icon,
                                       background: const Color(0x00000000),
-                                      iconSize: 16.5,
+                                      iconSize: 18,
                                     ),
                                   ),
                                 ],

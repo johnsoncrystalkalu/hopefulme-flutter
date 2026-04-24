@@ -174,6 +174,19 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  Future<void> forceLocalLogout() async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      await _authRepository.clearLocalSession();
+    } finally {
+      _currentUser = null;
+      _isAuthenticated = false;
+      _isImpersonating = false;
+      _setLoading(false);
+    }
+  }
+
   Future<bool> impersonateAsUser(String username) async {
     final normalized = username.trim().replaceFirst('@', '');
     if (normalized.isEmpty) {

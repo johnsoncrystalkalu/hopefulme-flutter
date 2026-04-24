@@ -65,6 +65,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   bool _hasMore = false;
   bool _showEmojiPicker = false;
   bool _showJumpToBottom = false;
+  bool _showJumpToUnread = false;
   bool _hasThreadChanges = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
@@ -182,6 +183,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         _group = group;
         _messages = messages;
         _hasMore = hasMore;
+        _showJumpToUnread =
+            _firstUnreadIndexFor(messages, _lastReadMessageId) != null;
       });
       _scrollToBottom(jump: true);
     } catch (error) {
@@ -219,6 +222,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         setState(() {
           _group = response.group ?? _group;
           _lastReadMessageId = response.lastReadMessageId;
+          if (_firstUnreadIndex() == null) {
+            _showJumpToUnread = false;
+          }
         });
       }
       if (response.messages.isEmpty) return;
@@ -790,6 +796,29 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     }
   }
 
+  void _jumpToFirstUnread(int firstUnreadIndex) {
+    if (!_scrollController.hasClients || _messages.isEmpty) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) {
+      setState(() {
+        _showJumpToUnread = false;
+      });
+      return;
+    }
+    final ratio = _messages.length <= 1
+        ? 0.0
+        : firstUnreadIndex / (_messages.length - 1);
+    final target = (maxExtent * ratio).clamp(0.0, maxExtent);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+    setState(() {
+      _showJumpToUnread = false;
+    });
+  }
+
   void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -1042,12 +1071,18 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     return localizations.formatMediumDate(local);
   }
 
-  int? _firstUnreadIndex() {
-    if (_lastReadMessageId <= 0) return null;
-    for (var index = 0; index < _messages.length; index++) {
-      final message = _messages[index];
+  int? _firstUnreadIndex() =>
+      _firstUnreadIndexFor(_messages, _lastReadMessageId);
+
+  int? _firstUnreadIndexFor(
+    List<GroupMessage> messages,
+    int lastReadMessageId,
+  ) {
+    if (lastReadMessageId <= 0) return null;
+    for (var index = 0; index < messages.length; index++) {
+      final message = messages[index];
       if (message.userId != widget.currentUser?.id &&
-          message.id > _lastReadMessageId) {
+          message.id > lastReadMessageId) {
         return index;
       }
     }
@@ -1162,6 +1197,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                   group: group,
                                   isJoining: _isJoining,
                                   onJoin: _joinGroup,
+                                )
+                              : _messages.isEmpty
+                              ? const _GroupThreadEmptyState(
+                                  title: 'No messages yet',
+                                  subtitle:
+                                      'Be the first to start this group conversation.',
                                 )
                               : ListView.builder(
                                   controller: _scrollController,
@@ -1287,6 +1328,24 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                   },
                                 ),
                         ),
+                        if (_showJumpToUnread && firstUnreadIndex != null)
+                          Positioned(
+                            right: 18,
+                            bottom: _showJumpToBottom ? 74 : 16,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () =>
+                                  _jumpToFirstUnread(firstUnreadIndex),
+                              icon: const Icon(Icons.mark_chat_unread_outlined),
+                              label: const Text('Unread'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ),
                         if (_showJumpToBottom)
                           Positioned(
                             right: 18,
@@ -1305,38 +1364,49 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                     ),
                   ),
                   if (group != null && group.isMember) ...[
-                    if (isSomeoneElseTyping)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _TypingIndicator(name: typingUserName),
-                        ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Column(
+                        children: [
+                          if (isSomeoneElseTyping)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: _TypingIndicator(name: typingUserName),
+                              ),
+                            ),
+                          if (_replyingTo != null)
+                            _ReplyPreview(
+                              message: _replyingTo!,
+                              onClear: () {
+                                setState(() {
+                                  _replyingTo = null;
+                                });
+                              },
+                            ),
+                          if (_editingMessage != null)
+                            _GroupEditingBanner(
+                              message: _editingMessage!,
+                              onCancel: () {
+                                setState(() {
+                                  _editingMessage = null;
+                                });
+                                _controller.clear();
+                                unawaited(_clearDraft());
+                              },
+                            ),
+                        ],
                       ),
-                    if (_replyingTo != null)
-                      _ReplyPreview(
-                        message: _replyingTo!,
-                        onClear: () {
-                          setState(() {
-                            _replyingTo = null;
-                          });
-                        },
-                      ),
-                    if (_editingMessage != null)
-                      _GroupEditingBanner(
-                        message: _editingMessage!,
-                        onCancel: () {
-                          setState(() {
-                            _editingMessage = null;
-                          });
-                          _controller.clear();
-                          unawaited(_clearDraft());
-                        },
-                      ),
+                    ),
                     SafeArea(
                       top: false,
                       child: Container(
-                        color: colors.surface,
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          border: Border(top: BorderSide(color: colors.border)),
+                        ),
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -1575,6 +1645,62 @@ class _LockedGroupState extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupThreadEmptyState extends StatelessWidget {
+  const _GroupThreadEmptyState({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border),
+              ),
+              child: Icon(
+                Icons.forum_outlined,
+                color: colors.textSecondary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1833,7 +1959,9 @@ class _GroupMessageBubble extends StatelessWidget {
                           .map(
                             (emoji) => InkWell(
                               borderRadius: BorderRadius.circular(999),
-                              onTap: () => Navigator.of(sheetContext).pop('react:$emoji'),
+                              onTap: () => Navigator.of(
+                                sheetContext,
+                              ).pop('react:$emoji'),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 5,
@@ -1866,8 +1994,7 @@ class _GroupMessageBubble extends StatelessWidget {
                             icon: Icons.content_copy_rounded,
                             label: 'Copy',
                             color: colors.textSecondary,
-                            onTap: () =>
-                                Navigator.of(sheetContext).pop('copy'),
+                            onTap: () => Navigator.of(sheetContext).pop('copy'),
                           ),
                         ],
                         if (canEdit) ...[
@@ -1876,8 +2003,7 @@ class _GroupMessageBubble extends StatelessWidget {
                             icon: Icons.edit_rounded,
                             label: 'Edit',
                             color: colors.textSecondary,
-                            onTap: () =>
-                                Navigator.of(sheetContext).pop('edit'),
+                            onTap: () => Navigator.of(sheetContext).pop('edit'),
                           ),
                         ],
                         if (canDelete) ...[
@@ -1905,6 +2031,9 @@ class _GroupMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final maxBubbleWidth = math.min(368.0, screenWidth * 0.76);
+    final mediaBubbleImageSize = math.min(224.0, maxBubbleWidth - 30);
 
     return Padding(
       padding: EdgeInsets.only(bottom: compactTopSpacing ? 6 : 12),
@@ -1978,7 +2107,7 @@ class _GroupMessageBubble extends StatelessWidget {
                     if (value == 'delete') onDelete();
                   },
                   child: Container(
-                    constraints: const BoxConstraints(maxWidth: 320),
+                    constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 10,
@@ -2041,8 +2170,8 @@ class _GroupMessageBubble extends StatelessWidget {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
                                 child: SizedBox(
-                                  width: 224,
-                                  height: 224,
+                                  width: mediaBubbleImageSize,
+                                  height: mediaBubbleImageSize,
                                   child: Image.network(
                                     message.photoUrl,
                                     fit: BoxFit.cover,
@@ -2068,8 +2197,8 @@ class _GroupMessageBubble extends StatelessWidget {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
                                 child: SizedBox(
-                                  width: 224,
-                                  height: 224,
+                                  width: mediaBubbleImageSize,
+                                  height: mediaBubbleImageSize,
                                   child: Image.memory(
                                     message.localImageBytes!,
                                     fit: BoxFit.cover,
@@ -2220,10 +2349,7 @@ class _GroupBubbleActionButton extends StatelessWidget {
 }
 
 class _GroupReactionBar extends StatelessWidget {
-  const _GroupReactionBar({
-    required this.reactions,
-    required this.onTapEmoji,
-  });
+  const _GroupReactionBar({required this.reactions, required this.onTapEmoji});
 
   final List<ChatReactionSummary> reactions;
   final Future<void> Function(String emoji) onTapEmoji;

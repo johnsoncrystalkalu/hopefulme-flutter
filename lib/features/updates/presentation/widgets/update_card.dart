@@ -45,6 +45,9 @@ class ReusableUpdateCard extends StatelessWidget {
     this.belowContent,
     this.headerTrailing,
     this.footer,
+    this.footerTopSpacing = 12,
+    this.footerPadding = const EdgeInsets.fromLTRB(18, 12, 18, 16),
+    this.footerShowTopBorder = true,
     super.key,
   });
 
@@ -58,6 +61,9 @@ class ReusableUpdateCard extends StatelessWidget {
   final Widget? belowContent;
   final Widget? headerTrailing;
   final Widget? footer;
+  final double footerTopSpacing;
+  final EdgeInsetsGeometry footerPadding;
+  final bool footerShowTopBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -99,11 +105,7 @@ class ReusableUpdateCard extends StatelessWidget {
                   ),
                   if (headerTrailing != null) ...[
                     const SizedBox(width: 6),
-                    SizedBox(
-                      height: 20,
-                      width: 30,
-                      child: headerTrailing!,
-                    ),
+                    SizedBox(height: 20, width: 30, child: headerTrailing!),
                   ],
                 ],
               ),
@@ -245,13 +247,15 @@ class ReusableUpdateCard extends StatelessWidget {
                 ],
               ),
             ),
-          if (belowContent != null) belowContent!,
+          ...[belowContent].whereType<Widget>(),
           if (footer != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: footerTopSpacing),
             Container(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+              padding: footerPadding,
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: colors.border)),
+                border: footerShowTopBorder
+                    ? Border(top: BorderSide(color: colors.border))
+                    : null,
               ),
               child: footer,
             ),

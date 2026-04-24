@@ -16,6 +16,11 @@ class ApiClient {
   final String baseUrl;
   final TokenStorage tokenStorage;
   final http.Client _httpClient;
+  Future<void> Function()? _onUnauthorized;
+
+  void setUnauthorizedHandler(Future<void> Function() handler) {
+    _onUnauthorized = handler;
+  }
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -238,6 +243,7 @@ class ApiClient {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return <String, dynamic>{};
       }
+      _notifyUnauthorizedIfNeeded(response.statusCode);
       throw ApiException(
         kDebugMode
             ? 'Unexpected response (${response.statusCode}): content-type was $contentType'
@@ -273,7 +279,15 @@ class ApiClient {
               'Request failed (${response.statusCode})'
             : _userFriendlyHttpError(response.statusCode));
 
+    _notifyUnauthorizedIfNeeded(response.statusCode);
     throw ApiException(message, statusCode: response.statusCode);
+  }
+
+  void _notifyUnauthorizedIfNeeded(int statusCode) {
+    if (statusCode != 401 || _onUnauthorized == null) {
+      return;
+    }
+    Future<void>.microtask(() => _onUnauthorized!.call());
   }
 
   String _userFriendlyHttpError(int statusCode) {

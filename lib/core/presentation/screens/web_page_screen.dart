@@ -152,6 +152,16 @@ class _WebPageScreenState extends State<WebPageScreen> {
   bool _isShowingFallbackDocument = false;
   int _lastProgressUpdate = 0;
 
+  Future<void> _handleBackNavigation() async {
+    final canGoBack = await _controller.canGoBack();
+    if (canGoBack) {
+      await _controller.goBack();
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -527,56 +537,68 @@ class _WebPageScreenState extends State<WebPageScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: colors.scaffold,
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh_rounded),
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_handleBackNavigation());
+      },
+      child: Scaffold(
+        backgroundColor: colors.scaffold,
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Back',
+            onPressed: () => unawaited(_handleBackNavigation()),
+            icon: const Icon(Icons.arrow_back_rounded),
           ),
-          IconButton(
-            tooltip: 'Open in browser',
-            onPressed: _openInBrowser,
-            icon: const Icon(Icons.open_in_browser_rounded),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(2),
-          child: ValueListenableBuilder<int>(
-            valueListenable: _progress,
-            builder: (context, progress, _) {
-              if (progress >= 100) return const SizedBox.shrink();
-              return LinearProgressIndicator(value: progress / 100);
-            },
+          title: Text(widget.title),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: _reload,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            IconButton(
+              tooltip: 'Open in browser',
+              onPressed: _openInBrowser,
+              icon: const Icon(Icons.open_in_browser_rounded),
+            ),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(2),
+            child: ValueListenableBuilder<int>(
+              valueListenable: _progress,
+              builder: (context, progress, _) {
+                if (progress >= 100) return const SizedBox.shrink();
+                return LinearProgressIndicator(value: progress / 100);
+              },
+            ),
           ),
         ),
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          RepaintBoundary(child: _webView),
-          ValueListenableBuilder<bool>(
-            valueListenable: _hasError,
-            builder: (context, hasError, _) {
-              if (!hasError) return const SizedBox.shrink();
-              return ValueListenableBuilder<String?>(
-                valueListenable: _errorMessage,
-                builder: (context, message, _) {
-                  return _WebPageErrorState(
-                    title: widget.title,
-                    message:
-                        message ?? 'This page could not be loaded right now.',
-                    onRetry: _reload,
-                    onOpenInBrowser: _openInBrowser,
-                  );
-                },
-              );
-            },
-          ),
-        ],
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            RepaintBoundary(child: _webView),
+            ValueListenableBuilder<bool>(
+              valueListenable: _hasError,
+              builder: (context, hasError, _) {
+                if (!hasError) return const SizedBox.shrink();
+                return ValueListenableBuilder<String?>(
+                  valueListenable: _errorMessage,
+                  builder: (context, message, _) {
+                    return _WebPageErrorState(
+                      title: widget.title,
+                      message:
+                          message ?? 'This page could not be loaded right now.',
+                      onRetry: _reload,
+                      onOpenInBrowser: _openInBrowser,
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

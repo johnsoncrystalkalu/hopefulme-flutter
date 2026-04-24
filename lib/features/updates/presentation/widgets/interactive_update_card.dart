@@ -360,6 +360,8 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     await FullscreenNetworkImageScreen.show(
       context,
       imageUrl: imageUrl,
+      authorName: widget.title,
+      authorUsername: widget.ownerUsername,
       primaryActionLabel: 'View Post',
       onPrimaryAction: widget.onOpenUpdate,
     );
@@ -410,6 +412,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final isGeneratedActivity =
         widget.updateType.trim().toLowerCase() != 'update';
     final activityBadgeLabel = isGeneratedActivity ? widget.updateType : '';
+    final hasImage = widget.photoUrl.trim().isNotEmpty;
 
     return ReusableUpdateCard(
       key: ValueKey('update-card-${widget.updateId}'),
@@ -434,6 +437,9 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
       onMentionTap: widget.onOpenProfile,
       onHashtagTap: widget.onOpenHashtag,
       onLinkTap: widget.onOpenLink,
+      footerTopSpacing: hasImage ? 0 : 14,
+      footerPadding: const EdgeInsets.fromLTRB(10, 8, 5, 8),
+      footerShowTopBorder: !hasImage,
       headerTrailing: PopupMenuButton<String>(
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
@@ -480,6 +486,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                     child: _ActionPill(
                       icon: _liked ? Icons.favorite : Icons.favorite_border,
                       iconFill: _liked ? 1 : 0,
+                      iconSize: 23,
                       label: formatCompactCount(_likesCount),
                       color: _liked ? const Color(0xFFef4444) : colors.icon,
                       background: const Color(0xFFFFF7F6),
@@ -495,6 +502,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                 child: _ActionPill(
                   icon: Icons.chat_bubble_outline,
                   label: formatCompactCount(_commentsCount),
+                  iconSize: 22,
                   color: colors.icon,
                   background: const Color(0x00000000),
                 ),
@@ -543,7 +551,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                   icon: Icons.ios_share_outlined,
                   color: colors.icon,
                   background: const Color(0x00000000),
-                  iconSize: 16,
+                  iconSize: 18,
                 ),
               ),
             ],
@@ -562,7 +570,7 @@ class _ActionPill extends StatelessWidget {
     this.darkBackground,
     this.label,
     this.iconFill,
-    this.iconSize = 19,
+    this.iconSize = 22,
   });
 
   final IconData icon;

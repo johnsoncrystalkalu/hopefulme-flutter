@@ -1,4 +1,5 @@
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 
 class User {
   const User({
@@ -47,9 +48,7 @@ class User {
       role1: json['role1']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       theme: json['theme']?.toString() ?? '',
-      isVerified:
-          json['verified']?.toString().toLowerCase() == 'true' ||
-          json['verified'] == true,
+      isVerified: parseBool(json['verified']),
       isAdmin:
           json['is_admin'] == true ||
           json['isAdmin'] == true ||

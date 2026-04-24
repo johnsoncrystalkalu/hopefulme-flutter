@@ -674,6 +674,7 @@ bool _isBirthdayToday(String birthday) {
   final now = DateTime.now();
   return now.day == day && now.month == month;
 }
+
 String _formatBirthdayForDisplay(String birthday) {
   final parts = birthday
       .split('-')
@@ -686,7 +687,12 @@ String _formatBirthdayForDisplay(String birthday) {
 
   final day = int.tryParse(parts[0]);
   final month = int.tryParse(parts[1]);
-  if (day == null || month == null || day < 1 || day > 31 || month < 1 || month > 12) {
+  if (day == null ||
+      month == null ||
+      day < 1 ||
+      day > 31 ||
+      month < 1 ||
+      month > 12) {
     return birthday;
   }
 
@@ -1766,32 +1772,32 @@ class _ProfileTimeline extends StatelessWidget {
                     ],
                   ),
                 ),
-                
-                      const SizedBox(height: 10),
-                      
+
+                const SizedBox(height: 10),
+
                 Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            HeroIcon(
-                              HeroIcons.magnifyingGlass,
-                              size: 14,
-                              style: HeroIconStyle.outline,
-                              color: context.appColors.textMuted,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              '${formatCompactCount(dashboard.profile.views)} Profile Views',
-                              style: TextStyle(
-                                color: context.appColors.textMuted,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      HeroIcon(
+                        HeroIcons.magnifyingGlass,
+                        size: 14,
+                        style: HeroIconStyle.outline,
+                        color: context.appColors.textMuted,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${formatCompactCount(dashboard.profile.views)} Profile Views',
+                        style: TextStyle(
+                          color: context.appColors.textMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ],
             ],
           ),
@@ -2509,6 +2515,7 @@ class _UpdateCard extends StatelessWidget {
       currentUser: currentUser,
       ownerUsername: profile.username,
       onOpenProfile: null,
+      isVerified: profile.isVerified,
       isLiked: item.isLiked,
       myReaction: item.myReaction,
       reactionsPreview: item.reactionsPreview,
@@ -3172,4 +3179,3 @@ String _formatCount(int value) {
   }
   return '$value';
 }
-

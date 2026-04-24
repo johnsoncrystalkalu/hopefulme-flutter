@@ -687,6 +687,8 @@ class _HomeScreenState extends State<HomeScreen>
       MaterialPageRoute<void>(
         builder: (context) => SettingsScreen(
           username: username,
+          isVerified: widget.authController.currentUser?.isVerified ?? false,
+          currentUser: widget.authController.currentUser,
           authRepository: widget.authController.authRepository,
           profileRepository: widget.profileRepository,
           themeController: widget.themeController,
@@ -1167,7 +1169,28 @@ class _HomeScreenState extends State<HomeScreen>
       return false;
     }
 
-    await widget.authController.logout();
+    try {
+      // Avoid trapping the user behind a slow/broken backend logout.
+      await widget.authController.logout().timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      await widget.authController.forceLocalLogout();
+      if (mounted) {
+        AppToast.info(context, 'Network timeout. You were signed out locally.');
+      }
+    } catch (_) {
+      await widget.authController.forceLocalLogout();
+      if (mounted) {
+        AppToast.info(
+          context,
+          'Server logout failed. You were signed out locally.',
+        );
+      }
+    }
+
+    if (widget.authController.isAuthenticated) {
+      await widget.authController.forceLocalLogout();
+    }
+
     return !widget.authController.isAuthenticated;
   }
 
@@ -1425,6 +1448,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildBottomNav() {
     final colors = context.appColors;
+    final isCompactBottomNav = MediaQuery.sizeOf(context).width < 360;
+    final navIconSize = isCompactBottomNav ? 22.0 : 24.0;
+    final createButtonSize = isCompactBottomNav ? 48.0 : 52.0;
+    final createIconSize = isCompactBottomNav ? 26.0 : 28.0;
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(0, 0, 0, 0),
@@ -1443,7 +1470,7 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
         child: NavigationBar(
-          height: 76,
+          height: isCompactBottomNav ? 70 : 76,
           backgroundColor: Colors.transparent,
           indicatorColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
@@ -1469,34 +1496,36 @@ class _HomeScreenState extends State<HomeScreen>
             }
           },
           destinations: [
-            const NavigationDestination(
-              icon: HeroIcon(HeroIcons.home),
+            NavigationDestination(
+              icon: HeroIcon(HeroIcons.home, size: navIconSize),
               selectedIcon: HeroIcon(
                 HeroIcons.home,
+                size: navIconSize,
                 style: HeroIconStyle.solid,
               ),
               label: 'Home',
             ),
-            const NavigationDestination(
-              icon: HeroIcon(HeroIcons.magnifyingGlass),
+            NavigationDestination(
+              icon: HeroIcon(HeroIcons.magnifyingGlass, size: navIconSize),
               selectedIcon: HeroIcon(
                 HeroIcons.magnifyingGlass,
+                size: navIconSize,
                 style: HeroIconStyle.solid,
               ),
               label: 'Search',
             ),
             NavigationDestination(
               icon: Container(
-                width: 52,
-                height: 52,
+                width: createButtonSize,
+                height: createButtonSize,
                 decoration: BoxDecoration(
                   color: colors.brand,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.add_rounded,
                   color: Colors.white,
-                  size: 28,
+                  size: createIconSize,
                 ),
               ),
               label: '',
@@ -1506,19 +1535,24 @@ class _HomeScreenState extends State<HomeScreen>
                 icon: HeroIcons.users,
                 count: _topBarSnapshot.value.unreadGroups,
                 dotOnly: true,
+                iconSize: navIconSize,
+                boxSize: isCompactBottomNav ? 28 : 30,
               ),
               selectedIcon: _BadgeTopBarIcon(
                 icon: HeroIcons.users,
                 count: _topBarSnapshot.value.unreadGroups,
                 dotOnly: true,
                 solid: true,
+                iconSize: navIconSize,
+                boxSize: isCompactBottomNav ? 28 : 30,
               ),
               label: 'Groups',
             ),
-            const NavigationDestination(
-              icon: HeroIcon(HeroIcons.user),
+            NavigationDestination(
+              icon: HeroIcon(HeroIcons.user, size: navIconSize),
               selectedIcon: HeroIcon(
                 HeroIcons.user,
+                size: navIconSize,
                 style: HeroIconStyle.solid,
               ),
               label: 'Profile',
@@ -1593,10 +1627,14 @@ class _HomeTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isCompactTopBar = MediaQuery.sizeOf(context).width < 360;
     return SafeArea(
       bottom: false,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompactTopBar ? 12 : 16,
+          vertical: isCompactTopBar ? 10 : 12,
+        ),
         decoration: BoxDecoration(
           color: colors.surface.withValues(alpha: 0.96),
           border: Border(bottom: BorderSide(color: colors.borderStrong)),
@@ -1606,11 +1644,15 @@ class _HomeTopBar extends StatelessWidget {
             if (onMenuTap != null) ...[
               IconButton(
                 onPressed: onMenuTap,
-                icon: HeroIcon(HeroIcons.bars3, size: 24, color: colors.icon),
+                icon: HeroIcon(
+                  HeroIcons.bars3,
+                  size: isCompactTopBar ? 24 : 26,
+                  color: colors.icon,
+                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: isCompactTopBar ? 8 : 12),
             ],
             RichText(
               text: TextSpan(
@@ -1619,7 +1661,7 @@ class _HomeTopBar extends StatelessWidget {
                     text: 'Hopeful',
                     style: TextStyle(
                       color: colors.brand,
-                      fontSize: 26,
+                      fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -1.1,
                     ),
@@ -1628,7 +1670,7 @@ class _HomeTopBar extends StatelessWidget {
                     text: 'Me',
                     style: TextStyle(
                       color: Color(0xFFe08016),
-                      fontSize: 26,
+                      fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -1.1,
                     ),
@@ -1642,14 +1684,18 @@ class _HomeTopBar extends StatelessWidget {
               // icon: HeroIcons.chatBubbleLeftEllipsis,
               unreadCount: unreadMessages,
               onTap: onMessageCenterTap,
+              iconSize: isCompactTopBar ? 22 : 24,
+              boxSize: isCompactTopBar ? 28 : 30,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: isCompactTopBar ? 10 : 16),
             _TopBarIconButton(
               icon: HeroIcons.bell,
               unreadCount: unreadNotifications,
               onTap: onNotificationCenterTap,
+              iconSize: isCompactTopBar ? 22 : 24,
+              boxSize: isCompactTopBar ? 28 : 30,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: isCompactTopBar ? 10 : 16),
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'profile') {
@@ -1684,7 +1730,7 @@ class _HomeTopBar extends StatelessWidget {
               child: AppAvatar(
                 imageUrl: user?.photoUrl ?? '',
                 label: user?.displayName ?? 'User',
-                radius: 16,
+                radius: isCompactTopBar ? 15 : 16,
               ),
             ),
           ],
@@ -1699,11 +1745,15 @@ class _TopBarIconButton extends StatelessWidget {
     required this.icon,
     required this.unreadCount,
     required this.onTap,
+    this.iconSize = 24,
+    this.boxSize = 30,
   });
 
   final HeroIcons icon;
   final int unreadCount;
   final Future<void> Function() onTap;
+  final double iconSize;
+  final double boxSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1712,7 +1762,12 @@ class _TopBarIconButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: _BadgeTopBarIcon(icon: icon, count: unreadCount),
+        child: _BadgeTopBarIcon(
+          icon: icon,
+          count: unreadCount,
+          iconSize: iconSize,
+          boxSize: boxSize,
+        ),
       ),
     );
   }
@@ -1724,12 +1779,16 @@ class _BadgeTopBarIcon extends StatelessWidget {
     required this.count,
     this.dotOnly = false,
     this.solid = false,
+    this.iconSize = 24,
+    this.boxSize = 30,
   });
 
   final HeroIcons icon;
   final int count;
   final bool dotOnly;
   final bool solid;
+  final double iconSize;
+  final double boxSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1738,10 +1797,11 @@ class _BadgeTopBarIcon extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         SizedBox(
-          width: 28,
-          height: 28,
+          width: boxSize,
+          height: boxSize,
           child: HeroIcon(
             icon,
+            size: iconSize,
             color: colors.icon,
             style: solid ? HeroIconStyle.solid : HeroIconStyle.outline,
           ),
