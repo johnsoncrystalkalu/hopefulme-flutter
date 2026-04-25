@@ -412,14 +412,13 @@ class _HomeScreenState extends State<HomeScreen>
     List<FeedEntry> next,
   ) {
     final merged = <FeedEntry>[...existing];
-    final seenIds = merged.map((entry) => entry.id).toSet();
+    final seenIds = merged
+        .map((entry) => '${entry.type}:${entry.id}')
+        .toSet();
     for (final entry in next) {
-      if (seenIds.add(entry.id)) {
+      if (seenIds.add('${entry.type}:${entry.id}')) {
         merged.add(entry);
       }
-    }
-    if (merged.length > _maxHomeUpdatesRetained) {
-      merged.removeRange(_maxHomeUpdatesRetained, merged.length);
     }
     return List<FeedEntry>.unmodifiable(merged);
   }
