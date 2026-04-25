@@ -26,17 +26,15 @@ class ImageUrlResolver {
     return resolve(url);
   }
 
+  // ignore: avoid_unused_parameters
   static String avatar(String? url, {int size = 80}) {
+    const effectiveSize = 80;
     final trimmed = _sanitize(url);
     if (trimmed.isEmpty) {
       return '';
     }
 
     final resolved = resolve(trimmed);
-
-    if (size > 100) {
-      return resolved;
-    }
 
     if ((_isAbsoluteUrl(trimmed) || trimmed.startsWith('//')) &&
         !resolved.contains('ahopefulme.com')) {
@@ -49,7 +47,7 @@ class ImageUrlResolver {
     if (stripped.contains('/storage/')) {
       return stripped.replaceFirst(
         '/storage/',
-        '/cdn-cgi/image/width=$size,quality=80,onerror=redirect/storage/',
+        '/cdn-cgi/image/width=$effectiveSize,quality=80,onerror=redirect/storage/',
       );
     }
 
