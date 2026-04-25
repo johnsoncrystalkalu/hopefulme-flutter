@@ -173,11 +173,15 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               token.query,
               limit: token.query.isEmpty ? 4 : 6,
             );
+        final rankedSuggestions = _rankMentionSuggestions(
+          token.query,
+          suggestions,
+        );
         if (!mounted || requestId != _commentMentionRequestId) {
           return;
         }
         setState(() {
-          _commentMentionSuggestions = suggestions;
+          _commentMentionSuggestions = rankedSuggestions;
           _commentMentionLoading = false;
         });
       } catch (_) {
@@ -190,6 +194,40 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         });
       }
     });
+  }
+
+  List<MentionSuggestion> _rankMentionSuggestions(
+    String query,
+    List<MentionSuggestion> suggestions,
+  ) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty || suggestions.length < 2) {
+      return suggestions;
+    }
+
+    int score(MentionSuggestion item) {
+      final full = item.fullname.trim().toLowerCase();
+      final user = item.username.trim().toLowerCase();
+      if (full.isNotEmpty && full.startsWith(normalized)) return 0;
+      if (full.isNotEmpty && full.contains(normalized)) return 1;
+      if (user.startsWith(normalized)) return 2;
+      if (user.contains(normalized)) return 3;
+      return 4;
+    }
+
+    final ranked = List<MentionSuggestion>.from(suggestions);
+    ranked.sort((a, b) {
+      final sa = score(a);
+      final sb = score(b);
+      if (sa != sb) return sa.compareTo(sb);
+      final af = a.fullname.trim();
+      final bf = b.fullname.trim();
+      if (af.isNotEmpty != bf.isNotEmpty) {
+        return af.isNotEmpty ? -1 : 1;
+      }
+      return a.username.toLowerCase().compareTo(b.username.toLowerCase());
+    });
+    return ranked;
   }
 
   _MentionToken? _extractActiveMentionToken(TextEditingValue value) {

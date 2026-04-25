@@ -136,11 +136,12 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
       try {
         final suggestions = await widget.updateRepository
             .fetchMentionSuggestions(query, limit: query.isEmpty ? 4 : 6);
+        final rankedSuggestions = _rankMentionSuggestions(query, suggestions);
         if (!mounted || requestId != _mentionRequestId) {
           return;
         }
         setState(() {
-          _mentionSuggestions = suggestions;
+          _mentionSuggestions = rankedSuggestions;
           _mentionLoading = false;
         });
       } catch (_) {
@@ -153,6 +154,40 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
         });
       }
     });
+  }
+
+  List<MentionSuggestion> _rankMentionSuggestions(
+    String query,
+    List<MentionSuggestion> suggestions,
+  ) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty || suggestions.length < 2) {
+      return suggestions;
+    }
+
+    int score(MentionSuggestion item) {
+      final full = item.fullname.trim().toLowerCase();
+      final user = item.username.trim().toLowerCase();
+      if (full.isNotEmpty && full.startsWith(normalized)) return 0;
+      if (full.isNotEmpty && full.contains(normalized)) return 1;
+      if (user.startsWith(normalized)) return 2;
+      if (user.contains(normalized)) return 3;
+      return 4;
+    }
+
+    final ranked = List<MentionSuggestion>.from(suggestions);
+    ranked.sort((a, b) {
+      final sa = score(a);
+      final sb = score(b);
+      if (sa != sb) return sa.compareTo(sb);
+      final af = a.fullname.trim();
+      final bf = b.fullname.trim();
+      if (af.isNotEmpty != bf.isNotEmpty) {
+        return af.isNotEmpty ? -1 : 1;
+      }
+      return a.username.toLowerCase().compareTo(b.username.toLowerCase());
+    });
+    return ranked;
   }
 
   _MentionToken? _extractActiveMentionToken(TextEditingValue value) {
@@ -299,6 +334,117 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
         });
       }
     }
+  }
+
+  Widget _buildFloatingMentionPanel(double keyboardInset) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: keyboardInset > 0 ? 112 : 148,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.borderStrong),
+          ),
+          child: _mentionLoading
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.brand,
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  itemCount: _mentionSuggestions.length,
+                  separatorBuilder: (_, unused) => Divider(
+                    height: 1,
+                    color: colors.border.withValues(alpha: 0.55),
+                  ),
+                  itemBuilder: (context, index) {
+                    final suggestion = _mentionSuggestions[index];
+                    return InkWell(
+                      canRequestFocus: false,
+                      onTapDown: (_) => _restoreComposerFocus(),
+                      onTap: () => _insertMention(suggestion),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            AppAvatar(
+                              imageUrl: suggestion.photoUrl,
+                              label: suggestion.fullname,
+                              radius: 16,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          suggestion.fullname.trim().isEmpty
+                                              ? suggestion.username
+                                              : suggestion.fullname,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: colors.textPrimary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      if (suggestion.isVerified) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.verified_rounded,
+                                          size: 14,
+                                          color: colors.brand,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '@${suggestion.username}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -524,188 +670,55 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                               ],
                             ),
                           ),
-                          if (_mentionLoading || _mentionSuggestions.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 160),
-                                curve: Curves.easeOut,
-                                constraints: BoxConstraints(
-                                  maxHeight: keyboardInset > 0 ? 112 : 148,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.surface,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: colors.borderStrong,
-                                  ),
-                                ),
-                                child: _mentionLoading
-                                    ? Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        child: Center(
-                                          child: SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: colors.brand,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.separated(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                        shrinkWrap: true,
-                                        itemCount: _mentionSuggestions.length,
-                                        separatorBuilder: (_, unused) =>
-                                            Divider(
-                                              height: 1,
-                                              color: colors.border.withValues(
-                                                alpha: 0.55,
-                                              ),
-                                            ),
-                                        itemBuilder: (context, index) {
-                                          final suggestion =
-                                              _mentionSuggestions[index];
-                                          return InkWell(
-                                            canRequestFocus: false,
-                                            onTapDown: (_) =>
-                                                _restoreComposerFocus(),
-                                            onTap: () =>
-                                                _insertMention(suggestion),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 10,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  AppAvatar(
-                                                    imageUrl:
-                                                        suggestion.photoUrl,
-                                                    label: suggestion.fullname,
-                                                    radius: 16,
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Flexible(
-                                                              child: Text(
-                                                                suggestion
-                                                                        .fullname
-                                                                        .trim()
-                                                                        .isEmpty
-                                                                    ? suggestion
-                                                                          .username
-                                                                    : suggestion
-                                                                          .fullname,
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                                style: TextStyle(
-                                                                  color: colors
-                                                                      .textPrimary,
-                                                                  fontSize: 13,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w700,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            if (suggestion
-                                                                .isVerified) ...[
-                                                              const SizedBox(
-                                                                width: 4,
-                                                              ),
-                                                              Icon(
-                                                                Icons
-                                                                    .verified_rounded,
-                                                                size: 14,
-                                                                color: colors
-                                                                    .brand,
-                                                              ),
-                                                            ],
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 2,
-                                                        ),
-                                                        Text(
-                                                          '@${suggestion.username}',
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style: TextStyle(
-                                                            color: colors
-                                                                .textMuted,
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                              ),
-                            ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                            child: TextFormField(
-                              controller: _controller,
-                              focusNode: _composerFocusNode,
-                              minLines: 6,
-                              maxLines: 10,
-                              onTap: () {
-                                if (_showEmojiPicker) {
-                                  setState(() {
-                                    _showEmojiPicker = false;
-                                  });
-                                }
-                              },
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 18,
-                                height: 1.55,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Share your thoughts...',
-                                hintStyle: TextStyle(
-                                  color: colors.textMuted.withValues(
-                                    alpha: 0.55,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if ((_mentionLoading ||
+                                        _mentionSuggestions.isNotEmpty) &&
+                                    _composerFocusNode.hasFocus) ...[
+                                  _buildFloatingMentionPanel(keyboardInset),
+                                  const SizedBox(height: 8),
+                                ],
+                                TextFormField(
+                                  controller: _controller,
+                                  focusNode: _composerFocusNode,
+                                  minLines: 6,
+                                  maxLines: 10,
+                                  onTap: () {
+                                    if (_showEmojiPicker) {
+                                      setState(() {
+                                        _showEmojiPicker = false;
+                                      });
+                                    }
+                                  },
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 18,
+                                    height: 1.55,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
+                                  decoration: InputDecoration(
+                                    hintText: 'Share your thoughts...',
+                                    hintStyle: TextStyle(
+                                      color: colors.textMuted.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  validator: (value) {
+                                    if ((value == null || value.trim().isEmpty) &&
+                                        _selectedPhoto == null) {
+                                      return 'Please write something or add a photo.';
+                                    }
+                                    return null;
+                                  },
                                 ),
-                                border: InputBorder.none,
-                              ),
-                              validator: (value) {
-                                if ((value == null || value.trim().isEmpty) &&
-                                    _selectedPhoto == null) {
-                                  return 'Please write something or add a photo.';
-                                }
-                                return null;
-                              },
+                              ],
                             ),
                           ),
                           if (_selectedPhoto != null)
