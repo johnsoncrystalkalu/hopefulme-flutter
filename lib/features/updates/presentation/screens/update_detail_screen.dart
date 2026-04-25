@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
@@ -71,6 +73,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   late AnimationController _likeController;
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
+  Timer? _commentMentionDebounce;
+  List<MentionSuggestion> _commentMentionSuggestions =
+      const <MentionSuggestion>[];
+  bool _commentMentionLoading = false;
+  int _commentMentionRequestId = 0;
+  int? _commentMentionStart;
+  String _commentMentionQuery = '';
   bool _liked = false;
   bool _isSubmittingComment = false;
   bool _isLoadingMoreComments = false;
@@ -99,6 +108,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       lowerBound: 1.0,
       upperBound: 1.12,
     )..value = 1;
+    _commentController.addListener(_handleCommentChanged);
+    _commentFocusNode.addListener(() {
+      if (!_commentFocusNode.hasFocus && mounted) {
+        setState(_clearCommentMentionState);
+      }
+    });
   }
 
   Future<UpdateDetail> _load({int commentPage = 1}) {
@@ -123,10 +138,111 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   @override
   void dispose() {
     _hideReactionOverlay();
+    _commentMentionDebounce?.cancel();
     _likeController.dispose();
     _commentController.dispose();
     _commentFocusNode.dispose();
     super.dispose();
+  }
+
+  void _clearCommentMentionState() {
+    _commentMentionDebounce?.cancel();
+    _commentMentionSuggestions = const <MentionSuggestion>[];
+    _commentMentionLoading = false;
+    _commentMentionStart = null;
+    _commentMentionQuery = '';
+  }
+
+  void _handleCommentChanged() {
+    final token = _extractActiveMentionToken(_commentController.value);
+    if (token == null || !_commentFocusNode.hasFocus) {
+      if (_commentMentionLoading ||
+          _commentMentionSuggestions.isNotEmpty ||
+          _commentMentionStart != null) {
+        setState(_clearCommentMentionState);
+      }
+      return;
+    }
+
+    _commentMentionStart = token.start;
+    if (token.query == _commentMentionQuery &&
+        (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty)) {
+      return;
+    }
+    _commentMentionQuery = token.query;
+    _commentMentionDebounce?.cancel();
+    _commentMentionDebounce = Timer(
+      const Duration(milliseconds: 180),
+      () async {
+        final requestId = ++_commentMentionRequestId;
+        if (mounted) {
+          setState(() {
+            _commentMentionLoading = true;
+          });
+        }
+
+        try {
+          final suggestions = await widget.repository.fetchMentionSuggestions(
+            token.query,
+            limit: token.query.isEmpty ? 4 : 6,
+          );
+          if (!mounted || requestId != _commentMentionRequestId) {
+            return;
+          }
+          setState(() {
+            _commentMentionSuggestions = suggestions;
+            _commentMentionLoading = false;
+          });
+        } catch (_) {
+          if (!mounted || requestId != _commentMentionRequestId) {
+            return;
+          }
+          setState(() {
+            _commentMentionSuggestions = const <MentionSuggestion>[];
+            _commentMentionLoading = false;
+          });
+        }
+      },
+    );
+  }
+
+  _MentionToken? _extractActiveMentionToken(TextEditingValue value) {
+    final cursor = value.selection.baseOffset;
+    if (cursor < 0 || cursor > value.text.length) {
+      return null;
+    }
+
+    final beforeCursor = value.text.substring(0, cursor);
+    final match = RegExp(r'(^|\s)@([a-zA-Z0-9_-]*)$').firstMatch(beforeCursor);
+    if (match == null) {
+      return null;
+    }
+
+    final prefix = match.group(1) ?? '';
+    final query = match.group(2) ?? '';
+    final start = match.start + prefix.length;
+    return _MentionToken(start: start, query: query);
+  }
+
+  void _insertCommentMention(MentionSuggestion suggestion) {
+    final value = _commentController.value;
+    final cursor = value.selection.baseOffset;
+    final mentionStart = _commentMentionStart;
+    if (cursor < 0 || mentionStart == null || mentionStart > cursor) {
+      return;
+    }
+
+    final text = value.text;
+    final replaced =
+        '${text.substring(0, mentionStart)}@${suggestion.username} '
+        '${text.substring(cursor)}';
+    final nextOffset = mentionStart + suggestion.username.length + 2;
+    _commentController.value = TextEditingValue(
+      text: replaced,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    setState(_clearCommentMentionState);
+    _commentFocusNode.requestFocus();
   }
 
   Future<void> _refresh() async {
@@ -280,6 +396,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
       );
       _shouldRefresh = true;
       _commentController.clear();
+      _clearCommentMentionState();
       setState(() {
         _future = Future.value(
           detail.copyWith(
@@ -337,56 +454,12 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     UpdateComment target,
   ) async {
     final pageContext = context;
-    final controller = TextEditingController();
     final replyText = await showModalBottomSheet<String>(
       context: pageContext,
       isScrollControlled: true,
-      builder: (bottomSheetContext) {
-        final colors = bottomSheetContext.appColors;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            18,
-            16,
-            MediaQuery.of(bottomSheetContext).viewInsets.bottom + 18,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Reply',
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                minLines: 2,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  hintText: 'Write your reply...',
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(
-                    bottomSheetContext,
-                  ).pop(controller.text.trim()),
-                  child: const Text('Send reply'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (bottomSheetContext) =>
+          _ReplyComposerSheet(repository: widget.repository),
     );
-    controller.dispose();
 
     if (replyText == null || replyText.trim().isEmpty) {
       return;
@@ -434,14 +507,15 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   }
 
   Future<void> _editUpdate(UpdateDetail detail) async {
-    final controller = TextEditingController(text: detail.status);
+    String draft = detail.status;
     final updatedText = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Update'),
-        content: TextField(
-          controller: controller,
+        content: TextFormField(
+          initialValue: detail.status,
           maxLines: 6,
+          onChanged: (value) => draft = value,
           decoration: const InputDecoration(hintText: 'Share your thoughts...'),
         ),
         actions: [
@@ -450,26 +524,39 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, draft.trim()),
             child: const Text('Save'),
           ),
         ],
       ),
     );
-    controller.dispose();
 
-    if (updatedText == null || updatedText.isEmpty) {
+    if (updatedText == null ||
+        updatedText.isEmpty ||
+        updatedText == detail.status) {
       return;
     }
 
-    final updated = await widget.repository.updateStatus(
-      updateId: detail.id,
-      status: updatedText,
-    );
-    _shouldRefresh = true;
-    setState(() {
-      _future = Future.value(updated);
-    });
+    try {
+      await widget.repository.updateStatus(
+        updateId: detail.id,
+        status: updatedText,
+      );
+      if (!mounted) {
+        return;
+      }
+      _shouldRefresh = true;
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      AppToast.success(context, 'Update edited successfully.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      AppToast.error(context, error);
+    }
   }
 
   Future<void> _deleteUpdate(UpdateDetail detail) async {
@@ -688,18 +775,23 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                   if (detail != null)
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_horiz),
-                      onSelected: (value) async {
-                        switch (value) {
-                          case 'share':
-                            await _shareUpdate(detail);
-                            break;
-                          case 'edit':
-                            await _editUpdate(detail);
-                            break;
-                          case 'delete':
-                            await _deleteUpdate(detail);
-                            break;
-                        }
+                      onSelected: (value) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) async {
+                          if (!mounted) {
+                            return;
+                          }
+                          switch (value) {
+                            case 'share':
+                              await _shareUpdate(detail);
+                              break;
+                            case 'edit':
+                              await _editUpdate(detail);
+                              break;
+                            case 'delete':
+                              await _deleteUpdate(detail);
+                              break;
+                          }
+                        });
                       },
                       itemBuilder: (context) => [
                         const PopupMenuItem(
@@ -1057,6 +1149,15 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   ),
                                 ],
                               ),
+                              if (_commentMentionLoading ||
+                                  _commentMentionSuggestions.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _MentionSuggestionList(
+                                  suggestions: _commentMentionSuggestions,
+                                  isLoading: _commentMentionLoading,
+                                  onTapSuggestion: _insertCommentMention,
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               if (detail.comments.isEmpty)
                                 Text(
@@ -1181,6 +1282,307 @@ class _DetailActionPill extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReplyComposerSheet extends StatefulWidget {
+  const _ReplyComposerSheet({required this.repository});
+
+  final UpdateRepository repository;
+
+  @override
+  State<_ReplyComposerSheet> createState() => _ReplyComposerSheetState();
+}
+
+class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  Timer? _mentionDebounce;
+  List<MentionSuggestion> _suggestions = const <MentionSuggestion>[];
+  bool _loading = false;
+  int _requestId = 0;
+  int? _mentionStart;
+  String _mentionQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleTextChanged);
+    _focusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _mentionDebounce?.cancel();
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _clearMentionState() {
+    _mentionDebounce?.cancel();
+    _loading = false;
+    _suggestions = const <MentionSuggestion>[];
+    _mentionStart = null;
+    _mentionQuery = '';
+  }
+
+  void _handleTextChanged() {
+    final token = _extractToken(_controller.value);
+    if (token == null) {
+      if (_loading || _suggestions.isNotEmpty || _mentionStart != null) {
+        setState(_clearMentionState);
+      }
+      return;
+    }
+
+    _mentionStart = token.start;
+    if (token.query == _mentionQuery && (_loading || _suggestions.isNotEmpty)) {
+      return;
+    }
+    _mentionQuery = token.query;
+    _mentionDebounce?.cancel();
+    _mentionDebounce = Timer(const Duration(milliseconds: 180), () async {
+      final requestId = ++_requestId;
+      if (mounted) {
+        setState(() {
+          _loading = true;
+        });
+      }
+
+      try {
+        final suggestions = await widget.repository.fetchMentionSuggestions(
+          token.query,
+          limit: token.query.isEmpty ? 4 : 6,
+        );
+        if (!mounted || requestId != _requestId) {
+          return;
+        }
+        setState(() {
+          _suggestions = suggestions;
+          _loading = false;
+        });
+      } catch (_) {
+        if (!mounted || requestId != _requestId) {
+          return;
+        }
+        setState(() {
+          _suggestions = const <MentionSuggestion>[];
+          _loading = false;
+        });
+      }
+    });
+  }
+
+  _MentionToken? _extractToken(TextEditingValue value) {
+    final cursor = value.selection.baseOffset;
+    if (cursor < 0 || cursor > value.text.length) {
+      return null;
+    }
+
+    final beforeCursor = value.text.substring(0, cursor);
+    final match = RegExp(r'(^|\s)@([a-zA-Z0-9_-]*)$').firstMatch(beforeCursor);
+    if (match == null) {
+      return null;
+    }
+
+    final prefix = match.group(1) ?? '';
+    final query = match.group(2) ?? '';
+    final start = match.start + prefix.length;
+    return _MentionToken(start: start, query: query);
+  }
+
+  void _insertMention(MentionSuggestion suggestion) {
+    final value = _controller.value;
+    final cursor = value.selection.baseOffset;
+    final start = _mentionStart;
+    if (cursor < 0 || start == null || start > cursor) {
+      return;
+    }
+
+    final text = value.text;
+    final replaced =
+        '${text.substring(0, start)}@${suggestion.username} '
+        '${text.substring(cursor)}';
+    final nextOffset = start + suggestion.username.length + 2;
+    _controller.value = TextEditingValue(
+      text: replaced,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    setState(_clearMentionState);
+    _focusNode.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        18,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 18,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Reply',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              hintText: 'Write your reply...  (Type @ to mention)',
+            ),
+          ),
+          if (_loading || _suggestions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _MentionSuggestionList(
+              suggestions: _suggestions,
+              isLoading: _loading,
+              onTapSuggestion: _insertMention,
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_controller.text.trim()),
+              child: const Text('Send reply'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MentionSuggestionList extends StatelessWidget {
+  const _MentionSuggestionList({
+    required this.suggestions,
+    required this.isLoading,
+    required this.onTapSuggestion,
+  });
+
+  final List<MentionSuggestion> suggestions;
+  final bool isLoading;
+  final ValueChanged<MentionSuggestion> onTapSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border),
+      ),
+      child: isLoading
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.brand,
+                  ),
+                ),
+              ),
+            )
+          : ListView.separated(
+              shrinkWrap: true,
+              itemCount: suggestions.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: colors.border.withValues(alpha: 0.6),
+              ),
+              itemBuilder: (context, index) {
+                final item = suggestions[index];
+                return InkWell(
+                  onTap: () => onTapSuggestion(item),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 9,
+                    ),
+                    child: Row(
+                      children: [
+                        AppAvatar(
+                          imageUrl: item.photoUrl,
+                          label: item.fullname,
+                          radius: 15,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      item.fullname.trim().isEmpty
+                                          ? item.username
+                                          : item.fullname,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (item.isVerified) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.verified_rounded,
+                                      size: 14,
+                                      color: colors.brand,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '@${item.username}',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _MentionToken {
+  const _MentionToken({required this.start, required this.query});
+
+  final int start;
+  final String query;
 }
 
 class _InlineReactionPicker extends StatelessWidget {

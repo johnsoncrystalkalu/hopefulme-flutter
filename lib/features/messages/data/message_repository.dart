@@ -10,12 +10,30 @@ class MessageRepository {
   final AuthRepository _authRepository;
 
   Future<List<ConversationListItem>> fetchConversations() async {
-    final response = await _authRepository.get('messages');
+    final response = await _authRepository.get(
+      'messages',
+      queryParameters: const <String, dynamic>{'all': 1},
+    );
     final data = response['data'] as List<dynamic>? ?? <dynamic>[];
     return data
         .whereType<Map<String, dynamic>>()
         .map(ConversationListItem.fromJson)
         .toList();
+  }
+
+  Future<ConversationListPage> fetchConversationsPage({
+    int page = 1,
+    int perPage = 10,
+  }) async {
+    final normalizedPerPage = perPage.clamp(8, 30);
+    final response = await _authRepository.get(
+      'messages',
+      queryParameters: <String, dynamic>{
+        'page': page,
+        'per_page': normalizedPerPage,
+      },
+    );
+    return ConversationListPage.fromJson(response);
   }
 
   Future<ConversationThread> fetchThread(

@@ -36,13 +36,14 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   final ScrollController _scrollController = ScrollController();
-  final List<ConversationListItem> _visibleItems = <ConversationListItem>[];
-  List<ConversationListItem> _allItems = <ConversationListItem>[];
+  final List<ConversationListItem> _items = <ConversationListItem>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _hasMore = true;
   Object? _error;
-  int _page = 0;
-  static const int _pageSize = 20;
+  int _page = 1;
+  int _unreadTotal = 0;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -61,16 +62,22 @@ class _MessagesScreenState extends State<MessagesScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _isLoadingMore = false;
     });
 
     try {
-      final items = await widget.repository.fetchConversations();
+      final page = await widget.repository.fetchConversationsPage(
+        page: 1,
+        perPage: _pageSize,
+      );
       setState(() {
-        _allItems = items;
-        _visibleItems.clear();
-        _page = 0;
+        _items
+          ..clear()
+          ..addAll(page.items);
+        _page = page.currentPage;
+        _hasMore = page.hasMore;
+        _unreadTotal = page.unreadTotal;
       });
-      _appendPage();
     } catch (error) {
       setState(() {
         _error = error;
@@ -84,30 +91,45 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
-  void _appendPage() {
-    final start = _page * _pageSize;
-    if (start >= _allItems.length) {
+  Future<void> _loadMore() async {
+    if (_isLoading || _isLoadingMore || !_hasMore) {
       return;
     }
-    final end = start + _pageSize > _allItems.length
-        ? _allItems.length
-        : start + _pageSize;
     setState(() {
-      _visibleItems.addAll(_allItems.sublist(start, end));
-      _page += 1;
-      _isLoadingMore = false;
+      _isLoadingMore = true;
     });
+    try {
+      final nextPage = _page + 1;
+      final page = await widget.repository.fetchConversationsPage(
+        page: nextPage,
+        perPage: _pageSize,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _items.addAll(page.items);
+        _page = page.currentPage;
+        _hasMore = page.hasMore;
+        _unreadTotal = page.unreadTotal;
+      });
+    } catch (_) {
+      // Ignore transient pagination failures; users can keep scrolling/retrying.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 220 &&
         !_isLoadingMore &&
-        _visibleItems.length < _allItems.length) {
-      setState(() {
-        _isLoadingMore = true;
-      });
-      _appendPage();
+        _hasMore) {
+      _loadMore();
     }
   }
 
@@ -151,13 +173,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final onlineItems = _allItems
+    final onlineItems = _items
         .where((item) => item.otherUser.isOnline)
         .toList();
-    final unreadTotal = _allItems.fold<int>(
-      0,
-      (sum, item) => sum + item.unreadCount,
-    );
+    final unreadTotal = _unreadTotal;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -283,7 +302,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ),
                     const SizedBox(height: 18),
                   ],
-                  ..._visibleItems.map(
+                  ..._items.map(
                     (item) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _ConversationTile(

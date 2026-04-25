@@ -1773,31 +1773,31 @@ class _ProfileTimeline extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 10),
+              //  const SizedBox(height: 10),
 
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      HeroIcon(
-                        HeroIcons.magnifyingGlass,
-                        size: 14,
-                        style: HeroIconStyle.outline,
-                        color: context.appColors.textMuted,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${formatCompactCount(dashboard.profile.views)} Profile Views',
-                        style: TextStyle(
-                          color: context.appColors.textMuted,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Align(
+                //   alignment: Alignment.centerRight,
+                //   child: Row(
+                //     mainAxisSize: MainAxisSize.min,
+                //     children: [
+                //       HeroIcon(
+                //         HeroIcons.magnifyingGlass,
+                //         size: 14,
+                //         style: HeroIconStyle.outline,
+                //         color: context.appColors.textMuted,
+                //       ),
+                //       const SizedBox(width: 5),
+                //       Text(
+                //         '${formatCompactCount(dashboard.profile.views)} ',
+                //         style: TextStyle(
+                //           color: context.appColors.textMuted,
+                //           fontSize: 10.5,
+                //           fontWeight: FontWeight.w500,
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
               ],
             ],
           ),

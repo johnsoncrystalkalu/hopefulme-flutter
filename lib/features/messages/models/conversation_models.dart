@@ -204,6 +204,43 @@ class ChatMessage {
   }
 }
 
+class ConversationListPage {
+  const ConversationListPage({
+    required this.items,
+    required this.currentPage,
+    required this.lastPage,
+    required this.perPage,
+    required this.total,
+    required this.unreadTotal,
+  });
+
+  final List<ConversationListItem> items;
+  final int currentPage;
+  final int lastPage;
+  final int perPage;
+  final int total;
+  final int unreadTotal;
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory ConversationListPage.fromJson(Map<String, dynamic> json) {
+    final meta = json['meta'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final data = json['data'] as List<dynamic>? ?? <dynamic>[];
+
+    return ConversationListPage(
+      items: data
+          .whereType<Map<String, dynamic>>()
+          .map(ConversationListItem.fromJson)
+          .toList(),
+      currentPage: parseInt(meta['current_page'], fallback: 1),
+      lastPage: parseInt(meta['last_page'], fallback: 1),
+      perPage: parseInt(meta['per_page'], fallback: 10),
+      total: parseInt(meta['total']),
+      unreadTotal: parseInt(meta['unread_total']),
+    );
+  }
+}
+
 class ChatReactionSummary {
   const ChatReactionSummary({
     required this.emoji,
@@ -215,11 +252,7 @@ class ChatReactionSummary {
   final int count;
   final bool reactedByMe;
 
-  ChatReactionSummary copyWith({
-    String? emoji,
-    int? count,
-    bool? reactedByMe,
-  }) {
+  ChatReactionSummary copyWith({String? emoji, int? count, bool? reactedByMe}) {
     return ChatReactionSummary(
       emoji: emoji ?? this.emoji,
       count: count ?? this.count,

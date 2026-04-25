@@ -26,7 +26,7 @@ class AppErrorText {
       return 'You are offline';
     }
     if (error is ApiException && error.statusCode == 401) {
-      return 'Your session needs attention';
+      return 'Session expired';
     }
     return 'Something went wrong';
   }
@@ -40,6 +40,9 @@ class AppErrorText {
     }
     if (error is ApiException && error.message.trim().isNotEmpty) {
       return error.message;
+    }
+    if (error is ApiException && error.statusCode == 401) {
+      return 'Please sign in again to continue.';
     }
     return 'We could not load this page right now. Please try again.';
   }

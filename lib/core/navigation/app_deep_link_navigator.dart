@@ -74,12 +74,12 @@ class AppDeepLinkNavigator {
     final segments = _stripRoutingPrefixes(rawSegments);
 
     if (segments.isEmpty) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
       return true;
     }
 
     if (segments.first.toLowerCase() == 'home') {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
       return true;
     }
 

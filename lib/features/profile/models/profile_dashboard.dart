@@ -154,6 +154,7 @@ class ProfileSummary {
     this.socialHandle = '',
     this.subEmail = '',
     this.invitedBy = '',
+    this.referrerUsername = '',
     this.lwpStatus = '',
     this.phoneCode = '',
     this.friend = '',
@@ -191,6 +192,7 @@ class ProfileSummary {
   final String socialHandle;
   final String subEmail;
   final String invitedBy;
+  final String referrerUsername;
   final String lwpStatus;
   final String phoneCode;
   final String friend;
@@ -217,6 +219,8 @@ class ProfileSummary {
       lastSeen: lastSeen,
       city: city,
       state: state,
+      birthdayDay: 0,
+      birthdayMonth: 0,
       monthlyActivity: 0,
       loginActivity: 0,
     );
@@ -275,6 +279,12 @@ class ProfileSummary {
           (json['referrer'] as Map<String, dynamic>?)?['fullname']
               ?.toString() ??
           json['invited_by']?.toString() ??
+          '',
+      referrerUsername:
+          (json['referrer'] as Map<String, dynamic>?)?['username']
+              ?.toString() ??
+          json['referrer_username']?.toString() ??
+          json['referrer']?.toString() ??
           '',
       lwpStatus: json['lwp']?.toString() ?? '',
       phoneCode: json['phone_code']?.toString() ?? '',

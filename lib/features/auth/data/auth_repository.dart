@@ -59,7 +59,9 @@ class AuthRepository {
     required String role1,
     required String gender,
     required String password,
+    String? referrer,
   }) async {
+    final normalizedReferrer = referrer?.trim().replaceFirst('@', '');
     final response = await _apiClient.post(
       'auth/register',
       body: <String, dynamic>{
@@ -71,6 +73,8 @@ class AuthRepository {
         'password': password,
         'password_confirmation': password,
         'device_name': 'App',
+        if (normalizedReferrer != null && normalizedReferrer.isNotEmpty)
+          'referrer': normalizedReferrer,
       },
     );
 
@@ -80,9 +84,7 @@ class AuthRepository {
   Future<String> requestPasswordReset({required String email}) async {
     final response = await _apiClient.post(
       'auth/forgot-password',
-      body: <String, dynamic>{
-        'email': email.trim(),
-      },
+      body: <String, dynamic>{'email': email.trim()},
     );
 
     return response['message']?.toString() ??
@@ -118,11 +120,13 @@ class AuthRepository {
   }
 
   Future<List<String>> fetchRegistrationRoles() async {
+    final options = await fetchRegistrationOptions();
+    return options.roles;
+  }
+
+  Future<RegistrationOptions> fetchRegistrationOptions() async {
     final response = await _apiClient.get('auth/register-options');
-    return (response['roles'] as List<dynamic>? ?? const <dynamic>[])
-        .map((item) => item.toString())
-        .where((item) => item.trim().isNotEmpty)
-        .toList();
+    return RegistrationOptions.fromJson(response);
   }
 
   Future<User> currentUser() async {
@@ -246,9 +250,7 @@ class AuthRepository {
         : null;
 
     if (token == null || token.isEmpty) {
-      throw ApiException(
-        'Could not start your session. Please sign in again.',
-      );
+      throw ApiException('Could not start your session. Please sign in again.');
     }
     await _apiClient.saveToken(token);
 
@@ -262,5 +264,51 @@ class AuthRepository {
     final user = User.fromJson(userJson ?? <String, dynamic>{});
     await _apiClient.tokenStorage.saveCachedUser(user);
     return user;
+  }
+}
+
+class RegistrationOptions {
+  const RegistrationOptions({required this.roles, required this.referral});
+
+  final List<String> roles;
+  final RegistrationReferralConfig referral;
+
+  factory RegistrationOptions.fromJson(Map<String, dynamic> json) {
+    return RegistrationOptions(
+      roles: (json['roles'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(),
+      referral: RegistrationReferralConfig.fromJson(
+        json['referral'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      ),
+    );
+  }
+}
+
+class RegistrationReferralConfig {
+  const RegistrationReferralConfig({
+    required this.enabled,
+    required this.required,
+    required this.label,
+    required this.helperText,
+  });
+
+  final bool enabled;
+  final bool required;
+  final String label;
+  final String helperText;
+
+  factory RegistrationReferralConfig.fromJson(Map<String, dynamic> json) {
+    return RegistrationReferralConfig(
+      enabled: json['enabled'] == true,
+      required: json['required'] == true,
+      label: (json['label']?.toString() ?? '').trim().isEmpty
+          ? 'Invite Code (username)'
+          : json['label'].toString(),
+      helperText: (json['helper_text']?.toString() ?? '').trim().isEmpty
+          ? 'Optional. Enter the username of the person who invited you.'
+          : json['helper_text'].toString(),
+    );
   }
 }

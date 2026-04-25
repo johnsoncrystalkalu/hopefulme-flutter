@@ -55,6 +55,7 @@ class AppNotification {
       'like' => 'favorite',
       'comment' => 'comment',
       'mention' => 'alternate_email',
+      'mention_comment' => 'alternate_email',
       'message' => 'mail',
       'welcome' => 'waving_hand',
       'inspiration' => 'auto_awesome',

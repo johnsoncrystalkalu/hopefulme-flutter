@@ -44,6 +44,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final List<AppNotification> _items = <AppNotification>[];
   final ScrollController _scrollController = ScrollController();
   late final NotificationNavigator _notificationNavigator;
+  Timer? _deferredMarkAllReadTimer;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   int _currentPage = 0;
@@ -69,6 +70,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   void dispose() {
+    _deferredMarkAllReadTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -108,7 +110,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
     _didAutoMarkAllRead = true;
-    unawaited(_markAllRead(silent: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _deferredMarkAllReadTimer?.cancel();
+      _deferredMarkAllReadTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted || _isLoading || _items.isEmpty) {
+          return;
+        }
+        unawaited(_markAllRead(silent: true, applyLocalReadState: false));
+      });
+    });
   }
 
   Future<void> _loadMore() async {
@@ -144,10 +157,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _markAllRead({bool silent = false}) async {
+  Future<void> _markAllRead({
+    bool silent = false,
+    bool applyLocalReadState = true,
+  }) async {
     try {
       await widget.repository.markAllRead();
       if (!mounted) {
+        return;
+      }
+      if (!applyLocalReadState) {
         return;
       }
       setState(() {
@@ -333,7 +352,9 @@ class _NotificationTile extends StatelessWidget {
                         color: colors.textPrimary,
                         fontSize: 13.25,
                         height: 1.45,
-                        fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w600,
+                        fontWeight: item.isRead
+                            ? FontWeight.w500
+                            : FontWeight.w600,
                       ),
                     ),
                     if (item.preview.isNotEmpty) ...[
@@ -342,10 +363,7 @@ class _NotificationTile extends StatelessWidget {
                         item.preview,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: colors.textMuted, fontSize: 12),
                       ),
                     ],
                     const SizedBox(height: 8),

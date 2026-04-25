@@ -331,7 +331,15 @@ class _FeaturedBookCard extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: item.coverUrl.isNotEmpty
-                      ? Image.network(item.coverUrl, fit: BoxFit.cover)
+                      ? Image.network(
+                          item.coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const ColoredBox(
+                                color: Color(0xFFF8FAFC),
+                                child: Icon(Icons.menu_book_outlined),
+                              ),
+                        )
                       : const ColoredBox(
                           color: Color(0xFFF8FAFC),
                           child: Icon(Icons.menu_book_outlined),
@@ -391,7 +399,15 @@ class _LibraryCard extends StatelessWidget {
                 width: 68,
                 height: 88,
                 child: item.coverUrl.isNotEmpty
-                    ? Image.network(item.coverUrl, fit: BoxFit.cover)
+                    ? Image.network(
+                        item.coverUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const ColoredBox(
+                              color: Color(0xFFF8FAFC),
+                              child: Icon(Icons.menu_book_outlined),
+                            ),
+                      )
                     : const ColoredBox(
                         color: Color(0xFFF8FAFC),
                         child: Icon(Icons.menu_book_outlined),

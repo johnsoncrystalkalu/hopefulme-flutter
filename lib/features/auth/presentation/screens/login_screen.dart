@@ -4,7 +4,6 @@ import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_co
 import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/widgets/auth_page_footer.dart';
-import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.authController, super.key});
@@ -49,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-          HomeScreen.routeName,
+          '/',
           (_) => false,
         );
         return;

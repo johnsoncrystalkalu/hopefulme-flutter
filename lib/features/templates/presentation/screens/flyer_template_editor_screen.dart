@@ -28,6 +28,7 @@ class FlyerTemplateEditorScreen extends StatefulWidget {
 }
 
 class _FlyerTemplateEditorScreenState extends State<FlyerTemplateEditorScreen> {
+  static const String _networkImageFallbackAsset = 'assets/templates/1.jpg';
   final GlobalKey _repaintKey = GlobalKey();
   final TextEditingController _nameController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -67,11 +68,16 @@ class _FlyerTemplateEditorScreenState extends State<FlyerTemplateEditorScreen> {
     super.dispose();
   }
 
+  ImageProvider _templateImageProvider() {
+    if (widget.template.isOfflineAsset) {
+      return AssetImage(widget.template.imageUrl);
+    }
+    return NetworkImage(widget.template.imageUrl);
+  }
+
   Future<void> _loadTemplateAspectRatio() async {
     final completer = Completer<ui.Image>();
-    final stream = NetworkImage(
-      widget.template.imageUrl,
-    ).resolve(const ImageConfiguration());
+    final stream = _templateImageProvider().resolve(const ImageConfiguration());
     late final ImageStreamListener listener;
     listener = ImageStreamListener(
       (imageInfo, _) {
@@ -362,11 +368,24 @@ class _FlyerTemplateEditorScreenState extends State<FlyerTemplateEditorScreen> {
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            widget.template.imageUrl,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.low,
-                          ),
+                          if (widget.template.isOfflineAsset)
+                            Image.asset(
+                              widget.template.imageUrl,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.low,
+                            )
+                          else
+                            Image.network(
+                              widget.template.imageUrl,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.low,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Image.asset(
+                                    _networkImageFallbackAsset,
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.low,
+                                  ),
+                            ),
                           if (_userImage != null && _photoRect != null)
                             TransformableBox(
                               rect: _photoRect!,

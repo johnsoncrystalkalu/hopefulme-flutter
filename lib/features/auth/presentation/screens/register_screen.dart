@@ -32,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referrerController = TextEditingController();
   Timer? _usernameDebounce;
 
   String _gender = 'male';
@@ -40,6 +41,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loadingRoles = true;
   _UsernameAvailability _usernameState = _UsernameAvailability.idle;
   List<String> _roleOptions = const <String>[];
+  bool _showReferralField = false;
+  bool _referralRequired = false;
+  String _referralLabel = 'Invite Code (username)';
+  String _referralHelperText =
+      'Optional. Enter the username of the person who invited you.';
 
   @override
   void initState() {
@@ -55,6 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _referrerController.dispose();
     super.dispose();
   }
 
@@ -140,16 +147,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _loadRoleOptions() async {
     try {
-      final roles = await widget.authController.authRepository
-          .fetchRegistrationRoles();
+      final options = await widget.authController.authRepository
+          .fetchRegistrationOptions();
       if (!mounted) {
         return;
       }
       setState(() {
-        _roleOptions = roles;
+        _roleOptions = options.roles;
         if (_selectedRole.isEmpty && _roleOptions.isNotEmpty) {
           _selectedRole = _roleOptions.first;
         }
+        _showReferralField = options.referral.enabled;
+        _referralRequired = options.referral.required;
+        _referralLabel = options.referral.label.trim().isEmpty
+            ? 'Invite Code (username)'
+            : options.referral.label.trim();
+        _referralHelperText = options.referral.helperText.trim().isEmpty
+            ? 'Optional. Enter the username of the person who invited you.'
+            : options.referral.helperText.trim();
       });
     } catch (_) {
       if (!mounted) {
@@ -160,6 +175,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _selectedRole = 'Hopeful Member';
         }
         _roleOptions = const <String>['Hopeful Member'];
+        _showReferralField = false;
+        _referralRequired = false;
       });
     } finally {
       if (mounted) {
@@ -183,13 +200,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       role1: _selectedRole.trim(),
       gender: _gender,
       password: _passwordController.text,
+      referrer: _showReferralField
+          ? _referrerController.text.trim().replaceFirst('@', '')
+          : null,
     );
 
     if (!mounted || !success) {
       return;
     }
 
-    final username = widget.authController.currentUser?.username ?? _normalizedUsername;
+    final username =
+        widget.authController.currentUser?.username ?? _normalizedUsername;
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (context) => EditProfileScreen(
@@ -321,14 +342,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Username is required.';
                                 }
-                                final cleaned = value.trim().replaceFirst('@', '');
-                                if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(cleaned)) {
+                                final cleaned = value.trim().replaceFirst(
+                                  '@',
+                                  '',
+                                );
+                                if (!RegExp(
+                                  r'^[a-zA-Z0-9_-]+$',
+                                ).hasMatch(cleaned)) {
                                   return 'Letters, numbers, _ and - only.';
                                 }
-                                if (_usernameState == _UsernameAvailability.taken) {
+                                if (_usernameState ==
+                                    _UsernameAvailability.taken) {
                                   return 'Already taken.';
                                 }
-                                if (_usernameState == _UsernameAvailability.invalid) {
+                                if (_usernameState ==
+                                    _UsernameAvailability.invalid) {
                                   return 'Letters, numbers, _ and - only.';
                                 }
                                 return null;
@@ -512,6 +540,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                             ),
+                            if (_showReferralField) ...[
+                              const SizedBox(height: 18),
+                              Text(
+                                _referralLabel,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.4,
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _referrerController,
+                                textInputAction: TextInputAction.done,
+                                validator: (value) {
+                                  final cleaned = (value ?? '')
+                                      .trim()
+                                      .replaceFirst('@', '');
+                                  if (_referralRequired && cleaned.isEmpty) {
+                                    return 'Inviter username is required.';
+                                  }
+                                  if (cleaned.isEmpty) {
+                                    return null;
+                                  }
+                                  if (!RegExp(
+                                    r'^[a-zA-Z0-9_-]+$',
+                                  ).hasMatch(cleaned)) {
+                                    return 'Use a valid username only.';
+                                  }
+                                  if (cleaned.toLowerCase() ==
+                                      _normalizedUsername.toLowerCase()) {
+                                    return 'You cannot refer yourself.';
+                                  }
+                                  return null;
+                                },
+                                decoration: _inputDecoration(
+                                  hintText: '@username',
+                                ),
+                              ),
+                              if (_referralHelperText.trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  _referralHelperText,
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ],
                             const SizedBox(height: 18),
                             Text(
                               'By creating an account you agree to the Terms of Service and Privacy Policy.',
@@ -530,14 +610,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: colors.brand.withValues(alpha: 0.28),
+                                      color: colors.brand.withValues(
+                                        alpha: 0.28,
+                                      ),
                                       blurRadius: 30,
                                       offset: const Offset(0, 10),
                                     ),
                                   ],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: widget.authController.isSubmitting ||
+                                  onPressed:
+                                      widget.authController.isSubmitting ||
                                           _usernameBlocksSubmit
                                       ? null
                                       : _submit,
@@ -587,8 +670,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         ? null
                                         : () {
                                             widget.authController.clearError();
-                                            Navigator.of(context)
-                                                .pushReplacementNamed(
+                                            Navigator.of(
+                                              context,
+                                            ).pushReplacementNamed(
                                               LoginScreen.routeName,
                                             );
                                           },

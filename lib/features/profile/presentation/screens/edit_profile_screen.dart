@@ -43,6 +43,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _referrerController = TextEditingController();
   final _quoteController = TextEditingController();
   final _secondaryRoleController = TextEditingController();
   final _hobbyController = TextEditingController();
@@ -66,6 +67,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   List<String> _stateOptions = const <String>[];
   bool _loadingStates = false;
   bool _hasLoadedStatesForSelectedCountry = false;
+  bool _canEditReferrer = true;
 
   bool get _showLegacyOnboardingNote => false;
 
@@ -109,6 +111,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _fullnameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
+    _referrerController.dispose();
     _quoteController.dispose();
     _secondaryRoleController.dispose();
     _hobbyController.dispose();
@@ -136,6 +139,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _fullnameController.text = profile.fullname;
       _usernameController.text = profile.username;
       _emailController.text = profile.email;
+      _referrerController.text = profile.referrerUsername;
       _quoteController.text = profile.quote;
       _secondaryRoleController.text = profile.role2;
       _hobbyController.text = profile.hobby;
@@ -145,6 +149,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _theme = profile.theme.isNotEmpty ? profile.theme : 'light';
       _emailNotifications = profile.emailNotifications;
       _selectedRole = profile.role1;
+      _canEditReferrer = profile.referrerUsername.trim().isEmpty;
       _selectedCountry = profile.location;
       _selectedState = profile.state;
       final birthdayParts = profile.birthday.split('-');
@@ -258,6 +263,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         emailNotifications: _emailNotifications,
         theme: _theme,
         password: _passwordController.text.trim(),
+        referrer: _canEditReferrer ? _referrerController.text.trim() : null,
       );
       if (!mounted) {
         return;
@@ -329,21 +335,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(22),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                colors.brand.withValues(alpha: 0.16),
-                                colors.accentSoft,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                           
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(color: colors.border),
                             boxShadow: [
                               BoxShadow(
                                 color: colors.shadow.withValues(alpha: 0.08),
-                                blurRadius: 24,
-                                offset: const Offset(0, 10),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
@@ -462,6 +461,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 ),
                               ),
+                             
                               _LabeledField(
                                 label: 'Gender',
                                 child: Row(
@@ -541,6 +541,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     hintText:
                                         'Enter role that reflects your career',
                                   ),
+                                ),
+                              ),
+                               _LabeledField(
+                                label: 'Invited By (username)',
+                                hint: _canEditReferrer
+                                    ? 'Optional. Add only if someone invited you.'
+                                    : 'Inviter is already set and cannot be changed.',
+                                child: TextFormField(
+                                  controller: _referrerController,
+                                  enabled: _canEditReferrer,
+                                  textInputAction: TextInputAction.done,
+                                  decoration: const InputDecoration(
+                                    prefixText: '@',
+                                    hintText: 'inviter username',
+                                  ),
+                                  validator: (value) {
+                                    final cleaned = (value ?? '')
+                                        .trim()
+                                        .replaceFirst('@', '');
+                                    if (cleaned.isEmpty) {
+                                      return null;
+                                    }
+                                    if (!RegExp(
+                                      r'^[a-zA-Z0-9_-]+$',
+                                    ).hasMatch(cleaned)) {
+                                      return 'Use a valid username only.';
+                                    }
+                                    final ownUsername = _usernameController.text
+                                        .trim()
+                                        .replaceFirst('@', '')
+                                        .toLowerCase();
+                                    if (cleaned.toLowerCase() == ownUsername) {
+                                      return 'You cannot refer yourself.';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ),
                             ],

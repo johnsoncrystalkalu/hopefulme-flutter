@@ -53,6 +53,25 @@ class UpdateRepository {
     );
   }
 
+  Future<List<MentionSuggestion>> fetchMentionSuggestions(
+    String query, {
+    int limit = 6,
+  }) async {
+    final normalizedLimit = limit.clamp(1, 8);
+    final response = await _authRepository.get(
+      'mentions/users',
+      queryParameters: <String, dynamic>{
+        'q': query.trim(),
+        'limit': normalizedLimit,
+      },
+    );
+
+    return (response['data'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(MentionSuggestion.fromJson)
+        .toList();
+  }
+
   Future<LikeResult> toggleLike(int id, {String? reaction}) async {
     final response = reaction == null
         ? await _authRepository.post('likes/update/$id')
@@ -61,11 +80,11 @@ class UpdateRepository {
             body: {'reaction': reaction},
           );
 
-    final previews = (response['reactions_preview'] as List<dynamic>? ??
-            const <dynamic>[])
-        .map((item) => item.toString().trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final previews =
+        (response['reactions_preview'] as List<dynamic>? ?? const <dynamic>[])
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
 
     return LikeResult(
       liked: parseBool(
@@ -118,9 +137,32 @@ class UpdateRepository {
       'updates/$updateId',
       body: {'status': status},
     );
-    return UpdateDetail.fromJson(
-      response['update'] as Map<String, dynamic>? ?? <String, dynamic>{},
-    );
+    Map<String, dynamic>? updateJson;
+
+    final rawUpdate = response['update'];
+    if (rawUpdate is Map<String, dynamic>) {
+      updateJson = rawUpdate;
+    }
+
+    final rawData = response['data'];
+    if (updateJson == null && rawData is Map<String, dynamic>) {
+      final nestedUpdate = rawData['update'];
+      if (nestedUpdate is Map<String, dynamic>) {
+        updateJson = nestedUpdate;
+      } else {
+        updateJson = rawData;
+      }
+    }
+
+    updateJson ??= response;
+
+    try {
+      return UpdateDetail.fromJson(updateJson);
+    } catch (_) {
+      // Some API variants return a lightweight edit payload; fetch the canonical
+      // update resource to avoid client-side parse crashes.
+      return fetchUpdate(updateId);
+    }
   }
 
   Future<void> deleteUpdate(int updateId) async {
@@ -157,4 +199,32 @@ class LikeResult {
   final int count;
   final String? myReaction;
   final List<String> reactionsPreview;
+}
+
+class MentionSuggestion {
+  const MentionSuggestion({
+    required this.id,
+    required this.username,
+    required this.fullname,
+    required this.photoUrl,
+    required this.verified,
+  });
+
+  final int id;
+  final String username;
+  final String fullname;
+  final String photoUrl;
+  final String verified;
+
+  bool get isVerified => verified.trim().toLowerCase() == 'yes';
+
+  factory MentionSuggestion.fromJson(Map<String, dynamic> json) {
+    return MentionSuggestion(
+      id: parseInt(json['id']),
+      username: json['username']?.toString() ?? '',
+      fullname: json['fullname']?.toString() ?? '',
+      photoUrl: json['photo_url']?.toString() ?? '',
+      verified: json['verified']?.toString() ?? '',
+    );
+  }
 }

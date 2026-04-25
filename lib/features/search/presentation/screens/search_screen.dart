@@ -954,40 +954,14 @@ class _SearchPostCard extends StatelessWidget {
                       onLinkTap: onLinkTap,
                     ),
                   ],
-                  if (item.user != null) ...[
+                  if (item.createdAt.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    InkWell(
-                      onTap: () => onUserTap(item.user!.username),
-                      borderRadius: BorderRadius.circular(999),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundImage: item.user!.photoUrl.isNotEmpty
-                                ? NetworkImage(
-                                    ImageUrlResolver.avatar(
-                                      item.user!.photoUrl,
-                                      size: 42,
-                                    ),
-                                  )
-                                : null,
-                            child: item.user!.photoUrl.isEmpty
-                                ? const Icon(Icons.person, size: 14)
-                                : null,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: VerifiedNameText(
-                              name: item.user!.displayName,
-                              verified: item.user!.isVerified,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      formatRelativeTimestamp(item.createdAt),
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

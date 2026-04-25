@@ -7,6 +7,9 @@ import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/storage/token_storage.dart';
 
 class ApiClient {
+  static const String _appClientHeaderValue = 'hopefulme_flutter';
+  static const String _clientPlatformHeaderValue = 'app/flutter';
+
   ApiClient({
     required this.baseUrl,
     required this.tokenStorage,
@@ -117,28 +120,27 @@ class ApiClient {
     return (response, token);
   });
 
-  Future<Map<String, dynamic>> put(
-    String path, {
-    Map<String, dynamic>? body,
-  }) => _sendJsonRequest(() async {
-    final token = await tokenStorage.readToken();
-    final response = await _httpClient
-        .put(
-          await _buildUri(path),
-          headers: _headersForToken(token),
-          body: jsonEncode(body ?? <String, dynamic>{}),
-        )
-        .timeout(AppConfig.requestTimeout);
-    return (response, token);
-  });
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
+      _sendJsonRequest(() async {
+        final token = await tokenStorage.readToken();
+        final response = await _httpClient
+            .put(
+              await _buildUri(path),
+              headers: _headersForToken(token),
+              body: jsonEncode(body ?? <String, dynamic>{}),
+            )
+            .timeout(AppConfig.requestTimeout);
+        return (response, token);
+      });
 
-  Future<Map<String, dynamic>> delete(String path) => _sendJsonRequest(() async {
-    final token = await tokenStorage.readToken();
-    final response = await _httpClient
-        .delete(await _buildUri(path), headers: _headersForToken(token))
-        .timeout(AppConfig.requestTimeout);
-    return (response, token);
-  });
+  Future<Map<String, dynamic>> delete(String path) =>
+      _sendJsonRequest(() async {
+        final token = await tokenStorage.readToken();
+        final response = await _httpClient
+            .delete(await _buildUri(path), headers: _headersForToken(token))
+            .timeout(AppConfig.requestTimeout);
+        return (response, token);
+      });
 
   Future<void> saveToken(String token) => tokenStorage.saveToken(token);
 
@@ -166,7 +168,8 @@ class ApiClient {
     return <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'X-Client-Platform': 'App',
+      'X-App-Client': _appClientHeaderValue,
+      'X-Client-Platform': _clientPlatformHeaderValue,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
@@ -174,7 +177,8 @@ class ApiClient {
   Map<String, String> _multipartHeadersForToken(String? token) {
     return <String, String>{
       'Accept': 'application/json',
-      'X-Client-Platform': 'app',
+      'X-App-Client': _appClientHeaderValue,
+      'X-Client-Platform': _clientPlatformHeaderValue,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
@@ -248,10 +252,7 @@ class ApiClient {
 
     if (!isJson && hasBody) {
       if (response.statusCode == 404) {
-        throw ApiException(
-          'This content could not be found.',
-          statusCode: 404,
-        );
+        throw ApiException('This content could not be found.', statusCode: 404);
       }
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return <String, dynamic>{};
@@ -285,11 +286,12 @@ class ApiClient {
       }
     }
 
-    final message = validationMessage ??
+    final message =
+        validationMessage ??
         (kDebugMode
             ? data['message']?.toString() ??
-              data['error']?.toString() ??
-              'Request failed (${response.statusCode})'
+                  data['error']?.toString() ??
+                  'Request failed (${response.statusCode})'
             : _userFriendlyHttpError(response.statusCode));
 
     _notifyUnauthorizedIfNeeded(response.statusCode, tokenUsed: tokenUsed);

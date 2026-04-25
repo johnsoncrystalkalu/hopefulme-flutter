@@ -22,12 +22,37 @@ class FlyerTemplatesScreen extends StatefulWidget {
 }
 
 class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
+  static const String _networkImageFallbackAsset = 'assets/templates/1.jpg';
   bool _isLoading = true;
+  bool _isOfflineMode = false;
   String _selectedCategory = 'all';
   String? _error;
   bool _endpointMissing = false;
   List<String> _categories = const <String>['all'];
   List<FlyerTemplateItem> _templates = const <FlyerTemplateItem>[];
+
+  static const List<FlyerTemplateItem> _offlineTemplates = <FlyerTemplateItem>[
+    FlyerTemplateItem(
+      id: -1,
+      name: 'Offline Template 1',
+      slug: 'offline-template-1',
+      category: 'flyers',
+      imageUrl: 'assets/templates/1.jpg',
+      sortOrder: 1,
+      config: <String, dynamic>{},
+      isOfflineAsset: true,
+    ),
+    FlyerTemplateItem(
+      id: -2,
+      name: 'Offline Template 2',
+      slug: 'offline-template-2',
+      category: 'flyers',
+      imageUrl: 'assets/templates/2.jpg',
+      sortOrder: 2,
+      config: <String, dynamic>{},
+      isOfflineAsset: true,
+    ),
+  ];
 
   String _friendlyErrorMessage(String rawError) {
     if (!kReleaseMode) {
@@ -49,6 +74,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
       _isLoading = true;
       _error = null;
       _endpointMissing = false;
+      _isOfflineMode = false;
       _selectedCategory = targetCategory;
     });
 
@@ -64,6 +90,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
         _categories = page.categories;
         _selectedCategory = page.selectedCategory;
         _templates = page.templates;
+        _isOfflineMode = false;
       });
     } catch (error) {
       if (!mounted) {
@@ -71,11 +98,39 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
       }
 
       final message = error.toString();
+      final lower = message.toLowerCase();
+      final canUseOfflineFallback =
+          lower.contains('socketexception') ||
+          lower.contains('failed host lookup') ||
+          lower.contains('connection') ||
+          lower.contains('network') ||
+          lower.contains('timed out') ||
+          lower.contains('timeout') ||
+          lower.contains('(500)');
+
+      if (canUseOfflineFallback) {
+        final offline = _offlineTemplates
+            .where(
+              (item) =>
+                  targetCategory == 'all' || item.category == targetCategory,
+            )
+            .toList(growable: false);
+        setState(() {
+          _categories = const <String>['all', 'flyers'];
+          _selectedCategory = targetCategory == 'all' ? 'all' : targetCategory;
+          _templates = offline;
+          _error = null;
+          _endpointMissing = false;
+          _isOfflineMode = true;
+        });
+        return;
+      }
+
       setState(() {
         _error = _friendlyErrorMessage(message);
         _endpointMissing =
-            message.toLowerCase().contains('could not be found') ||
-            message.toLowerCase().contains('(404)');
+            lower.contains('could not be found') || lower.contains('(404)');
+        _isOfflineMode = false;
       });
     } finally {
       if (mounted) {
@@ -136,6 +191,41 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (_isOfflineMode) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.accentSoft,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.wifi_off_rounded,
+                            size: 16,
+                            color: colors.accentSoftText,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Offline mode: using local templates. Connect to internet to load new templates.',
+                              style: TextStyle(
+                                color: colors.accentSoftText,
+                                fontSize: 12,
+                                height: 1.35,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -144,17 +234,11 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                     decoration: BoxDecoration(
                       color: colors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: colors.border,
-                      ),
+                      border: Border.all(color: colors.border),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.photo,
-                          size: 16,
-                          color: colors.textMuted,
-                        ),
+                        Icon(Icons.photo, size: 16, color: colors.textMuted),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -269,27 +353,43 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(18),
-                                    ),
-                                    child: Image.network(
-                                      template.imageUrl,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      filterQuality: FilterQuality.low,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const ColoredBox(
-                                                color: Color(0xFFF1F5F9),
-                                                child: Icon(
-                                                  Icons.image_not_supported,
+                                if (!template.isOfflineAsset)
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(18),
+                                      ),
+                                      child: Image.network(
+                                        template.imageUrl,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        filterQuality: FilterQuality.low,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Image.asset(
+                                                  _networkImageFallbackAsset,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                  filterQuality:
+                                                      FilterQuality.low,
                                                 ),
-                                              ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(18),
+                                      ),
+                                      child: Image.asset(
+                                        template.imageUrl,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        filterQuality: FilterQuality.low,
+                                      ),
                                     ),
                                   ),
-                                ),
                                 Padding(
                                   padding: const EdgeInsets.all(10),
                                   child: Text(

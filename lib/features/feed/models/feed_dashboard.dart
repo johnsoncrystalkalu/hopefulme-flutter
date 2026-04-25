@@ -296,6 +296,8 @@ class FeedUser {
     required this.lastSeen,
     required this.city,
     required this.state,
+    required this.birthdayDay,
+    required this.birthdayMonth,
     required this.monthlyActivity,
     required this.loginActivity,
   });
@@ -309,6 +311,8 @@ class FeedUser {
   final String lastSeen;
   final String city;
   final String state;
+  final int birthdayDay;
+  final int birthdayMonth;
   final double monthlyActivity;
   final double loginActivity;
 
@@ -320,6 +324,7 @@ class FeedUser {
         normalized == '1' ||
         normalized == 'verified';
   }
+
   String get cityState {
     final parts = <String>[
       if (city.trim().isNotEmpty) city.trim(),
@@ -339,6 +344,8 @@ class FeedUser {
       lastSeen: json['last_seen']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
+      birthdayDay: parseInt(json['birthday_day']),
+      birthdayMonth: parseInt(json['birthday_month']),
       monthlyActivity: parseDouble(json['monthly_activity']),
       loginActivity: parseDouble(json['login_activity']),
     );

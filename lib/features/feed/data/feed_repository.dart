@@ -116,6 +116,31 @@ class FeedRepository {
     }
   }
 
+  Future<FeedUserPage> fetchBirthdaysInMonth({int page = 1, int? month}) async {
+    final normalizedMonth = month?.clamp(1, 12);
+    final key = normalizedMonth == null
+        ? 'monthly-birthdays:$page'
+        : 'monthly-birthdays:$normalizedMonth:$page';
+    final queryParameters = <String, dynamic>{'page': page};
+    if (normalizedMonth != null) {
+      queryParameters['month'] = normalizedMonth;
+    }
+    try {
+      final response = await _authRepository.get(
+        'community/birthdays/monthly',
+        queryParameters: queryParameters,
+      );
+      await _cache.save(key, response);
+      return FeedUserPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return FeedUserPage.fromJson(cached);
+      }
+      rethrow;
+    }
+  }
+
   Future<FriendOfTheDayResponse> fetchFriendOfTheDay() async {
     const key = 'friend-of-the-day';
     try {

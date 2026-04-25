@@ -430,38 +430,45 @@ class _HomeScreenState extends State<HomeScreen>
     }
     _isTopbarRefreshInFlight = true;
 
-    int? unreadNotifications;
-    Object? notificationsError;
-    int? unreadMessages;
-    Object? conversationsError;
     try {
-      final notificationsFuture = widget.notificationRepository.fetchPage(
-        page: 1,
-      );
-      final conversationsFuture = widget.messageRepository.fetchConversations();
-
-      try {
-        final notifications = await notificationsFuture;
-        unreadNotifications = _inAppNotificationsEnabled
-            ? notifications.unreadCount
-            : 0;
-      } catch (error) {
-        notificationsError = error;
-      }
-
-      try {
-        final conversations = await conversationsFuture;
-        unreadMessages = conversations.fold<int>(
-          0,
-          (sum, item) => sum + item.unreadCount,
-        );
-      } catch (error) {
-        conversationsError = error;
-      }
+      final results = await Future.wait<_TopbarFetchResult>([
+        (() async {
+          try {
+            final notifications = await widget.notificationRepository.fetchPage(
+              page: 1,
+            );
+            return _TopbarFetchResult.notifications(
+              _inAppNotificationsEnabled ? notifications.unreadCount : 0,
+            );
+          } catch (error) {
+            return _TopbarFetchResult.notificationError(error);
+          }
+        })(),
+        (() async {
+          try {
+            final conversations = await widget.messageRepository
+                .fetchConversations();
+            final unreadMessages = conversations.fold<int>(
+              0,
+              (sum, item) => sum + item.unreadCount,
+            );
+            return _TopbarFetchResult.messages(unreadMessages);
+          } catch (error) {
+            return _TopbarFetchResult.messageError(error);
+          }
+        })(),
+      ]);
 
       if (!mounted) {
         return;
       }
+
+      final notificationResult = results[0];
+      final messageResult = results[1];
+      final notificationsError = notificationResult.error;
+      final conversationsError = messageResult.error;
+      final unreadNotifications = notificationResult.unreadNotifications;
+      final unreadMessages = messageResult.unreadMessages;
 
       if (notificationsError != null && conversationsError != null) {
         if (!silent) {
@@ -1562,6 +1569,30 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
+}
+
+class _TopbarFetchResult {
+  const _TopbarFetchResult._({
+    this.unreadNotifications,
+    this.unreadMessages,
+    this.error,
+  });
+
+  factory _TopbarFetchResult.notifications(int count) =>
+      _TopbarFetchResult._(unreadNotifications: count);
+
+  factory _TopbarFetchResult.messages(int count) =>
+      _TopbarFetchResult._(unreadMessages: count);
+
+  factory _TopbarFetchResult.notificationError(Object error) =>
+      _TopbarFetchResult._(error: error);
+
+  factory _TopbarFetchResult.messageError(Object error) =>
+      _TopbarFetchResult._(error: error);
+
+  final int? unreadNotifications;
+  final int? unreadMessages;
+  final Object? error;
 }
 
 class _TopBarSnapshot {
@@ -3790,7 +3821,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final previewUsers = users.take(9).toList();
+    final previewUsers = users.take(10).toList();
     final leadName = users.first.displayName;
     final othersCount = users.length - 1;
 

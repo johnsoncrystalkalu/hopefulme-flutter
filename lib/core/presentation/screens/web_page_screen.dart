@@ -160,6 +160,12 @@ class _WebPageScreenState extends State<WebPageScreen> {
   int _lastProgressUpdate = 0;
 
   Future<void> _handleBackNavigation() async {
+    if (_hasError.value || _isShowingFallbackDocument) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      return;
+    }
+
     final canGoBack = await _controller.canGoBack();
     if (canGoBack) {
       await _controller.goBack();

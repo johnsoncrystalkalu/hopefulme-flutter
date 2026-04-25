@@ -50,6 +50,7 @@ class GroupThreadScreen extends StatefulWidget {
 class _GroupThreadScreenState extends State<GroupThreadScreen>
     with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _composerFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   AppGroup? _group;
@@ -75,6 +76,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   bool _typingSent = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
+  bool _isKeyboardVisible = false;
   bool _isRestoringDraft = false;
   Object? _error;
   GroupMessage? _editingMessage;
@@ -100,6 +102,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_handleComposerChanged);
+    _composerFocusNode.addListener(_handleComposerFocusChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
     _loadInitial();
@@ -115,6 +118,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     if (_typingSent) {
       unawaited(_sendTypingStatus(false));
     }
+    _composerFocusNode.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -129,6 +133,24 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
       return;
     }
     _pollTimer?.cancel();
+  }
+
+  @override
+  void didChangeMetrics() {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) {
+      return;
+    }
+    final view = views.first;
+    final bottomInset = view.viewInsets.bottom / view.devicePixelRatio;
+    final keyboardVisible = bottomInset > 0;
+
+    final shouldStickToBottom =
+        _composerFocusNode.hasFocus || _isNearBottom() || _messages.isEmpty;
+    if (keyboardVisible && shouldStickToBottom) {
+      _scrollToBottom();
+    }
+    _isKeyboardVisible = keyboardVisible;
   }
 
   Future<void> _restoreDraft() async {
@@ -836,6 +858,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     });
   }
 
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return (position.maxScrollExtent - position.pixels) < 140;
+  }
+
   List<GroupMessage> _dedupeMessages(List<GroupMessage> items) {
     final seen = <int>{};
     return items.where((item) => seen.add(item.id)).toList();
@@ -867,6 +895,14 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         unawaited(_sendTypingStatus(false));
       }
     });
+  }
+
+  void _handleComposerFocusChanged() {
+    if (_composerFocusNode.hasFocus) {
+      _scrollToBottom();
+    } else if (_isKeyboardVisible) {
+      _isKeyboardVisible = false;
+    }
   }
 
   Future<void> _sendTypingStatus(bool isTyping) async {
@@ -1484,6 +1520,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                 Expanded(
                                   child: TextField(
                                     controller: _controller,
+                                    focusNode: _composerFocusNode,
                                     minLines: 1,
                                     maxLines: 5,
                                     onSubmitted: (_) => _sendMessage(),
@@ -1493,6 +1530,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                           _showEmojiPicker = false;
                                         });
                                       }
+                                      _scrollToBottom();
                                     },
                                     decoration: InputDecoration(
                                       hintText: 'Message ...',

@@ -52,6 +52,7 @@ class MessageThreadScreen extends StatefulWidget {
 class _MessageThreadScreenState extends State<MessageThreadScreen>
     with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _composerFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   ConversationListItem? _conversation;
@@ -76,6 +77,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   bool _typingSent = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
+  bool _isKeyboardVisible = false;
   Object? _error;
   ChatMessage? _editingMessage;
 
@@ -142,6 +144,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         .replaceFirst('@', '');
     ActiveChat.currentConversationId = null;
     _controller.addListener(_handleComposerChanged);
+    _composerFocusNode.addListener(_handleComposerFocusChanged);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreDraft());
     _loadThread();
@@ -165,6 +168,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     if (_typingSent) {
       unawaited(_sendTypingStatus(false));
     }
+    _composerFocusNode.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -179,6 +183,24 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       return;
     }
     _pollTimer?.cancel();
+  }
+
+  @override
+  void didChangeMetrics() {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) {
+      return;
+    }
+    final view = views.first;
+    final bottomInset = view.viewInsets.bottom / view.devicePixelRatio;
+    final keyboardVisible = bottomInset > 0;
+
+    final shouldStickToBottom =
+        _composerFocusNode.hasFocus || _isNearBottom() || _messages.isEmpty;
+    if (keyboardVisible && shouldStickToBottom) {
+      _scrollToBottomAnimated();
+    }
+    _isKeyboardVisible = keyboardVisible;
   }
 
   Future<void> _restoreDraft() async {
@@ -497,9 +519,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         if (!mounted) return;
         setState(() {
           _hasThreadChanges = true;
-          _messages = _messages
+          final replaced = _messages
               .map((item) => item.id == optimisticId ? sent : item)
               .toList();
+          _messages = _dedupeById(replaced);
         });
         _scrollToBottomAnimated();
         _primeRealtimeBurst();
@@ -681,6 +704,14 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         unawaited(_sendTypingStatus(false));
       }
     });
+  }
+
+  void _handleComposerFocusChanged() {
+    if (_composerFocusNode.hasFocus) {
+      _scrollToBottomAnimated();
+    } else if (_isKeyboardVisible) {
+      _isKeyboardVisible = false;
+    }
   }
 
   void _handleScroll() {
@@ -1194,8 +1225,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                         : _messages.isEmpty
                         ? const _ThreadEmptyState(
                             title: 'No messages yet',
-                            subtitle:
-                                'Start the conversation...',
+                            subtitle: 'Start the conversation...',
                           )
                         : ListView.builder(
                             controller: _scrollController,
@@ -1701,6 +1731,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                             constraints: const BoxConstraints(maxHeight: 120),
                             child: TextField(
                               controller: _controller,
+                              focusNode: _composerFocusNode,
                               minLines: 1,
                               maxLines: null,
                               onTap: () {
@@ -1709,6 +1740,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                     _showEmojiPicker = false;
                                   });
                                 }
+                                _scrollToBottomAnimated();
                               },
                               decoration: InputDecoration(
                                 hintText: 'Message..',
@@ -2046,11 +2078,20 @@ extension on _MessageThreadScreenState {
     for (final message in incoming) {
       merged[message.id] = message;
     }
+    final incomingPersisted = incoming
+        .where((message) => message.id > 0)
+        .toList(growable: false);
     final pending = existing.where((message) => message.id < 0);
     for (final message in pending) {
+      final matchedIncoming = incomingPersisted.any(
+        (candidate) => _isSameLogicalMessage(message, candidate),
+      );
+      if (matchedIncoming) {
+        continue;
+      }
       merged.putIfAbsent(message.id, () => message);
     }
-    final items = merged.values.toList()
+    final items = _dedupeById(merged.values.toList())
       ..sort((a, b) {
         final aTime = DateTime.tryParse(a.createdAt);
         final bTime = DateTime.tryParse(b.createdAt);
@@ -2061,6 +2102,45 @@ extension on _MessageThreadScreenState {
         return a.id.compareTo(b.id);
       });
     return items;
+  }
+
+  List<ChatMessage> _dedupeById(List<ChatMessage> items) {
+    final merged = <int, ChatMessage>{};
+    for (final message in items) {
+      merged[message.id] = message;
+    }
+    return merged.values.toList(growable: false);
+  }
+
+  bool _isSameLogicalMessage(ChatMessage pending, ChatMessage persisted) {
+    if (pending.id >= 0 || persisted.id <= 0) {
+      return false;
+    }
+
+    final pendingText = pending.message.trim();
+    final persistedText = persisted.message.trim();
+    final sameText = pendingText == persistedText;
+    final sameSender = pending.senderId == persisted.senderId;
+    final sameRecipient = pending.recipientId == persisted.recipientId;
+    final sameReplyTarget = pending.replyId == persisted.replyId;
+    final pendingHasPhoto =
+        (pending.localImageBytes != null) || pending.photoUrl.trim().isNotEmpty;
+    final persistedHasPhoto = persisted.photoUrl.trim().isNotEmpty;
+    final samePhotoShape = pendingHasPhoto == persistedHasPhoto;
+
+    final pendingTime = DateTime.tryParse(pending.createdAt);
+    final persistedTime = DateTime.tryParse(persisted.createdAt);
+    final closeInTime = pendingTime != null && persistedTime != null
+        ? pendingTime.difference(persistedTime).abs() <=
+              const Duration(minutes: 2)
+        : true;
+
+    return sameText &&
+        sameSender &&
+        sameRecipient &&
+        sameReplyTarget &&
+        samePhotoShape &&
+        closeInTime;
   }
 }
 

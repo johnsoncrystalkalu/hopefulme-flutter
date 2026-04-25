@@ -189,10 +189,7 @@ class ProfileRepository {
       }
       await _authRepository.post(
         'inspire/send',
-        body: <String, dynamic>{
-          ...payload,
-          'username': normalizedUsername,
-        },
+        body: <String, dynamic>{...payload, 'username': normalizedUsername},
       );
     }
   }
@@ -282,7 +279,9 @@ class ProfileRepository {
     required bool emailNotifications,
     required String theme,
     String? password,
+    String? referrer,
   }) async {
+    final normalizedReferrer = referrer?.trim().replaceFirst('@', '');
     final response = await _authRepository.put(
       'profile',
       body: {
@@ -305,6 +304,8 @@ class ProfileRepository {
         if (password != null && password.isNotEmpty) 'password': password,
         if (password != null && password.isNotEmpty)
           'password_confirmation': password,
+        if (normalizedReferrer != null && normalizedReferrer.isNotEmpty)
+          'referrer': normalizedReferrer,
       },
     );
 

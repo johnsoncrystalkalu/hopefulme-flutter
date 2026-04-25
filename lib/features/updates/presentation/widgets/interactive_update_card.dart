@@ -275,14 +275,15 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
   }
 
   Future<void> _editUpdate() async {
-    final controller = TextEditingController(text: _body);
+    String draft = _body;
     final updatedText = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Update'),
-        content: TextField(
-          controller: controller,
+        content: TextFormField(
+          initialValue: _body,
           maxLines: 6,
+          onChanged: (value) => draft = value,
           decoration: const InputDecoration(hintText: 'Share your thoughts...'),
         ),
         actions: [
@@ -291,13 +292,12 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, draft.trim()),
             child: const Text('Save'),
           ),
         ],
       ),
     );
-    controller.dispose();
 
     if (updatedText == null || updatedText.isEmpty || updatedText == _body) {
       return;

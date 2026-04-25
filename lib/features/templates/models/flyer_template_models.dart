@@ -41,6 +41,7 @@ class FlyerTemplateItem {
     required this.imageUrl,
     required this.sortOrder,
     required this.config,
+    this.isOfflineAsset = false,
   });
 
   final int id;
@@ -50,6 +51,7 @@ class FlyerTemplateItem {
   final String imageUrl;
   final int sortOrder;
   final Map<String, dynamic> config;
+  final bool isOfflineAsset;
 
   factory FlyerTemplateItem.fromJson(Map<String, dynamic> json) {
     return FlyerTemplateItem(
@@ -60,6 +62,7 @@ class FlyerTemplateItem {
       imageUrl: json['image_url']?.toString() ?? '',
       sortOrder: parseInt(json['sort_order']),
       config: (json['config'] as Map<String, dynamic>?) ?? <String, dynamic>{},
+      isOfflineAsset: parseBool(json['is_offline_asset']),
     );
   }
 }

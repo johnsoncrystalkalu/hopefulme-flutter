@@ -6,36 +6,50 @@ import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
-import 'package:hopefulme_flutter/features/feed/presentation/screens/monthly_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 
-class TodayBirthdaysScreen extends StatefulWidget {
-  const TodayBirthdaysScreen({
+class MonthlyBirthdaysScreen extends StatefulWidget {
+  const MonthlyBirthdaysScreen({
     required this.feedRepository,
-    required this.initialUsers,
     required this.profileRepository,
     required this.messageRepository,
     required this.updateRepository,
     required this.currentUser,
+    this.month,
     super.key,
   });
 
   final FeedRepository feedRepository;
-  final List<FeedUser> initialUsers;
   final ProfileRepository profileRepository;
   final MessageRepository messageRepository;
   final UpdateRepository updateRepository;
   final User? currentUser;
+  final int? month;
 
   @override
-  State<TodayBirthdaysScreen> createState() => _TodayBirthdaysScreenState();
+  State<MonthlyBirthdaysScreen> createState() => _MonthlyBirthdaysScreenState();
 }
 
-class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
+class _MonthlyBirthdaysScreenState extends State<MonthlyBirthdaysScreen> {
+  static const List<String> _monthNames = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
   final ScrollController _scrollController = ScrollController();
   final List<FeedUser> _items = <FeedUser>[];
   bool _isLoading = true;
@@ -43,6 +57,13 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
   bool _hasMore = true;
   int _page = 1;
   String? _error;
+
+  int get _month {
+    final raw = widget.month ?? DateTime.now().month;
+    return raw.clamp(1, 12);
+  }
+
+  String get _monthName => _monthNames[_month - 1];
 
   @override
   void initState() {
@@ -58,34 +79,29 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
   }
 
   Future<void> _loadInitial() async {
-    final seededUsers = List<FeedUser>.from(widget.initialUsers);
     setState(() {
       _isLoading = true;
       _error = null;
       _page = 1;
       _hasMore = true;
-      _items
-        ..clear()
-        ..addAll(seededUsers);
+      _items.clear();
     });
 
     try {
-      final page = await widget.feedRepository.fetchTodayBirthdays(page: 1);
+      final page = await widget.feedRepository.fetchBirthdaysInMonth(
+        page: 1,
+        month: _month,
+      );
       if (!mounted) return;
       setState(() {
-        if (page.items.isNotEmpty || _items.isEmpty) {
-          _items
-            ..clear()
-            ..addAll(page.items);
-        }
+        _items.addAll(page.items);
         _hasMore = page.hasMore;
-        _error = null;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
-        _hasMore = seededUsers.isEmpty ? false : true;
+        _hasMore = false;
       });
     } finally {
       if (mounted) {
@@ -100,15 +116,14 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
     if (_isLoadingMore || !_hasMore) {
       return;
     }
-
     setState(() {
       _isLoadingMore = true;
     });
-
     try {
       final nextPage = _page + 1;
-      final page = await widget.feedRepository.fetchTodayBirthdays(
+      final page = await widget.feedRepository.fetchBirthdaysInMonth(
         page: nextPage,
+        month: _month,
       );
       if (!mounted) return;
       setState(() {
@@ -158,35 +173,12 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
     );
   }
 
-  Future<void> _openMonthlyBirthdays() {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => MonthlyBirthdaysScreen(
-          feedRepository: widget.feedRepository,
-          profileRepository: widget.profileRepository,
-          messageRepository: widget.messageRepository,
-          updateRepository: widget.updateRepository,
-          currentUser: widget.currentUser,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(
-        title: const Text("Today's Birthdays"),
-        actions: [
-          TextButton(
-            onPressed: _openMonthlyBirthdays,
-            child: const Text('This Month'),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text('Birthdays in $_monthName')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null && _items.isEmpty
@@ -197,9 +189,8 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
             )
           : _items.isEmpty
           ? AppStatusState(
-              title: 'No birthdays today',
-              message:
-                  'There are no users matching today\'s birthday date right now.',
+              title: 'No birthdays in $_monthName',
+              message: 'No birthday records were found for this month.',
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,
@@ -225,15 +216,35 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
                     decoration: BoxDecoration(
                       color: colors.surface,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: colors.borderStrong),
+                      border: Border.all(color: colors.border),
                     ),
                     child: Row(
                       children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: colors.accentSoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            user.birthdayDay > 0
+                                ? user.birthdayDay.toString().padLeft(2, '0')
+                                : '--',
+                            style: TextStyle(
+                              color: colors.accentSoftText,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         InkWell(
                           onTap: () => _openProfile(user.username),
                           borderRadius: BorderRadius.circular(999),
                           child: CircleAvatar(
-                            radius: 28,
+                            radius: 24,
                             backgroundImage: user.photoUrl.isNotEmpty
                                 ? NetworkImage(
                                     ImageUrlResolver.avatar(
@@ -247,7 +258,7 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
                                 : null,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +276,7 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: colors.textPrimary,
-                                        fontSize: 16,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),

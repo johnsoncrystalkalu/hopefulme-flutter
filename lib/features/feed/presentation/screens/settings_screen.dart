@@ -37,7 +37,7 @@ class SettingsScreen extends StatelessWidget {
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final ThemeController themeController;
-  final Future<void> Function() onLogout;
+  final Future<bool> Function() onLogout;
   final Future<void> Function() onCheckForUpdates;
   final Future<bool> Function(Uri uri)? onInternalLinkTap;
 
@@ -69,15 +69,19 @@ class SettingsScreen extends StatelessWidget {
     BuildContext context, {
     required String title,
     required String rawUrl,
+    bool useSignedSession = false,
+    bool enableInternalLinkRouting = false,
   }) async {
     var targetUrl = rawUrl;
-    try {
-      final bridged = await authRepository.createWebSessionUrl(rawUrl);
-      if (bridged.trim().isNotEmpty) {
-        targetUrl = bridged.trim();
+    if (useSignedSession) {
+      try {
+        final bridged = await authRepository.createWebSessionUrl(rawUrl);
+        if (bridged.trim().isNotEmpty) {
+          targetUrl = bridged.trim();
+        }
+      } catch (_) {
+        // Fall back to direct URL if signing fails.
       }
-    } catch (_) {
-      // Fall back to direct URL if signing fails.
     }
 
     if (!context.mounted) {
@@ -89,7 +93,9 @@ class SettingsScreen extends StatelessWidget {
         builder: (context) => WebPageScreen(
           title: title,
           url: targetUrl,
-          onInternalLinkTap: onInternalLinkTap,
+          onInternalLinkTap: enableInternalLinkRouting
+              ? onInternalLinkTap
+              : null,
         ),
       ),
     );
@@ -153,8 +159,15 @@ class SettingsScreen extends StatelessWidget {
                 title: 'Log Out',
                 subtitle: 'Sign out of your HopefulMe account.',
                 onTap: () async {
-                  await onLogout();
-                  if (context.mounted) {
+                  final didLogout = await onLogout();
+                  if (!context.mounted) {
+                    return;
+                  }
+                  if (!didLogout) {
+                    AppToast.error(context, 'Unable to log out right now.');
+                    return;
+                  }
+                  if (Navigator.of(context).canPop()) {
                     Navigator.of(context).pop();
                   }
                 },

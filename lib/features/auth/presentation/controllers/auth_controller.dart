@@ -127,6 +127,7 @@ class AuthController extends ChangeNotifier {
     required String role1,
     required String gender,
     required String password,
+    String? referrer,
   }) async {
     return _runAuthAction(() async {
       _currentUser = await _authRepository.register(
@@ -136,6 +137,7 @@ class AuthController extends ChangeNotifier {
         role1: role1,
         gender: gender,
         password: password,
+        referrer: referrer,
       );
       _isAuthenticated = true;
       _isImpersonating = false;
