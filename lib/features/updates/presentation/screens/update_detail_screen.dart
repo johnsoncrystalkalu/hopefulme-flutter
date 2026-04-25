@@ -245,6 +245,26 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     _commentFocusNode.requestFocus();
   }
 
+  void _insertMentionTrigger() {
+    final value = _commentController.value;
+    final text = value.text;
+    final cursor = value.selection.baseOffset;
+    final safeCursor = cursor < 0 ? text.length : cursor.clamp(0, text.length);
+    final before = text.substring(0, safeCursor);
+    final after = text.substring(safeCursor);
+    final needsLeadingSpace =
+        before.isNotEmpty && !RegExp(r'\s$').hasMatch(before);
+    final insertion = '${needsLeadingSpace ? ' ' : ''}@';
+    final nextText = '$before$insertion$after';
+    final nextOffset = before.length + insertion.length;
+
+    _commentController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    _commentFocusNode.requestFocus();
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _future = _load();
@@ -735,6 +755,91 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     );
   }
 
+  Widget _buildBottomCommentComposer(UpdateDetail detail) {
+    final colors = context.appColors;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return SafeArea(
+      top: false,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + bottomInset),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.border)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _MentionSuggestionList(
+                  suggestions: _commentMentionSuggestions,
+                  isLoading: _commentMentionLoading,
+                  onTapSuggestion: _insertCommentMention,
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    focusNode: _commentFocusNode,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Enter comment...',
+                      filled: true,
+                      fillColor: colors.surfaceMuted,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _insertMentionTrigger,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: colors.borderStrong),
+                    ),
+                    child: Text(
+                      '@',
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AppSendActionButton(
+                  onPressed: _isSubmittingComment
+                      ? null
+                      : () => _submitComment(detail),
+                  isBusy: _isSubmittingComment,
+                  size: 46,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return NotificationListener<ScrollNotification>(
@@ -763,6 +868,9 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
             },
             child: Scaffold(
               backgroundColor: context.appColors.scaffold,
+              bottomNavigationBar: detail == null
+                  ? null
+                  : _buildBottomCommentComposer(detail),
               appBar: AppBar(
                 backgroundColor: context.appColors.surface,
                 surfaceTintColor: context.appColors.surface,
@@ -839,7 +947,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                   return RefreshIndicator(
                     onRefresh: _refresh,
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 124),
                       children: [
                         Container(
                           decoration: BoxDecoration(
@@ -1118,46 +1226,6 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              const SizedBox(height: 14),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _commentController,
-                                      focusNode: _commentFocusNode,
-                                      minLines: 1,
-                                      maxLines: 3,
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter comment...',
-                                        filled: true,
-                                        fillColor: colors.surfaceMuted,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  AppSendActionButton(
-                                    onPressed: _isSubmittingComment
-                                        ? null
-                                        : () => _submitComment(detail),
-                                    isBusy: _isSubmittingComment,
-                                  ),
-                                ],
-                              ),
-                              if (_commentMentionLoading ||
-                                  _commentMentionSuggestions.isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                _MentionSuggestionList(
-                                  suggestions: _commentMentionSuggestions,
-                                  isLoading: _commentMentionLoading,
-                                  onTapSuggestion: _insertCommentMention,
-                                ),
-                              ],
                               const SizedBox(height: 16),
                               if (detail.comments.isEmpty)
                                 Text(
@@ -1435,6 +1503,14 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
             ),
           ),
           const SizedBox(height: 12),
+          if (_loading || _suggestions.isNotEmpty) ...[
+            _MentionSuggestionList(
+              suggestions: _suggestions,
+              isLoading: _loading,
+              onTapSuggestion: _insertMention,
+            ),
+            const SizedBox(height: 10),
+          ],
           TextField(
             controller: _controller,
             focusNode: _focusNode,
@@ -1444,14 +1520,6 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
               hintText: 'Write your reply...  (Type @ to mention)',
             ),
           ),
-          if (_loading || _suggestions.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _MentionSuggestionList(
-              suggestions: _suggestions,
-              isLoading: _loading,
-              onTapSuggestion: _insertMention,
-            ),
-          ],
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -1482,7 +1550,7 @@ class _MentionSuggestionList extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Container(
-      constraints: const BoxConstraints(maxHeight: 220),
+      constraints: const BoxConstraints(maxHeight: 160),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(14),

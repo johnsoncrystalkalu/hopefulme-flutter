@@ -62,10 +62,12 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   bool _mentionLoading = false;
   int? _activeMentionStart;
   String _activeMentionQuery = '';
+  bool _hasTypedContent = false;
 
   @override
   void initState() {
     super.initState();
+    _hasTypedContent = _controller.text.trim().isNotEmpty;
     _controller.addListener(_handleComposerChanged);
     _composerFocusNode.addListener(() {
       if (!_composerFocusNode.hasFocus && mounted) {
@@ -86,10 +88,13 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
 
   void _handleComposerChanged() {
     _updateMentionSuggestions();
-    if (!mounted) {
+    final hasTypedContent = _controller.text.trim().isNotEmpty;
+    if (!mounted || hasTypedContent == _hasTypedContent) {
       return;
     }
-    setState(() {});
+    setState(() {
+      _hasTypedContent = hasTypedContent;
+    });
   }
 
   void _clearMentionState() {
@@ -187,7 +192,21 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
       selection: TextSelection.collapsed(offset: nextOffset),
     );
     setState(_clearMentionState);
-    _composerFocusNode.requestFocus();
+    _restoreComposerFocus();
+  }
+
+  void _restoreComposerFocus() {
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (!_composerFocusNode.hasFocus) {
+        _composerFocusNode.requestFocus();
+      }
+    });
   }
 
   Future<void> _pickPhoto() async {
@@ -217,6 +236,31 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
         _clearMentionState();
       }
     });
+  }
+
+  void _insertTrigger(String trigger) {
+    final value = _controller.value;
+    final text = value.text;
+    final cursor = value.selection.baseOffset;
+    final safeCursor = cursor < 0 ? text.length : cursor.clamp(0, text.length);
+
+    final before = text.substring(0, safeCursor);
+    final after = text.substring(safeCursor);
+    final needsLeadingSpace =
+        before.isNotEmpty && !RegExp(r'\s$').hasMatch(before);
+    final insertion = '${needsLeadingSpace ? ' ' : ''}$trigger';
+    final nextText = '$before$insertion$after';
+    final nextOffset = before.length + insertion.length;
+
+    _controller.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+
+    setState(() {
+      _showEmojiPicker = false;
+    });
+    _composerFocusNode.requestFocus();
   }
 
   Future<void> _submit() async {
@@ -260,38 +304,42 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final hasContent =
-        _controller.text.trim().isNotEmpty || _selectedPhoto != null;
+    final hasContent = _hasTypedContent || _selectedPhoto != null;
     final canSubmit = !_submitting && hasContent;
+    final mediaQuery = MediaQuery.of(context);
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    final maxSheetHeight = mediaQuery.size.height * 0.82;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: SingleChildScrollView(
-        child: Container(
+    return SafeArea(
+      top: false,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: keyboardInset),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, keyboardInset > 0 ? 0 : 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxSheetHeight),
+            child: Container(
           decoration: BoxDecoration(
             color: colors.surface,
             borderRadius: BorderRadius.circular(32),
             border: Border.all(color: colors.borderStrong),
-            boxShadow: [
-              BoxShadow(
-                color: colors.shadow.withValues(alpha: 0.1),
-                blurRadius: 26,
-                offset: const Offset(0, 16),
-                spreadRadius: -18,
-              ),
-            ],
           ),
           child: Form(
             key: _formKey,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: Row(
@@ -338,14 +386,6 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       border: Border.all(
                         color: colors.border.withValues(alpha: 0.65),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.shadow.withValues(alpha: 0.06),
-                          blurRadius: 30,
-                          offset: const Offset(0, 12),
-                          spreadRadius: -22,
-                        ),
-                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(30),
@@ -356,14 +396,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                             width: double.infinity,
                             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  colors.surfaceMuted.withValues(alpha: 0.85),
-                                  colors.surface.withValues(alpha: 0.0),
-                                ],
-                              ),
+                              color: colors.surfaceMuted.withValues(alpha: 0.45),
                             ),
                             child: Row(
                               children: [
@@ -470,43 +503,25 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                           ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                            child: TextFormField(
-                              controller: _controller,
-                              focusNode: _composerFocusNode,
-                              minLines: 6,
-                              maxLines: 10,
-                              onTap: () {
-                                if (_showEmojiPicker) {
-                                  setState(() {
-                                    _showEmojiPicker = false;
-                                  });
-                                }
-                              },
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 18,
-                                height: 1.55,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Share your thoughts...  (Type @ to mention someone)',
-                                hintStyle: TextStyle(
-                                  color: colors.textMuted.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _ComposerHintPill(
+                                  icon: Icons.alternate_email_rounded,
+                                  label: '@Mention',
+                                  onTap: _submitting
+                                      ? null
+                                      : () => _insertTrigger('@'),
                                 ),
-                                border: InputBorder.none,
-                              ),
-                              validator: (value) {
-                                if ((value == null || value.trim().isEmpty) &&
-                                    _selectedPhoto == null) {
-                                  return 'Please write something or add a photo.';
-                                }
-                                return null;
-                              },
+                                _ComposerHintPill(
+                                  icon: Icons.tag_rounded,
+                                  label: '#Hashtag',
+                                  onTap: _submitting
+                                      ? null
+                                      : () => _insertTrigger('#'),
+                                ),
+                              ],
                             ),
                           ),
                           if (_mentionLoading || _mentionSuggestions.isNotEmpty)
@@ -515,8 +530,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 160),
                                 curve: Curves.easeOut,
-                                constraints: const BoxConstraints(
-                                  maxHeight: 220,
+                                constraints: BoxConstraints(
+                                  maxHeight: keyboardInset > 0 ? 112 : 148,
                                 ),
                                 decoration: BoxDecoration(
                                   color: colors.surface,
@@ -524,16 +539,6 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                   border: Border.all(
                                     color: colors.borderStrong,
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.shadow.withValues(
-                                        alpha: 0.09,
-                                      ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                      spreadRadius: -12,
-                                    ),
-                                  ],
                                 ),
                                 child: _mentionLoading
                                     ? Padding(
@@ -568,6 +573,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                           final suggestion =
                                               _mentionSuggestions[index];
                                           return InkWell(
+                                            canRequestFocus: false,
+                                            onTapDown: (_) =>
+                                                _restoreComposerFocus(),
                                             onTap: () =>
                                                 _insertMention(suggestion),
                                             child: Padding(
@@ -659,6 +667,47 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                       ),
                               ),
                             ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: TextFormField(
+                              controller: _controller,
+                              focusNode: _composerFocusNode,
+                              minLines: 6,
+                              maxLines: 10,
+                              onTap: () {
+                                if (_showEmojiPicker) {
+                                  setState(() {
+                                    _showEmojiPicker = false;
+                                  });
+                                }
+                              },
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 18,
+                                height: 1.55,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText:
+                                    'Share your thoughts...',
+                                hintStyle: TextStyle(
+                                  color: colors.textMuted.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              validator: (value) {
+                                if ((value == null || value.trim().isEmpty) &&
+                                    _selectedPhoto == null) {
+                                  return 'Please write something or add a photo.';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
                           if (_selectedPhoto != null)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -701,13 +750,16 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                               ),
                             ),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                             child: Row(
                               children: [
                                 _ComposerActionButton(
                                   icon: Icons.image_outlined,
-                                  backgroundColor: colors.accentSoft,
-                                  foregroundColor: colors.brand,
+                                  label: 'Choose image',
+                                  backgroundColor: colors.brand.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  foregroundColor: colors.brandStrong,
                                   onPressed: _submitting ? null : _pickPhoto,
                                 ),
                                 const SizedBox(width: 10),
@@ -731,7 +783,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                 ),
                 if (_showEmojiPicker)
                   SizedBox(
-                    height: 320,
+                    height: keyboardInset > 0 ? 260 : 320,
                     child: EmojiPicker(
                       textEditingController: _controller,
                       onBackspacePressed: () {},
@@ -768,11 +820,15 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       ),
                     ),
                   ),
+                      ],
+                    ),
+                  ),
+                ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
                   decoration: BoxDecoration(
-                    color: colors.surfaceMuted.withValues(alpha: 0.65),
+                    color: colors.surfaceMuted.withValues(alpha: 0.45),
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(32),
                     ),
@@ -794,27 +850,12 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       Container(
                         decoration: BoxDecoration(
                           color: canSubmit
-                              ? null
+                              ? colors.brand
                               : colors.surface.withValues(alpha: 0.96),
-                          gradient: canSubmit
-                              ? LinearGradient(
-                                  colors: [colors.brand, colors.brandStrong],
-                                )
-                              : null,
                           borderRadius: BorderRadius.circular(18),
                           border: canSubmit
                               ? null
                               : Border.all(color: colors.borderStrong),
-                          boxShadow: canSubmit
-                              ? [
-                                  BoxShadow(
-                                    color: colors.brand.withValues(alpha: 0.22),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 10),
-                                    spreadRadius: -16,
-                                  ),
-                                ]
-                              : [],
                         ),
                         child: FilledButton.icon(
                           onPressed: canSubmit ? _submit : null,
@@ -856,6 +897,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
           ),
         ),
       ),
+      ),
+      ),
     );
   }
 }
@@ -870,12 +913,14 @@ class _MentionToken {
 class _ComposerActionButton extends StatelessWidget {
   const _ComposerActionButton({
     required this.icon,
+    this.label,
     required this.backgroundColor,
     required this.foregroundColor,
     required this.onPressed,
   });
 
   final IconData icon;
+  final String? label;
   final Color backgroundColor;
   final Color foregroundColor;
   final VoidCallback? onPressed;
@@ -888,10 +933,79 @@ class _ComposerActionButton extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
-          width: 46,
+        child: Container(
           height: 46,
-          child: Icon(icon, color: foregroundColor),
+          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: label == null ? 46 : null,
+                child: Icon(icon, color: foregroundColor),
+              ),
+              if (label != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label!,
+                  style: TextStyle(
+                    color: foregroundColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerHintPill extends StatelessWidget {
+  const _ComposerHintPill({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surfaceMuted.withValues(alpha: 0.9),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colors.borderStrong),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: colors.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

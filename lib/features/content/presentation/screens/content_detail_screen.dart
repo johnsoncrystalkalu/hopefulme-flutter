@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_send_action_button.dart';
@@ -68,6 +70,14 @@ class ContentDetailScreen extends StatefulWidget {
 class _ContentDetailScreenState extends State<ContentDetailScreen> {
   late Future<ContentDetail> _future;
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  Timer? _commentMentionDebounce;
+  List<MentionSuggestion> _commentMentionSuggestions =
+      const <MentionSuggestion>[];
+  bool _commentMentionLoading = false;
+  int _commentMentionRequestId = 0;
+  int? _commentMentionStart;
+  String _commentMentionQuery = '';
   bool _isSubmittingComment = false;
   bool _isLoadingMoreComments = false;
   BlogActionResult? _pendingBlogAction;
@@ -87,10 +97,18 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   void initState() {
     super.initState();
     _future = _load();
+    _commentController.addListener(_handleCommentChanged);
+    _commentFocusNode.addListener(() {
+      if (!_commentFocusNode.hasFocus && mounted) {
+        setState(_clearCommentMentionState);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _commentMentionDebounce?.cancel();
+    _commentFocusNode.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -115,6 +133,124 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     await _future;
   }
 
+  void _clearCommentMentionState() {
+    _commentMentionDebounce?.cancel();
+    _commentMentionSuggestions = const <MentionSuggestion>[];
+    _commentMentionLoading = false;
+    _commentMentionStart = null;
+    _commentMentionQuery = '';
+  }
+
+  void _handleCommentChanged() {
+    final token = _extractActiveMentionToken(_commentController.value);
+    if (token == null || !_commentFocusNode.hasFocus) {
+      if (_commentMentionLoading ||
+          _commentMentionSuggestions.isNotEmpty ||
+          _commentMentionStart != null) {
+        setState(_clearCommentMentionState);
+      }
+      return;
+    }
+
+    _commentMentionStart = token.start;
+    if (token.query == _commentMentionQuery &&
+        (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty)) {
+      return;
+    }
+    _commentMentionQuery = token.query;
+    _commentMentionDebounce?.cancel();
+    _commentMentionDebounce = Timer(const Duration(milliseconds: 180), () async {
+      final requestId = ++_commentMentionRequestId;
+      if (mounted) {
+        setState(() {
+          _commentMentionLoading = true;
+        });
+      }
+
+      try {
+        final suggestions = await widget.updateRepository
+            .fetchMentionSuggestions(
+              token.query,
+              limit: token.query.isEmpty ? 4 : 6,
+            );
+        if (!mounted || requestId != _commentMentionRequestId) {
+          return;
+        }
+        setState(() {
+          _commentMentionSuggestions = suggestions;
+          _commentMentionLoading = false;
+        });
+      } catch (_) {
+        if (!mounted || requestId != _commentMentionRequestId) {
+          return;
+        }
+        setState(() {
+          _commentMentionSuggestions = const <MentionSuggestion>[];
+          _commentMentionLoading = false;
+        });
+      }
+    });
+  }
+
+  _MentionToken? _extractActiveMentionToken(TextEditingValue value) {
+    final cursor = value.selection.baseOffset;
+    if (cursor < 0 || cursor > value.text.length) {
+      return null;
+    }
+
+    final beforeCursor = value.text.substring(0, cursor);
+    final match = RegExp(r'(^|\s)@([a-zA-Z0-9_-]*)$').firstMatch(beforeCursor);
+    if (match == null) {
+      return null;
+    }
+
+    final prefix = match.group(1) ?? '';
+    final query = match.group(2) ?? '';
+    final start = match.start + prefix.length;
+    return _MentionToken(start: start, query: query);
+  }
+
+  void _insertCommentMention(MentionSuggestion suggestion) {
+    final value = _commentController.value;
+    final cursor = value.selection.baseOffset;
+    final mentionStart = _commentMentionStart;
+    if (cursor < 0 || mentionStart == null || mentionStart > cursor) {
+      return;
+    }
+
+    final text = value.text;
+    final replaced =
+        '${text.substring(0, mentionStart)}@${suggestion.username} '
+        '${text.substring(cursor)}';
+    final nextOffset = mentionStart + suggestion.username.length + 2;
+    _commentController.value = TextEditingValue(
+      text: replaced,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    setState(_clearCommentMentionState);
+    _commentFocusNode.requestFocus();
+  }
+
+  void _insertMentionTrigger() {
+    final value = _commentController.value;
+    final text = value.text;
+    final cursor = value.selection.baseOffset;
+    final safeCursor = cursor < 0 ? text.length : cursor.clamp(0, text.length);
+    final before = text.substring(0, safeCursor);
+    final after = text.substring(safeCursor);
+    final needsLeadingSpace =
+        before.isNotEmpty && !RegExp(r'\s$').hasMatch(before);
+    final insertion = '${needsLeadingSpace ? ' ' : ''}@';
+    final nextText = '$before$insertion$after';
+    final nextOffset = before.length + insertion.length;
+
+    _commentController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    _commentFocusNode.requestFocus();
+  }
+
   Future<void> _submitComment(ContentDetail detail) async {
     final text = _commentController.text.trim();
     if (text.isEmpty || _isSubmittingComment) {
@@ -132,6 +268,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         comment: text,
       );
       _commentController.clear();
+      _clearCommentMentionState();
       setState(() {
         _future = Future<ContentDetail>.value(
           detail.copyWith(
@@ -785,6 +922,93 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     );
   }
 
+  Widget _buildBottomCommentComposer(ContentDetail detail) {
+    final colors = context.appColors;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return SafeArea(
+      top: false,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + bottomInset),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.border)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ContentMentionSuggestionList(
+                  suggestions: _commentMentionSuggestions,
+                  isLoading: _commentMentionLoading,
+                  onTapSuggestion: _insertCommentMention,
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    focusNode: _commentFocusNode,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: widget.kind == 'blog'
+                          ? 'Add your response...'
+                          : 'Add a comment...',
+                      filled: true,
+                      fillColor: colors.surfaceMuted,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _insertMentionTrigger,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: colors.borderStrong),
+                    ),
+                    child: Text(
+                      '@',
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                AppSendActionButton(
+                  onPressed: _isSubmittingComment
+                      ? null
+                      : () => _submitComment(detail),
+                  isBusy: _isSubmittingComment,
+                  size: 46,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -798,6 +1022,16 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       },
       child: Scaffold(
         backgroundColor: colors.scaffold,
+        bottomNavigationBar: FutureBuilder<ContentDetail>(
+          future: _future,
+          builder: (context, snapshot) {
+            final detail = snapshot.data;
+            if (detail == null || snapshot.hasError) {
+              return const SizedBox.shrink();
+            }
+            return _buildBottomCommentComposer(detail);
+          },
+        ),
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -858,7 +1092,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 124),
                 children: [
                   Container(
                     decoration: BoxDecoration(
@@ -997,7 +1231,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     detail.title,
                                     style: TextStyle(
                                       color: colors.textPrimary,
-                                      fontSize: 24,
+                                      fontSize: 21,
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
@@ -1008,7 +1242,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   detail.title,
                                   style: TextStyle(
                                     color: colors.textPrimary,
-                                    fontSize: 24,
+                                    fontSize: 21,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -1105,36 +1339,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _commentController,
-                                minLines: 1,
-                                maxLines: 3,
-                                decoration: InputDecoration(
-                                  hintText: widget.kind == 'blog'
-                                      ? 'Add your response...'
-                                      : 'Add a comment...',
-                                  filled: true,
-                                  fillColor: colors.surfaceMuted,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            AppSendActionButton(
-                              onPressed: _isSubmittingComment
-                                  ? null
-                                  : () => _submitComment(detail),
-                              isBusy: _isSubmittingComment,
-                            ),
-                          ],
                         ),
                         const SizedBox(height: 16),
                         if (detail.comments.isEmpty)
@@ -1673,6 +1877,124 @@ class _ContentReplyTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ContentMentionSuggestionList extends StatelessWidget {
+  const _ContentMentionSuggestionList({
+    required this.suggestions,
+    required this.isLoading,
+    required this.onTapSuggestion,
+  });
+
+  final List<MentionSuggestion> suggestions;
+  final bool isLoading;
+  final ValueChanged<MentionSuggestion> onTapSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 160),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border),
+      ),
+      child: isLoading
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.brand,
+                  ),
+                ),
+              ),
+            )
+          : ListView.separated(
+              shrinkWrap: true,
+              itemCount: suggestions.length,
+              separatorBuilder: (_, unused) => Divider(
+                height: 1,
+                color: colors.border.withValues(alpha: 0.6),
+              ),
+              itemBuilder: (context, index) {
+                final item = suggestions[index];
+                return InkWell(
+                  onTap: () => onTapSuggestion(item),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 9,
+                    ),
+                    child: Row(
+                      children: [
+                        AppAvatar(
+                          imageUrl: item.photoUrl,
+                          label: item.fullname,
+                          radius: 15,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      item.fullname.trim().isEmpty
+                                          ? item.username
+                                          : item.fullname,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: colors.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (item.isVerified) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.verified_rounded,
+                                      size: 14,
+                                      color: colors.brand,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '@${item.username}',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _MentionToken {
+  const _MentionToken({required this.start, required this.query});
+
+  final int start;
+  final String query;
 }
 
 class _MetaChip extends StatelessWidget {
