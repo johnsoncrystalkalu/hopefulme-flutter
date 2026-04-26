@@ -15,12 +15,14 @@ class WebPageScreen extends StatefulWidget {
     required this.title,
     required this.url,
     this.onInternalLinkTap,
+    this.closeOnBack = false,
     super.key,
   });
 
   final String title;
   final String url;
   final WebPageInternalLinkHandler? onInternalLinkTap;
+  final bool closeOnBack;
 
   static bool shouldUseNativeRouting(Uri uri, {String? originUrl}) {
     final host = uri.host.trim().toLowerCase();
@@ -160,6 +162,12 @@ class _WebPageScreenState extends State<WebPageScreen> {
   int _lastProgressUpdate = 0;
 
   Future<void> _handleBackNavigation() async {
+    if (widget.closeOnBack) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      return;
+    }
+
     if (_hasError.value || _isShowingFallbackDocument) {
       if (!mounted) return;
       Navigator.of(context).pop();

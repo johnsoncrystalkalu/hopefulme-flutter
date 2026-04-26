@@ -783,8 +783,11 @@ Future<void> _openAdminEditUser(BuildContext context, String username) {
   final url = '$baseUrl/admin/users/$normalizedUsername/edit';
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (context) =>
-          WebPageScreen(title: 'Admin User Settings', url: url),
+      builder: (context) => WebPageScreen(
+        title: 'Admin User Settings',
+        url: url,
+        closeOnBack: true,
+      ),
     ),
   );
 }
