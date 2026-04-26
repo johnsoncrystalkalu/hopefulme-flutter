@@ -185,9 +185,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       if (handledByNativeAndroidSoftUpdate) {
         return;
       }
-
-      _lastVersionCheck = now;
-      final versionUri = Uri.parse('${_config.baseUrl}/api/app/version')
+      final apiBaseUrl = _config.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+      final versionUri = Uri.parse('$apiBaseUrl/app/version')
           .replace(
             queryParameters: <String, String>{
               'platform': _versionCheckPlatform(),
@@ -197,7 +196,15 @@ class _HopefulMeAppState extends State<HopefulMeApp>
           .get(versionUri)
           .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode != 200) return;
+      if (response.statusCode != 200) {
+        if (kDebugMode) {
+          debugPrint(
+            'Version check non-200: status=${response.statusCode}, uri=$versionUri, body=${response.body}',
+          );
+        }
+        return;
+      }
+      _lastVersionCheck = now;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final minimumVersion = _resolveMinimumVersion(data);
@@ -1406,3 +1413,4 @@ class _AppLoadingScreen extends StatelessWidget {
     );
   }
 }
+
