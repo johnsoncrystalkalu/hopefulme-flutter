@@ -28,7 +28,7 @@ class FlyerTemplateEditorScreen extends StatefulWidget {
 }
 
 class _FlyerTemplateEditorScreenState extends State<FlyerTemplateEditorScreen> {
-  static const String _networkImageFallbackAsset = 'assets/templates/1.jpg';
+  static const String _networkImageFallbackAsset = 'assets/templates/1.webp';
   final GlobalKey _repaintKey = GlobalKey();
   final TextEditingController _nameController = TextEditingController();
   final ImagePicker _picker = ImagePicker();

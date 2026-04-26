@@ -22,7 +22,7 @@ class FlyerTemplatesScreen extends StatefulWidget {
 }
 
 class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
-  static const String _networkImageFallbackAsset = 'assets/templates/1.jpg';
+  static const String _networkImageFallbackAsset = 'assets/templates/1.webp';
   bool _isLoading = true;
   bool _isOfflineMode = false;
   String _selectedCategory = 'all';
@@ -37,7 +37,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
       name: 'Offline Template 1',
       slug: 'offline-template-1',
       category: 'flyers',
-      imageUrl: 'assets/templates/1.jpg',
+      imageUrl: 'assets/templates/1.webp',
       sortOrder: 1,
       config: <String, dynamic>{},
       isOfflineAsset: true,
@@ -47,7 +47,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
       name: 'Offline Template 2',
       slug: 'offline-template-2',
       category: 'flyers',
-      imageUrl: 'assets/templates/2.jpg',
+      imageUrl: 'assets/templates/2.webp',
       sortOrder: 2,
       config: <String, dynamic>{},
       isOfflineAsset: true,
