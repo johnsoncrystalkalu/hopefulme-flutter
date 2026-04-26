@@ -1750,7 +1750,7 @@ class _ProfileTimeline extends StatelessWidget {
                   icon: Icons.favorite_outline,
                   label: dashboard.profile.hobby,
                 ),
-              if (dashboard.profile.state.trim().isNotEmpty)
+              if (dashboard.profile.cityStateLabel.isNotEmpty)
                 _OverviewLocationRow(profile: dashboard.profile),
               if (dashboard.profile.quote.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -2878,7 +2878,7 @@ class _OverviewLocationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final country = profile.location.trim();
     final flagUrl = _countryFlagUrl(country);
-    final state = profile.state.trim();
+    final cityState = profile.cityStateLabel;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -2901,7 +2901,7 @@ class _OverviewLocationRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              state,
+              cityState,
               style: TextStyle(
                 color: context.appColors.textSecondary,
                 fontSize: 13.5,

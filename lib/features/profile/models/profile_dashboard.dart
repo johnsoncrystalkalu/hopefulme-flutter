@@ -227,10 +227,18 @@ class ProfileSummary {
   }
 
   String get locationLabel {
-    final cityOrState = city.trim().isNotEmpty ? city : state;
+    final normalizedState = _trimStateSuffix(state);
     final parts = <String>[
-      cityOrState,
+      normalizedState,
       location,
+    ].where((part) => part.trim().isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
+  String get cityStateLabel {
+    final parts = <String>[
+      city,
+      state,
     ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
   }
@@ -241,6 +249,12 @@ class ProfileSummary {
       location,
     ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
+  }
+
+  String _trimStateSuffix(String input) {
+    return input
+        .replaceFirst(RegExp(r'\s+state\s*$', caseSensitive: false), '')
+        .trim();
   }
 
   factory ProfileSummary.fromJson(Map<String, dynamic> json) {
