@@ -1274,6 +1274,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                 224.0,
                                 maxBubbleWidth - 28,
                               );
+                              void startReply() {
+                                setState(() {
+                                  _replyingTo = item;
+                                });
+                              }
 
                               return Column(
                                 children: [
@@ -1301,261 +1306,268 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                                 ? CrossAxisAlignment.end
                                                 : CrossAxisAlignment.start,
                                             children: [
-                                              GestureDetector(
-                                                onLongPressStart: (_) async {
-                                                  HapticFeedback.mediumImpact();
-                                                  final hasText = item.message
-                                                      .trim()
-                                                      .isNotEmpty;
-                                                  final value =
-                                                      await _showBubbleActions(
-                                                        isMine: isMine,
-                                                        hasText: hasText,
-                                                        message: item,
-                                                      );
-                                                  if (!context.mounted) {
-                                                    return;
-                                                  }
+                                              _SwipeReplyWrapper(
+                                                onReply: startReply,
+                                                child: GestureDetector(
+                                                  onLongPressStart: (_) async {
+                                                    HapticFeedback.mediumImpact();
+                                                    final hasText = item.message
+                                                        .trim()
+                                                        .isNotEmpty;
+                                                    final value =
+                                                        await _showBubbleActions(
+                                                          isMine: isMine,
+                                                          hasText: hasText,
+                                                          message: item,
+                                                        );
+                                                    if (!context.mounted) {
+                                                      return;
+                                                    }
 
-                                                  if (value == 'reply') {
-                                                    setState(() {
-                                                      _replyingTo = item;
-                                                    });
-                                                  } else if (value != null &&
-                                                      value.startsWith(
-                                                        'react:',
-                                                      )) {
-                                                    await _toggleReaction(
-                                                      item,
-                                                      value.substring(6),
-                                                    );
-                                                  } else if (value == 'copy') {
-                                                    await Clipboard.setData(
-                                                      ClipboardData(
-                                                        text: item.message,
-                                                      ),
-                                                    );
-                                                    if (context.mounted) {
-                                                      AppToast.info(
-                                                        context,
-                                                        'Text copied',
+                                                    if (value == 'reply') {
+                                                      startReply();
+                                                    } else if (value != null &&
+                                                        value.startsWith(
+                                                          'react:',
+                                                        )) {
+                                                      await _toggleReaction(
+                                                        item,
+                                                        value.substring(6),
+                                                      );
+                                                    } else if (value ==
+                                                        'copy') {
+                                                      await Clipboard.setData(
+                                                        ClipboardData(
+                                                          text: item.message,
+                                                        ),
+                                                      );
+                                                      if (context.mounted) {
+                                                        AppToast.info(
+                                                          context,
+                                                          'Text copied',
+                                                        );
+                                                      }
+                                                    } else if (value ==
+                                                        'edit') {
+                                                      setState(() {
+                                                        _editingMessage = item;
+                                                        _controller.text =
+                                                            item.message;
+                                                        _controller.selection =
+                                                            TextSelection.collapsed(
+                                                              offset: item
+                                                                  .message
+                                                                  .length,
+                                                            );
+                                                        _replyingTo = null;
+                                                        _showEmojiPicker =
+                                                            false;
+                                                        _selectedPhoto = null;
+                                                        _selectedPhotoBytes =
+                                                            null;
+                                                      });
+                                                    } else if (value ==
+                                                        'delete') {
+                                                      await _deleteMessage(
+                                                        item,
                                                       );
                                                     }
-                                                  } else if (value == 'edit') {
-                                                    setState(() {
-                                                      _editingMessage = item;
-                                                      _controller.text =
-                                                          item.message;
-                                                      _controller.selection =
-                                                          TextSelection.collapsed(
-                                                            offset: item
-                                                                .message
-                                                                .length,
-                                                          );
-                                                      _replyingTo = null;
-                                                      _showEmojiPicker = false;
-                                                      _selectedPhoto = null;
-                                                      _selectedPhotoBytes =
-                                                          null;
-                                                    });
-                                                  } else if (value ==
-                                                      'delete') {
-                                                    await _deleteMessage(item);
-                                                  }
-                                                },
-                                                child: Container(
-                                                  constraints: BoxConstraints(
-                                                    maxWidth: maxBubbleWidth,
-                                                  ),
-                                                  margin: EdgeInsets.only(
-                                                    left: isMine ? 48 : 0,
-                                                    right: isMine ? 0 : 24,
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 14,
-                                                        vertical: 11,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: isMine
-                                                        ? colors.brand
-                                                        : colors.surface,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
+                                                  },
+                                                  child: Container(
+                                                    constraints: BoxConstraints(
+                                                      maxWidth: maxBubbleWidth,
+                                                    ),
+                                                    margin: EdgeInsets.only(
+                                                      left: isMine ? 48 : 0,
+                                                      right: isMine ? 0 : 24,
+                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 11,
                                                         ),
-                                                    border: isMine
-                                                        ? null
-                                                        : Border.all(
-                                                            color:
-                                                                colors.border,
+                                                    decoration: BoxDecoration(
+                                                      color: isMine
+                                                          ? colors.brand
+                                                          : colors.surface,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
                                                           ),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      if (item.replyTo !=
-                                                          null) ...[
-                                                        _ThreadReplyQuote(
-                                                          reply: item.replyTo!,
-                                                          isMine: isMine,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 8,
-                                                        ),
-                                                      ],
-                                                      // ✅ image with tap to fullscreen
-                                                      if (item
-                                                              .photoUrl
-                                                              .isNotEmpty ||
-                                                          item.localImageBytes !=
-                                                              null) ...[
-                                                        GestureDetector(
-                                                          onTap: () => _openFullImage(
-                                                            context,
-                                                            url:
-                                                                item.localImageBytes ==
-                                                                    null
-                                                                ? item.photoUrl
-                                                                : null,
-                                                            bytes: item
-                                                                .localImageBytes,
+                                                      border: isMine
+                                                          ? null
+                                                          : Border.all(
+                                                              color:
+                                                                  colors.border,
+                                                            ),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        if (item.replyTo !=
+                                                            null) ...[
+                                                          _ThreadReplyQuote(
+                                                            reply:
+                                                                item.replyTo!,
+                                                            isMine: isMine,
                                                           ),
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  14,
-                                                                ),
-                                                            child: SizedBox(
-                                                              width:
-                                                                  mediaBubbleImageSize,
-                                                              height:
-                                                                  mediaBubbleImageSize,
-                                                              child:
-                                                                  item.localImageBytes !=
+                                                          const SizedBox(
+                                                            height: 8,
+                                                          ),
+                                                        ],
+                                                        // ✅ image with tap to fullscreen
+                                                        if (item
+                                                                .photoUrl
+                                                                .isNotEmpty ||
+                                                            item.localImageBytes !=
+                                                                null) ...[
+                                                          GestureDetector(
+                                                            onTap: () => _openFullImage(
+                                                              context,
+                                                              url:
+                                                                  item.localImageBytes ==
                                                                       null
-                                                                  ? Image.memory(
-                                                                      item.localImageBytes!,
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                      filterQuality:
-                                                                          FilterQuality
-                                                                              .low,
-                                                                    )
-                                                                  : Image.network(
-                                                                      item.photoUrl,
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                      filterQuality:
-                                                                          FilterQuality
-                                                                              .low,
-                                                                      cacheWidth:
-                                                                          900,
-                                                                      errorBuilder:
-                                                                          (
-                                                                            context,
-                                                                            error,
-                                                                            stackTrace,
-                                                                          ) =>
-                                                                              const SizedBox.shrink(),
-                                                                    ),
+                                                                  ? item.photoUrl
+                                                                  : null,
+                                                              bytes: item
+                                                                  .localImageBytes,
+                                                            ),
+                                                            child: ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    14,
+                                                                  ),
+                                                              child: SizedBox(
+                                                                width:
+                                                                    mediaBubbleImageSize,
+                                                                height:
+                                                                    mediaBubbleImageSize,
+                                                                child:
+                                                                    item.localImageBytes !=
+                                                                        null
+                                                                    ? Image.memory(
+                                                                        item.localImageBytes!,
+                                                                        fit: BoxFit
+                                                                            .cover,
+                                                                        filterQuality:
+                                                                            FilterQuality.low,
+                                                                      )
+                                                                    : Image.network(
+                                                                        item.photoUrl,
+                                                                        fit: BoxFit
+                                                                            .cover,
+                                                                        filterQuality:
+                                                                            FilterQuality.low,
+                                                                        cacheWidth:
+                                                                            900,
+                                                                        errorBuilder:
+                                                                            (
+                                                                              context,
+                                                                              error,
+                                                                              stackTrace,
+                                                                            ) =>
+                                                                                const SizedBox.shrink(),
+                                                                      ),
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
+                                                          if (item
+                                                              .message
+                                                              .isNotEmpty)
+                                                            const SizedBox(
+                                                              height: 10,
+                                                            ),
+                                                        ],
                                                         if (item
                                                             .message
                                                             .isNotEmpty)
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                      ],
-                                                      if (item
-                                                          .message
-                                                          .isNotEmpty)
-                                                        RichDisplayText(
-                                                          text: item.message,
-                                                          style: TextStyle(
-                                                            color: isMine
-                                                                ? Colors.white
-                                                                : colors
-                                                                      .textPrimary,
-                                                            fontSize: 14,
-                                                            height: 1.45,
-                                                          ),
-                                                          linkStyle:
-                                                              _interactiveStyleForBubble(
-                                                                colors,
-                                                                isMine,
-                                                              ),
-                                                          mentionStyle:
-                                                              _interactiveStyleForBubble(
-                                                                colors,
-                                                                isMine,
-                                                              ), // 👈
-                                                          hashtagStyle:
-                                                              _interactiveStyleForBubble(
-                                                                colors,
-                                                                isMine,
-                                                              ), // 👈
-                                                          onMentionTap: (username) => openUserProfile(
-                                                            context,
-                                                            profileRepository:
-                                                                widget
-                                                                    .profileRepository,
-                                                            messageRepository:
-                                                                widget
-                                                                    .repository,
-                                                            updateRepository: widget
-                                                                .updateRepository,
-                                                            currentUser: widget
-                                                                .currentUser,
-                                                            username: username,
-                                                          ),
-                                                          onLinkTap:
-                                                              _handleLinkTap,
-                                                        ),
-                                                      SizedBox(
-                                                        height:
-                                                            item
-                                                                .message
-                                                                .isNotEmpty
-                                                            ? 8
-                                                            : 2,
-                                                      ),
-                                                      Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            formatConversationListTimestamp(
-                                                              item.createdAt,
-                                                            ),
+                                                          RichDisplayText(
+                                                            text: item.message,
                                                             style: TextStyle(
                                                               color: isMine
-                                                                  ? Colors
-                                                                        .white70
+                                                                  ? Colors.white
                                                                   : colors
-                                                                        .textMuted,
-                                                              fontSize: 11,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
+                                                                        .textPrimary,
+                                                              fontSize: 14,
+                                                              height: 1.45,
                                                             ),
+                                                            linkStyle:
+                                                                _interactiveStyleForBubble(
+                                                                  colors,
+                                                                  isMine,
+                                                                ),
+                                                            mentionStyle:
+                                                                _interactiveStyleForBubble(
+                                                                  colors,
+                                                                  isMine,
+                                                                ), // 👈
+                                                            hashtagStyle:
+                                                                _interactiveStyleForBubble(
+                                                                  colors,
+                                                                  isMine,
+                                                                ), // 👈
+                                                            onMentionTap: (username) => openUserProfile(
+                                                              context,
+                                                              profileRepository:
+                                                                  widget
+                                                                      .profileRepository,
+                                                              messageRepository:
+                                                                  widget
+                                                                      .repository,
+                                                              updateRepository:
+                                                                  widget
+                                                                      .updateRepository,
+                                                              currentUser: widget
+                                                                  .currentUser,
+                                                              username:
+                                                                  username,
+                                                            ),
+                                                            onLinkTap:
+                                                                _handleLinkTap,
                                                           ),
-                                                          if (isMine) ...[
-                                                            const SizedBox(
-                                                              width: 6,
+                                                        SizedBox(
+                                                          height:
+                                                              item
+                                                                  .message
+                                                                  .isNotEmpty
+                                                              ? 8
+                                                              : 2,
+                                                        ),
+                                                        Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              formatConversationListTimestamp(
+                                                                item.createdAt,
+                                                              ),
+                                                              style: TextStyle(
+                                                                color: isMine
+                                                                    ? Colors
+                                                                          .white70
+                                                                    : colors
+                                                                          .textMuted,
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
                                                             ),
-                                                            _MessageDeliveryStatus(
-                                                              status:
-                                                                  item.status,
-                                                            ),
+                                                            if (isMine) ...[
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              _MessageDeliveryStatus(
+                                                                status:
+                                                                    item.status,
+                                                              ),
+                                                            ],
                                                           ],
-                                                        ],
-                                                      ),
-                                                    ],
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -2141,6 +2153,85 @@ extension on _MessageThreadScreenState {
         sameReplyTarget &&
         samePhotoShape &&
         closeInTime;
+  }
+}
+
+class _SwipeReplyWrapper extends StatefulWidget {
+  const _SwipeReplyWrapper({required this.onReply, required this.child});
+
+  final VoidCallback onReply;
+  final Widget child;
+
+  @override
+  State<_SwipeReplyWrapper> createState() => _SwipeReplyWrapperState();
+}
+
+class _SwipeReplyWrapperState extends State<_SwipeReplyWrapper> {
+  static const double _maxOffset = 72;
+  static const double _triggerOffset = 52;
+  static const Duration _resetDuration = Duration(milliseconds: 130);
+
+  double _dragOffset = 0;
+  bool _replyTriggered = false;
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    final delta = details.primaryDelta ?? 0;
+    if (delta <= 0 && _dragOffset <= 0) {
+      return;
+    }
+    final nextOffset = (_dragOffset + delta).clamp(0.0, _maxOffset);
+    if (nextOffset == _dragOffset) {
+      return;
+    }
+    setState(() {
+      _dragOffset = nextOffset;
+    });
+    if (!_replyTriggered && nextOffset >= _triggerOffset) {
+      _replyTriggered = true;
+      HapticFeedback.selectionClick();
+      widget.onReply();
+    }
+  }
+
+  void _resetSwipe() {
+    if (_dragOffset == 0 && !_replyTriggered) {
+      return;
+    }
+    setState(() {
+      _dragOffset = 0;
+      _replyTriggered = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final progress = (_dragOffset / _triggerOffset).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+      onHorizontalDragEnd: (_) => _resetSwipe(),
+      onHorizontalDragCancel: _resetSwipe,
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Positioned(
+            left: 8,
+            child: Opacity(
+              opacity: progress,
+              child: Icon(Icons.reply_rounded, size: 18, color: colors.brand),
+            ),
+          ),
+          AnimatedContainer(
+            duration: _resetDuration,
+            curve: Curves.easeOutCubic,
+            transform: Matrix4.translationValues(_dragOffset, 0, 0),
+            child: widget.child,
+          ),
+        ],
+      ),
+    );
   }
 }
 

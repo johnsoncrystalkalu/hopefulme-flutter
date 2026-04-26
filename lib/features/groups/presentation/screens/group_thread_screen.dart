@@ -2124,164 +2124,171 @@ class _GroupMessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-                GestureDetector(
-                  onLongPressStart: (_) async {
-                    HapticFeedback.mediumImpact();
-                    final value = await _showBubbleActions(context);
-                    if (value == 'reply') onReply();
-                    if (value != null && value.startsWith('react:')) {
-                      await onReact(message, value.substring(6));
-                    }
-                    if (value == 'copy') await onCopy();
-                    if (value == 'edit') onEdit();
-                    if (value == 'delete') onDelete();
-                  },
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isMine ? colors.brand : colors.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: isMine ? null : Border.all(color: colors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (message.replyTo != null)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: isMine
-                                  ? Colors.white.withValues(alpha: 0.16)
-                                  : colors.surfaceMuted,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  message.replyTo?.sender?.displayName ??
-                                      'Member',
-                                  style: TextStyle(
-                                    color: isMine
-                                        ? Colors.white
-                                        : colors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                _GroupSwipeReplyWrapper(
+                  onReply: onReply,
+                  child: GestureDetector(
+                    onLongPressStart: (_) async {
+                      HapticFeedback.mediumImpact();
+                      final value = await _showBubbleActions(context);
+                      if (value == 'reply') onReply();
+                      if (value != null && value.startsWith('react:')) {
+                        await onReact(message, value.substring(6));
+                      }
+                      if (value == 'copy') await onCopy();
+                      if (value == 'edit') onEdit();
+                      if (value == 'delete') onDelete();
+                    },
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isMine ? colors.brand : colors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: isMine
+                            ? null
+                            : Border.all(color: colors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (message.replyTo != null)
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isMine
+                                    ? Colors.white.withValues(alpha: 0.16)
+                                    : colors.surfaceMuted,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    message.replyTo?.sender?.displayName ??
+                                        'Member',
+                                    style: TextStyle(
+                                      color: isMine
+                                          ? Colors.white
+                                          : colors.textPrimary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  message.replyTo?.message ?? '',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: isMine
-                                        ? Colors.white70
-                                        : colors.textMuted,
-                                    fontSize: 12,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    message.replyTo?.message ?? '',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isMine
+                                          ? Colors.white70
+                                          : colors.textMuted,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        // ✅ network image with tap to fullscreen
-                        if (message.photoUrl.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: GestureDetector(
-                              onTap: () =>
-                                  onOpenFullImage(message.photoUrl, null),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: SizedBox(
-                                  width: mediaBubbleImageSize,
-                                  height: mediaBubbleImageSize,
-                                  child: Image.network(
-                                    message.photoUrl,
-                                    fit: BoxFit.cover,
-                                    filterQuality: FilterQuality.low,
-                                    cacheWidth: 900,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const SizedBox.shrink(),
+                          // ✅ network image with tap to fullscreen
+                          if (message.photoUrl.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    onOpenFullImage(message.photoUrl, null),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: SizedBox(
+                                    width: mediaBubbleImageSize,
+                                    height: mediaBubbleImageSize,
+                                    child: Image.network(
+                                      message.photoUrl,
+                                      fit: BoxFit.cover,
+                                      filterQuality: FilterQuality.low,
+                                      cacheWidth: 900,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const SizedBox.shrink(),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        // ✅ local image with tap to fullscreen
-                        if (message.localImageBytes != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: GestureDetector(
-                              onTap: () => onOpenFullImage(
-                                null,
-                                message.localImageBytes,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: SizedBox(
-                                  width: mediaBubbleImageSize,
-                                  height: mediaBubbleImageSize,
-                                  child: Image.memory(
-                                    message.localImageBytes!,
-                                    fit: BoxFit.cover,
-                                    filterQuality: FilterQuality.low,
+                          // ✅ local image with tap to fullscreen
+                          if (message.localImageBytes != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: GestureDetector(
+                                onTap: () => onOpenFullImage(
+                                  null,
+                                  message.localImageBytes,
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: SizedBox(
+                                    width: mediaBubbleImageSize,
+                                    height: mediaBubbleImageSize,
+                                    child: Image.memory(
+                                      message.localImageBytes!,
+                                      fit: BoxFit.cover,
+                                      filterQuality: FilterQuality.low,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        if (message.message.isNotEmpty)
-                          RichDisplayText(
-                            text: message.message,
-                            style: TextStyle(
-                              color: isMine ? Colors.white : colors.textPrimary,
-                              fontSize: 14,
-                              height: 1.45,
-                            ),
-                            // ✅ all three use the same visible style
-                            linkStyle: _interactiveStyleForBubble(
-                              colors,
-                              isMine,
-                            ),
-                            mentionStyle: _interactiveStyleForBubble(
-                              colors,
-                              isMine,
-                            ),
-                            hashtagStyle: _interactiveStyleForBubble(
-                              colors,
-                              isMine,
-                            ),
-                            onMentionTap: onMentionTap,
-                            onLinkTap: onLinkTap,
-                          ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              message.time,
+                          if (message.message.isNotEmpty)
+                            RichDisplayText(
+                              text: message.message,
                               style: TextStyle(
                                 color: isMine
-                                    ? Colors.white70
-                                    : colors.textMuted,
-                                fontSize: 11,
+                                    ? Colors.white
+                                    : colors.textPrimary,
+                                fontSize: 14,
+                                height: 1.45,
                               ),
+                              // ✅ all three use the same visible style
+                              linkStyle: _interactiveStyleForBubble(
+                                colors,
+                                isMine,
+                              ),
+                              mentionStyle: _interactiveStyleForBubble(
+                                colors,
+                                isMine,
+                              ),
+                              hashtagStyle: _interactiveStyleForBubble(
+                                colors,
+                                isMine,
+                              ),
+                              onMentionTap: onMentionTap,
+                              onLinkTap: onLinkTap,
                             ),
-                            if (isMine) ...[
-                              const SizedBox(width: 6),
-                              _MessageDeliveryStatus(status: message.status),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                message.time,
+                                style: TextStyle(
+                                  color: isMine
+                                      ? Colors.white70
+                                      : colors.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              if (isMine) ...[
+                                const SizedBox(width: 6),
+                                _MessageDeliveryStatus(status: message.status),
+                              ],
                             ],
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2298,6 +2305,86 @@ class _GroupMessageBubble extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupSwipeReplyWrapper extends StatefulWidget {
+  const _GroupSwipeReplyWrapper({required this.onReply, required this.child});
+
+  final VoidCallback onReply;
+  final Widget child;
+
+  @override
+  State<_GroupSwipeReplyWrapper> createState() =>
+      _GroupSwipeReplyWrapperState();
+}
+
+class _GroupSwipeReplyWrapperState extends State<_GroupSwipeReplyWrapper> {
+  static const double _maxOffset = 72;
+  static const double _triggerOffset = 52;
+  static const Duration _resetDuration = Duration(milliseconds: 130);
+
+  double _dragOffset = 0;
+  bool _replyTriggered = false;
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    final delta = details.primaryDelta ?? 0;
+    if (delta <= 0 && _dragOffset <= 0) {
+      return;
+    }
+    final nextOffset = (_dragOffset + delta).clamp(0.0, _maxOffset);
+    if (nextOffset == _dragOffset) {
+      return;
+    }
+    setState(() {
+      _dragOffset = nextOffset;
+    });
+    if (!_replyTriggered && nextOffset >= _triggerOffset) {
+      _replyTriggered = true;
+      HapticFeedback.selectionClick();
+      widget.onReply();
+    }
+  }
+
+  void _resetSwipe() {
+    if (_dragOffset == 0 && !_replyTriggered) {
+      return;
+    }
+    setState(() {
+      _dragOffset = 0;
+      _replyTriggered = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final progress = (_dragOffset / _triggerOffset).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+      onHorizontalDragEnd: (_) => _resetSwipe(),
+      onHorizontalDragCancel: _resetSwipe,
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Positioned(
+            left: 8,
+            child: Opacity(
+              opacity: progress,
+              child: Icon(Icons.reply_rounded, size: 18, color: colors.brand),
+            ),
+          ),
+          AnimatedContainer(
+            duration: _resetDuration,
+            curve: Curves.easeOutCubic,
+            transform: Matrix4.translationValues(_dragOffset, 0, 0),
+            child: widget.child,
           ),
         ],
       ),

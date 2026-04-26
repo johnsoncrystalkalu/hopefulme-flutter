@@ -4669,7 +4669,7 @@ class _ProfilePhotoReminderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Add a profile photo to complete your profile and reach more people in the community.',
+                  'Add a profile photo to complete your profile, get more followers, and make it easier for people to find you in the community',
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 12,

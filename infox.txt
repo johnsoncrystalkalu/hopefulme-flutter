@@ -1,5 +1,4 @@
  flutter run -d chrome
- 
  flutter run -d emulator-5554
  
 flutter run -d 27be0f2b
