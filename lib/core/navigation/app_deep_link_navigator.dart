@@ -112,28 +112,24 @@ class AppDeepLinkNavigator {
 
     switch (segments.first.toLowerCase()) {
       case 'welcome':
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AuthWelcomeScreen.routeName,
-          (_) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AuthWelcomeScreen.routeName, (_) => false);
         return true;
       case 'login':
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          LoginScreen.routeName,
-          (_) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(LoginScreen.routeName, (_) => false);
         return true;
       case 'register':
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RegisterScreen.routeName,
-          (_) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RegisterScreen.routeName, (_) => false);
         return true;
       case 'forgot-password':
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          ForgotPasswordScreen.routeName,
-          (_) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(ForgotPasswordScreen.routeName, (_) => false);
         return true;
       case 'updates':
         await Navigator.of(context).push(
@@ -522,6 +518,7 @@ class AppDeepLinkNavigator {
       'posts',
       'privacy',
       'register',
+      'reset-password',
       'search',
       'settings',
       'social',
@@ -530,6 +527,7 @@ class AppDeepLinkNavigator {
       'templates',
       'tv',
       'updates',
+      'verify-email',
       'welcome',
     };
 

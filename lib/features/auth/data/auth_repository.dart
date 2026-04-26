@@ -110,6 +110,25 @@ class AuthRepository {
     return response['message']?.toString() ?? 'Password reset successful.';
   }
 
+  Future<String> verifyEmailFromLink({
+    required int userId,
+    required String hash,
+    required String expires,
+    required String signature,
+  }) async {
+    final response = await _apiClient.post(
+      'auth/verify-email',
+      body: <String, dynamic>{
+        'id': userId,
+        'hash': hash.trim(),
+        'expires': expires.trim(),
+        'signature': signature.trim(),
+      },
+    );
+
+    return response['message']?.toString() ?? 'Email verified successfully.';
+  }
+
   Future<bool> checkUsernameAvailability(String username) async {
     final normalized = username.trim().replaceFirst('@', '');
     final response = await _apiClient.get(

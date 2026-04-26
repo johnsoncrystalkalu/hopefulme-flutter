@@ -227,9 +227,18 @@ class ProfileSummary {
   }
 
   String get locationLabel {
+    final cityOrState = city.trim().isNotEmpty ? city : state;
     final parts = <String>[
+      cityOrState,
       location,
+    ].where((part) => part.trim().isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
+  String get stateCountryLabel {
+    final parts = <String>[
       state,
+      location,
     ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
   }

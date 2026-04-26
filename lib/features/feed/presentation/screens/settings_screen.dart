@@ -70,7 +70,7 @@ class SettingsScreen extends StatelessWidget {
     required String title,
     required String rawUrl,
     bool useSignedSession = false,
-    bool enableInternalLinkRouting = false,
+    bool enableInternalLinkRouting = true,
   }) async {
     var targetUrl = rawUrl;
     if (useSignedSession) {

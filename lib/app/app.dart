@@ -21,6 +21,7 @@ import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_pass
 import 'package:hopefulme_flutter/features/auth/presentation/screens/login_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/verify_email_screen.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
@@ -1094,6 +1095,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   }
 
   Future<void> _openDeepLink(BuildContext context, Uri uri) async {
+    final normalized = _normalizeSupportedDeepLinkUri(uri);
+    if (normalized != null && _isVerifyEmailUri(normalized)) {
+      await _openVerifyEmailScreen(context, normalized);
+      return;
+    }
+
     final navigator = AppDeepLinkNavigator(
       feedRepository: _feedRepository,
       contentRepository: _contentRepository,
@@ -1117,7 +1124,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       return false;
     }
 
-    return _isResetPasswordUri(normalized);
+    return _isResetPasswordUri(normalized) || _isVerifyEmailUri(normalized);
   }
 
   Future<void> _openLoggedOutDeepLink(BuildContext context, Uri uri) async {
@@ -1128,6 +1135,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     if (_isResetPasswordUri(normalized)) {
       await _openResetPasswordScreen(context, normalized);
+      return;
+    }
+
+    if (_isVerifyEmailUri(normalized)) {
+      await _openVerifyEmailScreen(context, normalized);
     }
   }
 
@@ -1157,6 +1169,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
         segments.first.toLowerCase() == 'reset-password';
   }
 
+  bool _isVerifyEmailUri(Uri uri) {
+    final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
+    return segments.length >= 3 &&
+        segments.first.toLowerCase() == 'verify-email';
+  }
+
   Future<void> _openResetPasswordScreen(BuildContext context, Uri uri) {
     final segments = uri.pathSegments.where((segment) => segment.isNotEmpty);
     final token = segments.length >= 2
@@ -1170,6 +1188,17 @@ class _HopefulMeAppState extends State<HopefulMeApp>
           authRepository: _authController.authRepository,
           resetToken: token,
           initialEmail: email,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openVerifyEmailScreen(BuildContext context, Uri uri) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => VerifyEmailScreen(
+          authRepository: _authController.authRepository,
+          verificationUri: uri,
         ),
       ),
     );

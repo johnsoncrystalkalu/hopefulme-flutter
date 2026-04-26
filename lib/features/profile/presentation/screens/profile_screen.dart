@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
-import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
-import 'package:hopefulme_flutter/core/utils/compact_count_formatter.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
@@ -1096,15 +1094,17 @@ class _ProfileHeaderCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 14,
-          runSpacing: 10,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (profile.rank.trim().isNotEmpty)
               _MetaInline(
                 icon: Icons.workspace_premium_outlined,
                 label: profile.rank.trim(),
               ),
+            if (profile.rank.trim().isNotEmpty &&
+                profile.locationLabel.isNotEmpty)
+              const SizedBox(height: 8),
             if (profile.locationLabel.isNotEmpty)
               _MetaInline(
                 icon: Icons.location_on_outlined,
@@ -1747,6 +1747,8 @@ class _ProfileTimeline extends StatelessWidget {
                   icon: Icons.favorite_outline,
                   label: dashboard.profile.hobby,
                 ),
+              if (dashboard.profile.state.trim().isNotEmpty)
+                _OverviewLocationRow(profile: dashboard.profile),
               if (dashboard.profile.quote.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -1773,7 +1775,7 @@ class _ProfileTimeline extends StatelessWidget {
                   ),
                 ),
 
-              //  const SizedBox(height: 10),
+                //  const SizedBox(height: 10),
 
                 // Align(
                 //   alignment: Alignment.centerRight,
@@ -2861,6 +2863,84 @@ class _MetaInline extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _OverviewLocationRow extends StatelessWidget {
+  const _OverviewLocationRow({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final country = profile.location.trim();
+    final flagUrl = _countryFlagUrl(country);
+    final state = profile.state.trim();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: context.appColors.accentSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.map_outlined,
+              size: 17,
+              color: context.appColors.accentSoftText,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              state,
+              style: TextStyle(
+                color: context.appColors.textSecondary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (flagUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                flagUrl,
+                width: 34,
+                height: 24,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.flag_outlined,
+                  size: 18,
+                  color: context.appColors.icon,
+                ),
+              ),
+            )
+          else
+            Icon(Icons.flag_outlined, size: 18, color: context.appColors.icon),
+        ],
+      ),
+    );
+  }
+
+  String _countryFlagUrl(String country) {
+    if (country.isEmpty) {
+      return '';
+    }
+
+    final baseUri = Uri.tryParse(AppConfig.fromEnvironment().webBaseUrl);
+    if (baseUri == null) {
+      return '';
+    }
+
+    return baseUri
+        .resolve('/img/flags/${Uri.encodeComponent(country.toLowerCase())}.png')
+        .toString();
   }
 }
 

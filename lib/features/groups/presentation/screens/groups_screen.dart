@@ -386,7 +386,7 @@ class _CommunityCard extends StatelessWidget {
               radius: 30,
               backgroundImage: group.photoUrl.isNotEmpty
                   ? NetworkImage(
-                      ImageUrlResolver.avatar(group.photoUrl, size: 90),
+                      ImageUrlResolver.avatar(group.photoUrl, size: 100),
                     )
                   : null,
             ),
