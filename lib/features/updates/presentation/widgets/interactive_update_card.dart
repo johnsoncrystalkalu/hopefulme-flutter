@@ -9,6 +9,7 @@ import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/screens/update_reactions_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_card.dart';
 
 class InteractiveUpdateCard extends StatefulWidget {
@@ -422,6 +423,18 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     await widget.onOpenUpdate();
   }
 
+  Future<void> _openReactions() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => UpdateReactionsScreen(
+          updateId: widget.updateId,
+          updateRepository: widget.updateRepository,
+          onOpenProfile: widget.onOpenProfile,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -555,31 +568,35 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
                     ),
                     waitDuration: const Duration(milliseconds: 250),
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...visibleReactions.map(
-                            (emoji) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                              ),
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: _openReactions,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ...visibleReactions.map(
+                              (emoji) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

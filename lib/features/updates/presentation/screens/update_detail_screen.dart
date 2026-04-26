@@ -24,6 +24,7 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/screens/update_reactions_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -793,6 +794,18 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     );
   }
 
+  Future<void> _openReactions(UpdateDetail detail) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => UpdateReactionsScreen(
+          updateId: detail.id,
+          updateRepository: widget.repository,
+          onOpenProfile: _openProfile,
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomCommentComposer(UpdateDetail detail) {
     final colors = context.appColors;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -1174,59 +1187,72 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                     ),
                                     const Spacer(),
                                     if (detail.reactionsPreview.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(right: 8),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 7,
-                                          vertical: 4,
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(
+                                          999,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: colors.surfaceMuted,
-                                          borderRadius: BorderRadius.circular(
-                                            999,
+                                        onTap: () => _openReactions(detail),
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            right: 8,
                                           ),
-                                          border: Border.all(
-                                            color: colors.border,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 4,
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            ...detail.reactionsPreview
-                                                .take(
-                                                  ReactionConfig
-                                                      .updatePreviewMax,
-                                                )
-                                                .map(
-                                                  (emoji) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 2,
+                                          decoration: BoxDecoration(
+                                            color: colors.surfaceMuted,
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                            border: Border.all(
+                                              color: colors.border,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              ...detail.reactionsPreview
+                                                  .take(
+                                                    ReactionConfig
+                                                        .updatePreviewMax,
+                                                  )
+                                                  .map(
+                                                    (emoji) => Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 2,
+                                                          ),
+                                                      child: Text(
+                                                        emoji,
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
                                                         ),
-                                                    child: Text(
-                                                      emoji,
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                            if (detail.reactionsPreview.length >
-                                                ReactionConfig.updatePreviewMax)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  left: 3,
-                                                ),
-                                                child: Text(
-                                                  '+${detail.reactionsPreview.length - ReactionConfig.updatePreviewMax}',
-                                                  style: TextStyle(
-                                                    color: colors.textMuted,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
+                                              if (detail
+                                                      .reactionsPreview
+                                                      .length >
+                                                  ReactionConfig
+                                                      .updatePreviewMax)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 3,
+                                                      ),
+                                                  child: Text(
+                                                    '+${detail.reactionsPreview.length - ReactionConfig.updatePreviewMax}',
+                                                    style: TextStyle(
+                                                      color: colors.textMuted,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     InkWell(

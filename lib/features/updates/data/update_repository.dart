@@ -3,6 +3,7 @@ import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/utils/json_parsing.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:hopefulme_flutter/features/updates/models/update_reaction.dart';
 
 class UpdateRepository {
   UpdateRepository(this._authRepository);
@@ -97,6 +98,23 @@ class UpdateRepository {
           : null,
       reactionsPreview: previews,
     );
+  }
+
+  Future<UpdateReactionPage> fetchUpdateReactions(
+    int updateId, {
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    final normalizedPage = page < 1 ? 1 : page;
+    final normalizedPerPage = perPage.clamp(10, 60);
+    final response = await _authRepository.get(
+      'updates/$updateId/reactions',
+      queryParameters: <String, dynamic>{
+        'page': normalizedPage,
+        'per_page': normalizedPerPage,
+      },
+    );
+    return UpdateReactionPage.fromJson(response, requestedPage: normalizedPage);
   }
 
   Future<UpdateComment> addComment({
