@@ -170,12 +170,64 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
+  DateTime? _parseTimestamp(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(trimmed)?.toLocal();
+  }
+
+bool _wasSeenToday(ConversationListItem item) {
+  final raw = item.otherUser.lastSeen.trim().toLowerCase();
+  if (raw.isEmpty) return false;
+  return raw == 'online' || raw.startsWith('today');
+}
+
+
+DateTime _activityTimestamp(ConversationListItem item) {
+  final raw = item.otherUser.lastSeen.trim().toLowerCase();
+
+  // Try to extract time from "Today at 9:52 am" for better sorting
+  if (raw.startsWith('today at ')) {
+    final timePart = item.otherUser.lastSeen.trim().substring('Today at '.length);
+    final today = DateTime.now();
+    final parsed = DateTime.tryParse(
+      '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} $timePart',
+    );
+    if (parsed != null) return parsed;
+  }
+
+  return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+  List<ConversationListItem> _buildActiveTodayItems() {
+    final users = <ConversationListItem>[];
+    final seenUserIds = <int>{};
+    for (final item in _items) {
+   
+      final isActiveToday = item.otherUser.isOnline || _wasSeenToday(item);
+      if (!isActiveToday) {
+        continue;
+      }
+      if (!seenUserIds.add(item.otherUser.id)) {
+        continue;
+      }
+      users.add(item);
+    }
+    users.sort((a, b) {
+      if (a.otherUser.isOnline != b.otherUser.isOnline) {
+        return a.otherUser.isOnline ? -1 : 1;
+      }
+      return _activityTimestamp(b).compareTo(_activityTimestamp(a));
+    });
+    return users;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final onlineItems = _items
-        .where((item) => item.otherUser.isOnline)
-        .toList();
+    final activeTodayItems = _buildActiveTodayItems();
     final unreadTotal = _unreadTotal;
 
     return Scaffold(
@@ -227,9 +279,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (onlineItems.isNotEmpty) ...[
+                  if (activeTodayItems.isNotEmpty) ...[
                     Text(
-                      'Online Now',
+                      'Active Today',
                       style: TextStyle(
                         color: colors.textMuted,
                         fontSize: 11,
@@ -242,11 +294,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       height: 90,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: onlineItems.length,
+                        itemCount: activeTodayItems.length,
                         separatorBuilder: (context, index) =>
                             const SizedBox(width: 14),
                         itemBuilder: (context, index) {
-                          final item = onlineItems[index];
+                          final item = activeTodayItems[index];
                           return GestureDetector(
                             onTap: () => _openConversation(item),
                             child: SizedBox(
@@ -270,14 +322,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                             ? const HeroIcon(HeroIcons.user)
                                             : null,
                                       ),
-                                      const Positioned(
-                                        right: 0,
-                                        bottom: 0,
-                                        child: CircleAvatar(
-                                          radius: 6,
-                                          backgroundColor: Colors.green,
+                                      if (item.otherUser.isOnline)
+                                        const Positioned(
+                                          right: 0,
+                                          bottom: 0,
+                                          child: CircleAvatar(
+                                            radius: 6,
+                                            backgroundColor: Colors.green,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 8),

@@ -1056,7 +1056,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openOutreachPage() => _openWebPage('Outreach', '/outreach');
 
   Future<void> _openOtherMenusPage() =>
-      _openWebPage('More Menus', '/more-menu');
+      _openWebPage('More Features', '/more-menu');
 
   Future<void> _openAdminPage() => _openWebPage('Admin', '/admin');
 

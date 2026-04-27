@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/config/reaction_config.dart';
@@ -193,6 +194,7 @@ class _InteractiveUpdateCardState extends State<InteractiveUpdateCard>
     final overlayTop = desiredTop < safeTop ? safeTop : desiredTop;
 
     final overlay = Overlay.of(context, rootOverlay: true);
+    HapticFeedback.lightImpact();
     final entry = OverlayEntry(
       builder: (overlayContext) {
         return Material(

@@ -359,6 +359,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         likeGlobalTopLeft.dy - estimatedPickerHeight - estimatedGap;
     final overlayTop = desiredTop < safeTop ? safeTop : desiredTop;
     final overlay = Overlay.of(context, rootOverlay: true);
+    HapticFeedback.lightImpact();
     final entry = OverlayEntry(
       builder: (overlayContext) {
         return Material(

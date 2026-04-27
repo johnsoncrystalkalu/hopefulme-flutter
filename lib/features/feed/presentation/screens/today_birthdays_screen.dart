@@ -183,7 +183,7 @@ class _TodayBirthdaysScreenState extends State<TodayBirthdaysScreen> {
         actions: [
           TextButton(
             onPressed: _openMonthlyBirthdays,
-            child: const Text('This Month'),
+            child: const Text('All Celebrants'),
           ),
         ],
       ),
