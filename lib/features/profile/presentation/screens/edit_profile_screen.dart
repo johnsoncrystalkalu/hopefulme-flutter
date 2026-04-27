@@ -505,7 +505,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
 
                               _LabeledField(
-                                label: 'Role / Title',
+                                label: 'Role',
                                 child: DropdownButtonFormField<String>(
                                   initialValue:
                                       _selectedRole.isNotEmpty &&
@@ -513,7 +513,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       ? _selectedRole
                                       : null,
                                   decoration: const InputDecoration(
-                                    hintText: 'Select your role...',
+                                    hintText: 'Select a role...',
                                   ),
                                   items: _roleOptions
                                       .map(
@@ -660,7 +660,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 );
                                 final stateField = _LabeledField(
-                                  label: 'State / Region',
+                                  label: 'State / Team',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
                                     initialValue:

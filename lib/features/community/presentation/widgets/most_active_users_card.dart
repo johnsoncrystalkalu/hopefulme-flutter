@@ -106,8 +106,8 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                       onPressed: _openFullList,
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 3,
                         ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         backgroundColor:

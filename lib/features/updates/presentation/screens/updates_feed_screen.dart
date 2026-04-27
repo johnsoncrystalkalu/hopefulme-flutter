@@ -274,6 +274,9 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Update posted'),
+          duration: const Duration(seconds: 4),
+          dismissDirection: DismissDirection.horizontal,
+          showCloseIcon: true,
           action: SnackBarAction(
             label: 'View',
             onPressed: () {

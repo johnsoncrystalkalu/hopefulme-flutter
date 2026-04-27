@@ -658,31 +658,55 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return slug;
   }
 
+  // ── Post share/copy ──────────────────────────────────────────────────────────
+
   Future<void> _copyPostLink(ContentDetail detail) async {
     final slug = _slugifyTitle(detail.title);
     final url = slug.isEmpty
-        ? 'https://ahopefulme.com/posts/${detail.id}'
-        : 'https://ahopefulme.com/posts/${detail.id}-$slug';
+        ? 'https://ahopefulme.com/post/${detail.id}'
+        : 'https://ahopefulme.com/post/${detail.id}-$slug';
     await Clipboard.setData(ClipboardData(text: url));
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     AppToast.info(context, 'Post link copied to clipboard');
   }
 
   Future<void> _sharePost(ContentDetail detail) async {
     final slug = _slugifyTitle(detail.title);
     final url = slug.isEmpty
-        ? 'https://ahopefulme.com/posts/${detail.id}'
-        : 'https://ahopefulme.com/posts/${detail.id}-$slug';
+        ? 'https://ahopefulme.com/post/${detail.id}'
+        : 'https://ahopefulme.com/post/${detail.id}-$slug';
     try {
       await Share.share('${detail.title}\n$url', subject: 'HopefulMe Post');
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: url));
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       AppToast.info(context, 'Post link copied to clipboard');
+    }
+  }
+
+  // ── Blog share/copy ──────────────────────────────────────────────────────────
+
+  Future<void> _copyBlogLink(ContentDetail detail) async {
+    final slug = _slugifyTitle(detail.title);
+    final url = slug.isEmpty
+        ? 'https://ahopefulme.com/blog/${detail.id}'
+        : 'https://ahopefulme.com/blog/${detail.id}-$slug';
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    AppToast.info(context, 'Article link copied to clipboard');
+  }
+
+  Future<void> _shareBlog(ContentDetail detail) async {
+    final slug = _slugifyTitle(detail.title);
+    final url = slug.isEmpty
+        ? 'https://ahopefulme.com/blog/${detail.id}'
+        : 'https://ahopefulme.com/blog/${detail.id}-$slug';
+    try {
+      await Share.share('${detail.title}\n$url', subject: 'HopefulMe Article');
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) return;
+      AppToast.info(context, 'Article link copied to clipboard');
     }
   }
 
@@ -763,15 +787,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   String _inferImageExtension(Uri uri) {
     final path = uri.path.toLowerCase();
-    if (path.endsWith('.png')) {
-      return 'png';
-    }
-    if (path.endsWith('.webp')) {
-      return 'webp';
-    }
-    if (path.endsWith('.gif')) {
-      return 'gif';
-    }
+    if (path.endsWith('.png')) return 'png';
+    if (path.endsWith('.webp')) return 'webp';
+    if (path.endsWith('.gif')) return 'gif';
     return 'jpg';
   }
 
@@ -832,7 +850,6 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 height: 42,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  // border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: colors.shadow.withValues(alpha: 0.08),
@@ -919,13 +936,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           if (detail.label.trim().isNotEmpty)
             _ContentPill(
               label: detail.label.trim(),
-              textColor: const Color(0xFF2A41D4), // Using your new Brand Blue
+              textColor: const Color(0xFF2A41D4),
             ),
-          // if (detail.tag.trim().isNotEmpty)
-          //   _ContentPill(
-          //     label: detail.tag.trim(),
-          //     textColor: const Color(0xFF7C3AED), // Deep Purple
-          //   ),
         ],
       ),
     );
@@ -1053,9 +1065,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return PopScope<Object?>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          return;
-        }
+        if (didPop) return;
         Navigator.of(context).pop(_pendingBlogAction);
       },
       child: Scaffold(
@@ -1079,14 +1089,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           surfaceTintColor: colors.surface,
           title: Text(widget.kind == 'blog' ? 'Article' : 'Post'),
           actions: [
+            // ── Post app bar actions ─────────────────────────────────────────
             if (widget.kind == 'post')
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz),
                 onSelected: (value) async {
                   final detail = await _future;
-                  if (!mounted) {
-                    return;
-                  }
+                  if (!mounted) return;
                   if (value == 'share') {
                     await _sharePost(detail);
                     return;
@@ -1103,6 +1112,32 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   PopupMenuItem<String>(
                     value: 'copy_link',
                     child: Text('Copy post link'),
+                  ),
+                ],
+              ),
+            // ── Blog app bar actions ─────────────────────────────────────────
+            if (widget.kind == 'blog')
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (value) async {
+                  final detail = await _future;
+                  if (!mounted) return;
+                  if (value == 'share') {
+                    await _shareBlog(detail);
+                    return;
+                  }
+                  if (value == 'copy_link') {
+                    await _copyBlogLink(detail);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'share',
+                    child: Text('Share To...'),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'copy_link',
+                    child: Text('Copy article link'),
                   ),
                 ],
               ),
@@ -1345,12 +1380,14 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                     label:
                                         '${_formatCompactCount(detail.views)} views',
                                   ),
-                                  if (widget.kind == 'post')
-                                    _MetaChip(
-                                      icon: Icons.ios_share_outlined,
-                                      label: 'Share',
-                                      onTap: () => _sharePost(detail),
-                                    ),
+                                  // Share chip shown for both post and blog
+                                  _MetaChip(
+                                    icon: Icons.ios_share_outlined,
+                                    label: 'Share',
+                                    onTap: () => widget.kind == 'blog'
+                                        ? _shareBlog(detail)
+                                        : _sharePost(detail),
+                                  ),
                                 ],
                               ),
                             ],
@@ -1467,9 +1504,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
-      return;
-    }
+    if (kIsWeb) return;
     _resolvedUrl = _resolveUrl(widget.videoUrl);
     if (_resolvedUrl != null) {
       final controller = WebViewController()
@@ -1478,15 +1513,11 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
         ..setNavigationDelegate(
           NavigationDelegate(
             onProgress: (progress) {
-              if (!mounted || _progress.value == progress) {
-                return;
-              }
+              if (!mounted || _progress.value == progress) return;
               _progress.value = progress;
             },
             onPageFinished: (_) {
-              if (!mounted) {
-                return;
-              }
+              if (!mounted) return;
               _progress.value = 100;
             },
           ),
@@ -1509,9 +1540,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
 
   String? _resolveUrl(String rawUrl) {
     String value = rawUrl.trim();
-    if (value.isEmpty) {
-      return null;
-    }
+    if (value.isEmpty) return null;
 
     if (value.contains('<iframe') && value.contains('src=')) {
       final match = RegExp(
@@ -1524,9 +1553,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
     }
 
     final uri = Uri.tryParse(value);
-    if (uri == null) {
-      return null;
-    }
+    if (uri == null) return null;
 
     String? videoId;
     final host = uri.host.toLowerCase();
@@ -1543,7 +1570,6 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
       if (videoId == null || videoId.isEmpty) {
         videoId = uri.queryParameters['v'];
       }
-
       if ((videoId == null || videoId.isEmpty) && uri.pathSegments.isNotEmpty) {
         if (uri.pathSegments.contains('shorts')) {
           final index = uri.pathSegments.indexOf('shorts');
@@ -1553,18 +1579,13 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
         } else if (uri.pathSegments.contains('watch')) {
           videoId = uri.queryParameters['v'];
         } else {
-          // Path-based video in /embed/<id> or /v/<id>
           final idSegment = uri.pathSegments.last;
-          if (idSegment.isNotEmpty) {
-            videoId = idSegment;
-          }
+          if (idSegment.isNotEmpty) videoId = idSegment;
         }
       }
     }
 
-    if (videoId == null || videoId.isEmpty) {
-      return value;
-    }
+    if (videoId == null || videoId.isEmpty) return value;
 
     final embedUri = Uri.https('www.youtube.com', '/embed/$videoId', {
       'autoplay': '0',
@@ -1605,11 +1626,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.play_circle_outline_rounded,
-                    size: 48,
-                    color: colors.icon,
-                  ),
+                  Icon(Icons.play_circle_outline_rounded, size: 48, color: colors.icon),
                   const SizedBox(height: 8),
                   Text(
                     'Tap to play video',
@@ -1640,11 +1657,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.play_circle_outline_rounded,
-                    size: 44,
-                    color: colors.icon,
-                  ),
+                  Icon(Icons.play_circle_outline_rounded, size: 44, color: colors.icon),
                   const SizedBox(height: 8),
                   Text(
                     'Video unavailable in preview',
@@ -1678,9 +1691,7 @@ class _PostVideoEmbedState extends State<_PostVideoEmbed> {
               child: ValueListenableBuilder<int>(
                 valueListenable: _progress,
                 builder: (context, progress, _) {
-                  if (progress >= 100) {
-                    return const SizedBox.shrink();
-                  }
+                  if (progress >= 100) return const SizedBox.shrink();
                   return const LinearProgressIndicator(minHeight: 2);
                 },
               ),
@@ -2067,9 +2078,7 @@ class _MetaChip extends StatelessWidget {
         ],
       ),
     );
-    if (onTap == null) {
-      return chip;
-    }
+    if (onTap == null) return chip;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -2128,14 +2137,11 @@ class _ContentPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(right: 6, bottom: 4), // Space between pills
+      margin: const EdgeInsets.only(right: 6, bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        // Subtle background tint (8% opacity is the "sweet spot")
         color: textColor.withValues(alpha: 0.08),
-        // 500 radius ensures it's always a pill shape regardless of width
         borderRadius: BorderRadius.circular(500),
-        // Optional: Very faint border to define the shape on white backgrounds
         border: Border.all(
           color: textColor.withValues(alpha: 0.12),
           width: 0.5,
@@ -2146,8 +2152,8 @@ class _ContentPill extends StatelessWidget {
         style: TextStyle(
           color: textColor,
           fontSize: 11,
-          fontWeight: FontWeight.w800, // Matches your premium w800 theme
-          letterSpacing: -0.2, // Tighter letters look more modern
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
         ),
       ),
     );
