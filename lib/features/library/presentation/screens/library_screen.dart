@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -18,14 +20,17 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   static const Color _libraryAccent = Color(0xFFD97706);
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   final List<LibraryItem> _items = <LibraryItem>[];
   List<LibraryItem> _featured = <LibraryItem>[];
+  Timer? _searchDebounce;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _page = 1;
   int _total = 0;
   String _selectedCategory = 'All';
+  String _searchQuery = '';
   String? _error;
 
   @override
@@ -37,6 +42,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -56,6 +63,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final page = await widget.repository.fetchLibrary(
         page: 1,
         category: _selectedCategory,
+        search: _searchQuery,
       );
       if (!mounted) {
         return;
@@ -95,6 +103,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final page = await widget.repository.fetchLibrary(
         page: nextPage,
         category: _selectedCategory,
+        search: _searchQuery,
       );
       if (!mounted) {
         return;
@@ -140,6 +149,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _selectedCategory = category;
     });
     _loadInitial();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      final rawQuery = value.trim();
+      final nextQuery = rawQuery.isEmpty || rawQuery.length >= 2
+          ? rawQuery
+          : '';
+      if (nextQuery == _searchQuery) {
+        return;
+      }
+      setState(() {
+        _searchQuery = nextQuery;
+      });
+      _loadInitial();
+    });
   }
 
   @override
@@ -194,6 +220,34 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search books by title or author',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: colors.surface,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: colors.borderStrong),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: colors.borderStrong),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: _libraryAccent),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 18),
                   SizedBox(
                     height: 44,

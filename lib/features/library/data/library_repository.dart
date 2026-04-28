@@ -26,17 +26,20 @@ class LibraryRepository {
   Future<LibraryPage> fetchLibrary({
     int page = 1,
     String category = 'All',
+    String search = '',
   }) async {
     final normalizedCategory = category.trim().isEmpty || category == 'All'
         ? 'All'
         : category.trim();
-    final key = 'library:$normalizedCategory:$page';
+    final normalizedSearch = search.trim();
+    final key = 'library:$normalizedCategory:$normalizedSearch:$page';
     try {
       final response = await _authRepository.get(
         'library',
         queryParameters: {
           'page': page,
           if (normalizedCategory != 'All') 'category': normalizedCategory,
+          if (normalizedSearch.isNotEmpty) 'search': normalizedSearch,
         },
       );
       await _cache.save(key, response);

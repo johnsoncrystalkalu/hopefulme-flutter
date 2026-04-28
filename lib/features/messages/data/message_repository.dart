@@ -21,6 +21,24 @@ class MessageRepository {
         .toList();
   }
 
+  Future<List<ConversationListItem>> fetchActiveTodayConversations({
+    int limit = 60,
+  }) async {
+    final normalizedLimit = limit.clamp(10, 100);
+    final response = await _authRepository.get(
+      'messages',
+      queryParameters: <String, dynamic>{
+        'active_today': 1,
+        'limit': normalizedLimit,
+      },
+    );
+    final data = response['data'] as List<dynamic>? ?? <dynamic>[];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(ConversationListItem.fromJson)
+        .toList();
+  }
+
   Future<ConversationListPage> fetchConversationsPage({
     int page = 1,
     int perPage = 10,

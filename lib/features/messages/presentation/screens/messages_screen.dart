@@ -37,6 +37,8 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<ConversationListItem> _items = <ConversationListItem>[];
+  final List<ConversationListItem> _activeSourceItems =
+      <ConversationListItem>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -70,10 +72,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
         page: 1,
         perPage: _pageSize,
       );
+
+      List<ConversationListItem> activeSource = page.items;
+      try {
+        activeSource = await widget.repository.fetchActiveTodayConversations();
+      } catch (_) {
+        // Fall back to page-1 items if active endpoint fetch fails.
+      }
+
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _items
           ..clear()
           ..addAll(page.items);
+        _activeSourceItems
+          ..clear()
+          ..addAll(activeSource);
         _page = page.currentPage;
         _hasMore = page.hasMore;
         _unreadTotal = page.unreadTotal;
@@ -178,34 +194,35 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return DateTime.tryParse(trimmed)?.toLocal();
   }
 
-bool _wasSeenToday(ConversationListItem item) {
-  final raw = item.otherUser.lastSeen.trim().toLowerCase();
-  if (raw.isEmpty) return false;
-  return raw == 'online' || raw.startsWith('today');
-}
-
-
-DateTime _activityTimestamp(ConversationListItem item) {
-  final raw = item.otherUser.lastSeen.trim().toLowerCase();
-
-  // Try to extract time from "Today at 9:52 am" for better sorting
-  if (raw.startsWith('today at ')) {
-    final timePart = item.otherUser.lastSeen.trim().substring('Today at '.length);
-    final today = DateTime.now();
-    final parsed = DateTime.tryParse(
-      '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} $timePart',
-    );
-    if (parsed != null) return parsed;
+  bool _wasSeenToday(ConversationListItem item) {
+    final raw = item.otherUser.lastSeen.trim().toLowerCase();
+    if (raw.isEmpty) return false;
+    return raw == 'online' || raw.startsWith('today');
   }
 
-  return DateTime.fromMillisecondsSinceEpoch(0);
-}
+  DateTime _activityTimestamp(ConversationListItem item) {
+    final raw = item.otherUser.lastSeen.trim().toLowerCase();
+
+    // Try to extract time from "Today at 9:52 am" for better sorting
+    if (raw.startsWith('today at ')) {
+      final timePart = item.otherUser.lastSeen.trim().substring(
+        'Today at '.length,
+      );
+      final today = DateTime.now();
+      final parsed = DateTime.tryParse(
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} $timePart',
+      );
+      if (parsed != null) return parsed;
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
 
   List<ConversationListItem> _buildActiveTodayItems() {
     final users = <ConversationListItem>[];
     final seenUserIds = <int>{};
-    for (final item in _items) {
-   
+    final source = _activeSourceItems.isNotEmpty ? _activeSourceItems : _items;
+    for (final item in source) {
       final isActiveToday = item.otherUser.isOnline || _wasSeenToday(item);
       if (!isActiveToday) {
         continue;

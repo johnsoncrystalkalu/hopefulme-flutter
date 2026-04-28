@@ -581,7 +581,7 @@ class _BlogsHeroHeader extends StatelessWidget {
             'Read thoughtful stories, encouragement, and reflections from voices across the HopefulMe community.',
             style: TextStyle(
               color: colors.textSecondary,
-              fontSize: 14,
+              fontSize: 12,
               height: 1.55,
             ),
           ),
@@ -591,7 +591,7 @@ class _BlogsHeroHeader extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onCreateTap,
               icon: const Icon(Icons.edit_outlined),
-              label: const Text('Create Post'),
+              label: const Text('Write Article'),
             ),
           ),
         ],
