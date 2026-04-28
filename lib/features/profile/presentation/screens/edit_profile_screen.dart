@@ -660,7 +660,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 );
                                 final stateField = _LabeledField(
-                                  label: 'State / Team',
+                                  label: 'State / Region / Team',
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
                                     initialValue:

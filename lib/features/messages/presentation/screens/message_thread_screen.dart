@@ -1744,6 +1744,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                             child: TextField(
                               controller: _controller,
                               focusNode: _composerFocusNode,
+                              textCapitalization:
+                                  TextCapitalization.sentences,
                               minLines: 1,
                               maxLines: null,
                               onTap: () {

@@ -11,6 +11,7 @@ import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateSubmissionModal extends StatefulWidget {
   const UpdateSubmissionModal({
@@ -47,6 +48,7 @@ class UpdateSubmissionModal extends StatefulWidget {
 }
 
 class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
+  static const String _draftKeyPrefix = 'update_submission_draft_v1';
   final TextEditingController _controller = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final ImagePicker _imagePicker = ImagePicker();
@@ -64,10 +66,13 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   String _activeMentionQuery = '';
   bool _hasTypedContent = false;
 
+  String get _draftKey => '$_draftKeyPrefix:${widget.currentUser?.id ?? 0}';
+
   @override
   void initState() {
     super.initState();
     _hasTypedContent = _controller.text.trim().isNotEmpty;
+    unawaited(_restoreDraft());
     _controller.addListener(_handleComposerChanged);
     _composerFocusNode.addListener(() {
       if (!_composerFocusNode.hasFocus && mounted) {
@@ -88,6 +93,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
 
   void _handleComposerChanged() {
     _updateMentionSuggestions();
+    unawaited(_persistDraft(_controller.text));
     final hasTypedContent = _controller.text.trim().isNotEmpty;
     if (!mounted || hasTypedContent == _hasTypedContent) {
       return;
@@ -244,6 +250,38 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     });
   }
 
+  Future<void> _restoreDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final draft = prefs.getString(_draftKey);
+    if (!mounted || draft == null || draft.isEmpty) {
+      return;
+    }
+    _controller.value = TextEditingValue(
+      text: draft,
+      selection: TextSelection.collapsed(offset: draft.length),
+    );
+    final hasTypedContent = draft.trim().isNotEmpty;
+    if (hasTypedContent != _hasTypedContent) {
+      setState(() {
+        _hasTypedContent = hasTypedContent;
+      });
+    }
+  }
+
+  Future<void> _persistDraft(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value.trim().isEmpty) {
+      await prefs.remove(_draftKey);
+      return;
+    }
+    await prefs.setString(_draftKey, value);
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
+  }
+
   Future<void> _pickPhoto() async {
     FocusScope.of(context).unfocus();
     final photo = await _imagePicker.pickImage(
@@ -315,6 +353,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
         status: _controller.text.trim(),
         photo: _selectedPhoto,
       );
+      await _clearDraft();
       if (mounted) {
         widget.onSuccess?.call(update);
         Navigator.of(context).pop(update);
@@ -684,6 +723,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                 TextFormField(
                                   controller: _controller,
                                   focusNode: _composerFocusNode,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                   minLines: 6,
                                   maxLines: 10,
                                   onTap: () {

@@ -575,6 +575,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
         content: TextFormField(
           initialValue: detail.status,
           maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
           onChanged: (value) => draft = value,
           decoration: const InputDecoration(hintText: 'Share your thoughts...'),
         ),
@@ -702,6 +703,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
           minLines: 2,
           maxLines: 6,
           autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
           onChanged: (value) => draft = value,
           decoration: const InputDecoration(hintText: 'Update your comment...'),
         ),
@@ -840,6 +842,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                   child: TextField(
                     controller: _commentController,
                     focusNode: _commentFocusNode,
+                    textCapitalization: TextCapitalization.sentences,
                     minLines: 1,
                     maxLines: 3,
                     decoration: InputDecoration(
@@ -1617,6 +1620,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
           TextField(
             controller: _controller,
             focusNode: _focusNode,
+            textCapitalization: TextCapitalization.sentences,
             minLines: 2,
             maxLines: 5,
             decoration: const InputDecoration(

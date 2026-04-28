@@ -393,6 +393,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               const SizedBox(height: 12),
               TextField(
                 autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
                 minLines: 2,
                 maxLines: 5,
                 onChanged: (value) => draftReply = value,
@@ -464,6 +465,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           minLines: 2,
           maxLines: 6,
           autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
           onChanged: (value) => draft = value,
           decoration: const InputDecoration(hintText: 'Update your comment...'),
         ),
@@ -1005,6 +1007,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   child: TextField(
                     controller: _commentController,
                     focusNode: _commentFocusNode,
+                    textCapitalization: TextCapitalization.sentences,
                     minLines: 1,
                     maxLines: 3,
                     decoration: InputDecoration(

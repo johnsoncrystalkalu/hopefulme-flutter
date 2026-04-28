@@ -1521,6 +1521,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                   child: TextField(
                                     controller: _controller,
                                     focusNode: _composerFocusNode,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
                                     minLines: 1,
                                     maxLines: 5,
                                     onSubmitted: (_) => _sendMessage(),
