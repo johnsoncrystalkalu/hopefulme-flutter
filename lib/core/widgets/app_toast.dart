@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 
-enum AppToastType { success, error, info, warning, loading }
+enum AppToastType { success, error, info, warning, loading, offline }
 
 class AppToast {
   static void success(BuildContext context, String message) {
@@ -9,6 +10,16 @@ class AppToast {
   }
 
   static void error(BuildContext context, Object error) {
+    if (AppErrorText.isOffline(error)) {
+      _show(
+        context,
+        message: AppErrorText.message(error),
+        type: AppToastType.offline,
+        duration: const Duration(seconds: 5),
+      );
+      return;
+    }
+
     _show(
       context,
       message: _normalizeMessage(error),
@@ -168,6 +179,13 @@ class _ToastPalette {
           text: colors.textPrimary,
           iconColor: colors.brand,
           icon: Icons.sync_rounded,
+        ),
+      AppToastType.offline => _ToastPalette(
+          background: colors.surface,
+          border: colors.borderStrong,
+          text: colors.textPrimary,
+          iconColor: colors.textMuted,
+          icon: Icons.wifi_off_rounded,
         ),
     };
   }

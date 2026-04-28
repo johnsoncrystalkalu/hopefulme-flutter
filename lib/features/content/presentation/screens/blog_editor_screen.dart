@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/models/content_detail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BlogEditorScreen extends StatefulWidget {
   const BlogEditorScreen.create({
@@ -42,6 +44,11 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
   bool _isSaving = false;
   String? _selectedTag;
   Object? _error;
+  bool _isRestoringDraft = false;
+
+  String get _bodyDraftKey => widget.isEditing
+      ? 'blog_editor_body_draft_edit_${widget.initialDetail?.id ?? 0}'
+      : 'blog_editor_body_draft_create';
 
   @override
   void initState() {
@@ -54,14 +61,53 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
     _selectedTag = initial?.tag.isNotEmpty == true
         ? initial!.tag
         : ContentRepository.blogTags.first;
+    _contentController.addListener(_handleBodyChanged);
+    unawaited(_restoreBodyDraft());
   }
 
   @override
   void dispose() {
+    _contentController.removeListener(_handleBodyChanged);
     _titleController.dispose();
     _contentController.dispose();
     _labelController.dispose();
     super.dispose();
+  }
+
+  void _handleBodyChanged() {
+    if (_isRestoringDraft) {
+      return;
+    }
+    unawaited(_persistBodyDraft(_contentController.text));
+  }
+
+  Future<void> _restoreBodyDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final draft = prefs.getString(_bodyDraftKey)?.trimRight() ?? '';
+    if (!mounted || draft.isEmpty) {
+      return;
+    }
+    _isRestoringDraft = true;
+    _contentController.text = draft;
+    _contentController.selection = TextSelection.collapsed(
+      offset: _contentController.text.length,
+    );
+    _isRestoringDraft = false;
+  }
+
+  Future<void> _persistBodyDraft(String body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = body.trimRight();
+    if (normalized.isEmpty) {
+      await prefs.remove(_bodyDraftKey);
+      return;
+    }
+    await prefs.setString(_bodyDraftKey, normalized);
+  }
+
+  Future<void> _clearBodyDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_bodyDraftKey);
   }
 
   Future<void> _pickPhoto() async {
@@ -119,6 +165,10 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
         return;
       }
 
+      await _clearBodyDraft();
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(result);
     } catch (error) {
       if (!mounted) {

@@ -1907,17 +1907,6 @@ class _CommentTile extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (commentTimestamp.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    commentTimestamp,
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 6),
                 RichDisplayText(
                   text: comment.comment,
@@ -1930,6 +1919,17 @@ class _CommentTile extends StatelessWidget {
                   onHashtagTap: onHashtagTap,
                   onLinkTap: onLinkTap,
                 ),
+                if (commentTimestamp.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    commentTimestamp,
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 InkWell(
                   onTap: onReplyTap,

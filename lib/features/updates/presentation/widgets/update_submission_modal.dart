@@ -736,9 +736,9 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                   },
                                   style: TextStyle(
                                     color: colors.textPrimary,
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     height: 1.55,
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Share your thoughts...',
@@ -746,8 +746,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                       color: colors.textMuted.withValues(
                                         alpha: 0.55,
                                       ),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                     border: InputBorder.none,
                                   ),

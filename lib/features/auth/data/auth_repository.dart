@@ -26,7 +26,13 @@ class AuthRepository {
     String path, {
     Map<String, String>? fields,
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
-  }) => _apiClient.postMultipart(path, fields: fields, files: files);
+    void Function(int sentBytes, int totalBytes)? onSendProgress,
+  }) => _apiClient.postMultipart(
+    path,
+    fields: fields,
+    files: files,
+    onSendProgress: onSendProgress,
+  );
 
   Future<Map<String, dynamic>> putMultipart(
     String path, {

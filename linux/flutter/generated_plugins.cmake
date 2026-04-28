@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_linux
   gtk
+  record_linux
   syncfusion_pdfviewer_linux
   url_launcher_linux
 )

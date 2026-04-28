@@ -1,6 +1,8 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +24,8 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -71,6 +75,26 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   bool _hasThreadChanges = false;
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
+  PlatformFile? _selectedAudio;
+  int? _selectedAudioDurationSeconds;
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _voicePlayer = AudioPlayer();
+  Timer? _recordTimer;
+  Timer? _recordMeterTimer;
+  Duration _recordDuration = Duration.zero;
+  bool _isRecordingVoice = false;
+  double _recordLevel = 0;
+  String? _playingAudioUrl;
+  String? _loadingAudioUrl;
+  String? _playingPreviewPath;
+  StreamSubscription<PlayerState>? _voicePlayerStateSub;
+  StreamSubscription<Duration>? _voicePositionSub;
+  StreamSubscription<Duration?>? _voiceDurationSub;
+  Duration _voiceCurrentPosition = Duration.zero;
+  Duration _voiceTotalDuration = Duration.zero;
+  double _voicePlaybackSpeed = 1.0;
+  double _voiceUploadProgress = 0;
+  bool _voiceUploadFailed = false;
   int _optimisticId = -1;
   int _lastReadMessageId = 0;
   bool _typingSent = false;
@@ -97,6 +121,29 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     return name;
   }
 
+  String _selectedAudioLabel() => 'Preview';
+
+  String get _recordDurationLabel {
+    final mins = _recordDuration.inMinutes;
+    final secs = _recordDuration.inSeconds % 60;
+    return '$mins:${secs.toString().padLeft(2, '0')}';
+  }
+
+  String _formatAudioDuration(int seconds) {
+    if (seconds <= 0) return '--:--';
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$mins:${secs.toString().padLeft(2, '0')}';
+  }
+
+  String _formatAudioSize(int bytes) {
+    if (bytes <= 0) return '';
+    const kb = 1024;
+    const mb = 1024 * 1024;
+    if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
+    return '${(bytes / kb).toStringAsFixed(1)} KB';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +155,24 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     _loadInitial();
     _primeRealtimeBurst();
     _scheduleNextPoll();
+    _voicePlayerStateSub = _voicePlayer.playerStateStream.listen((state) {
+      if (!mounted) return;
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _playingAudioUrl = null;
+          _playingPreviewPath = null;
+          _voiceCurrentPosition = Duration.zero;
+        });
+      }
+    });
+    _voicePositionSub = _voicePlayer.positionStream.listen((position) {
+      if (!mounted) return;
+      setState(() => _voiceCurrentPosition = position);
+    });
+    _voiceDurationSub = _voicePlayer.durationStream.listen((duration) {
+      if (!mounted) return;
+      setState(() => _voiceTotalDuration = duration ?? Duration.zero);
+    });
   }
 
   @override
@@ -115,9 +180,16 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _typingDebounce?.cancel();
+    _recordTimer?.cancel();
+    _recordMeterTimer?.cancel();
+    _voicePlayerStateSub?.cancel();
+    _voicePositionSub?.cancel();
+    _voiceDurationSub?.cancel();
     if (_typingSent) {
       unawaited(_sendTypingStatus(false));
     }
+    _audioRecorder.dispose();
+    _voicePlayer.dispose();
     _composerFocusNode.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -325,8 +397,11 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
-    final effectiveText = text.isEmpty && hasPhoto ? 'Shared a photo' : text;
-    if ((text.isEmpty && !hasPhoto && _editingMessage == null) || _isSending) {
+    final hasAudio = _selectedAudio != null;
+    final effectiveText = text.isEmpty && (hasPhoto || hasAudio)
+        ? (hasAudio ? 'sent a voice note' : 'Shared a photo')
+        : text;
+    if ((text.isEmpty && !hasPhoto && !hasAudio && _editingMessage == null) || _isSending) {
       return;
     }
 
@@ -342,6 +417,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         userId: editingMessage.userId,
         message: text,
         photoUrl: editingMessage.photoUrl,
+        audioUrl: editingMessage.audioUrl,
+        audioDurationSeconds: editingMessage.audioDurationSeconds,
+        audioMimeType: editingMessage.audioMimeType,
+        audioSizeBytes: editingMessage.audioSizeBytes,
+        isVoiceNote: editingMessage.isVoiceNote,
+        voiceNoteExpired: editingMessage.voiceNoteExpired,
         status: 'sending',
         replyId: editingMessage.replyId,
         createdAt: editingMessage.createdAt,
@@ -387,12 +468,18 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         if (!mounted) {
           return;
         }
-        final reverted = GroupMessage(
+      final reverted = GroupMessage(
           id: editingMessage.id,
           groupId: editingMessage.groupId,
           userId: editingMessage.userId,
           message: originalText,
           photoUrl: editingMessage.photoUrl,
+          audioUrl: editingMessage.audioUrl,
+          audioDurationSeconds: editingMessage.audioDurationSeconds,
+          audioMimeType: editingMessage.audioMimeType,
+          audioSizeBytes: editingMessage.audioSizeBytes,
+          isVoiceNote: editingMessage.isVoiceNote,
+          voiceNoteExpired: editingMessage.voiceNoteExpired,
           status: editingMessage.status,
           replyId: editingMessage.replyId,
           createdAt: editingMessage.createdAt,
@@ -428,6 +515,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
 
     final selectedPhoto = _selectedPhoto;
     final localPhotoBytes = _selectedPhotoBytes;
+    final selectedAudio = _selectedAudio;
+    final selectedAudioDurationSeconds = _selectedAudioDurationSeconds;
     final optimisticId = _optimisticId--;
     final optimisticMessage = GroupMessage(
       id: optimisticId,
@@ -435,6 +524,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
       userId: widget.currentUser?.id ?? 0,
       message: effectiveText,
       photoUrl: '',
+      audioUrl: '',
+      audioDurationSeconds: selectedAudioDurationSeconds,
+      audioMimeType: '',
+      audioSizeBytes: selectedAudio?.size ?? 0,
+      isVoiceNote: hasAudio,
+      voiceNoteExpired: false,
       status: 'sending',
       replyId: _replyingTo?.id,
       createdAt: DateTime.now().toIso8601String(),
@@ -467,6 +562,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
       _messages = _dedupeMessages([..._messages, optimisticMessage]);
       _selectedPhoto = null;
       _selectedPhotoBytes = null;
+      _selectedAudio = null;
+      _selectedAudioDurationSeconds = null;
+      _voiceUploadFailed = false;
+      _voiceUploadProgress = 0;
       _showEmojiPicker = false;
       _replyingTo = null;
       _typingSent = false;
@@ -483,13 +582,22 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         message: effectiveText,
         replyId: optimisticMessage.replyId,
         photo: selectedPhoto,
+        audio: selectedAudio,
+        audioDurationSeconds: selectedAudioDurationSeconds,
+        onUploadProgress: (sentBytes, totalBytes) {
+          if (!mounted || totalBytes <= 0) return;
+          final ratio = (sentBytes / totalBytes).clamp(0.0, 1.0);
+          setState(() => _voiceUploadProgress = ratio);
+        },
       );
       if (!mounted) return;
       setState(() {
         _hasThreadChanges = true;
-        _messages = _messages
-            .map((item) => item.id == optimisticId ? sent : item)
-            .toList();
+        _messages = _dedupeMessages(
+          _messages
+              .map((item) => item.id == optimisticId ? sent : item)
+              .toList(),
+        );
       });
       _primeRealtimeBurst();
       _scheduleNextPoll(immediate: true);
@@ -503,6 +611,11 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
           _selectedPhoto = selectedPhoto;
           _selectedPhotoBytes = localPhotoBytes;
         }
+        if (selectedAudio != null && _selectedAudio == null) {
+          _selectedAudio = selectedAudio;
+          _selectedAudioDurationSeconds = selectedAudioDurationSeconds;
+          _voiceUploadFailed = true;
+        }
         if (text.isNotEmpty && _controller.text.trim().isEmpty) {
           _controller.text = text;
         }
@@ -513,6 +626,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
             userId: optimisticMessage.replyTo!.sender?.id ?? 0,
             message: optimisticMessage.replyTo!.message,
             photoUrl: '',
+            audioUrl: '',
+            audioDurationSeconds: null,
+            audioMimeType: '',
+            audioSizeBytes: 0,
+            isVoiceNote: false,
+            voiceNoteExpired: false,
             status: '',
             replyId: null,
             createdAt: '',
@@ -531,6 +650,9 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
       if (mounted) {
         setState(() {
           _isSending = false;
+          if (_voiceUploadProgress > 0) {
+            _voiceUploadProgress = 0;
+          }
         });
       }
     }
@@ -582,7 +704,200 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     );
   }
 
-  // ✅ open image fullscreen with pinch-to-zoom
+  Future<void> _startVoiceRecordingLocked() async {
+    if (_isSending || _editingMessage != null || _isRecordingVoice) return;
+    final hasPermission = await _audioRecorder.hasPermission();
+    if (!hasPermission) {
+      if (mounted) AppToast.error(context, 'Microphone permission is required.');
+      return;
+    }
+
+    final directory = await Directory.systemTemp.createTemp('group_voice_note_');
+    final path = '${directory.path}/voice-note-${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    await _audioRecorder.start(
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 96000,
+        sampleRate: 44100,
+      ),
+      path: path,
+    );
+
+    _recordTimer?.cancel();
+    _recordMeterTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _isRecordingVoice = true;
+      _recordDuration = Duration.zero;
+      _showEmojiPicker = false;
+    });
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_isRecordingVoice) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _recordDuration += const Duration(seconds: 1);
+      });
+      if (_recordDuration.inSeconds >= 300) {
+        timer.cancel();
+        unawaited(_stopVoiceRecording());
+        AppToast.info(context, 'Voice note reached 5-minute limit.');
+      }
+    });
+    _recordMeterTimer = Timer.periodic(const Duration(milliseconds: 120), (
+      timer,
+    ) async {
+      if (!mounted || !_isRecordingVoice) {
+        timer.cancel();
+        return;
+      }
+      try {
+        final amp = await _audioRecorder.getAmplitude();
+        final db = amp.current;
+        final normalized = ((db + 50) / 50).clamp(0.0, 1.0);
+        if (!mounted) return;
+        setState(() => _recordLevel = normalized);
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _cancelVoiceRecording() async {
+    _recordTimer?.cancel();
+    _recordMeterTimer?.cancel();
+    await _audioRecorder.stop();
+    if (!mounted) return;
+    setState(() {
+      _isRecordingVoice = false;
+      _recordDuration = Duration.zero;
+      _recordLevel = 0;
+    });
+  }
+
+  Future<void> _stopVoiceRecording() async {
+    _recordTimer?.cancel();
+    _recordMeterTimer?.cancel();
+    final path = await _audioRecorder.stop();
+    if (!mounted) return;
+    setState(() {
+      _isRecordingVoice = false;
+    });
+    if (path == null || path.isEmpty) {
+      AppToast.error(context, 'Voice note was empty. Please try again.');
+      return;
+    }
+    final file = File(path);
+    final exists = await file.exists();
+    if (!mounted) return;
+    if (!exists) {
+      AppToast.error(context, 'Unable to access recorded voice note.');
+      return;
+    }
+    final size = await file.length();
+    if (!mounted) return;
+    if (size <= 0) {
+      AppToast.error(context, 'Voice note was empty. Please try again.');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedAudio = PlatformFile(
+        name: file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'voice-note.m4a',
+        path: path,
+        size: size,
+      );
+      _selectedAudioDurationSeconds = _recordDuration.inSeconds > 0 ? _recordDuration.inSeconds : null;
+      _recordDuration = Duration.zero;
+      _recordLevel = 0;
+      _voiceUploadFailed = false;
+      _voiceUploadProgress = 0;
+    });
+  }
+
+  Future<void> _toggleSelectedAudioPreview() async {
+    final path = _selectedAudio?.path;
+    if (path == null || path.isEmpty) return;
+    if (_playingPreviewPath == path) {
+      await _voicePlayer.pause();
+      if (!mounted) return;
+      setState(() => _playingPreviewPath = null);
+      return;
+    }
+    try {
+      if (mounted) setState(() => _loadingAudioUrl = path);
+      await _voicePlayer.setFilePath(path);
+      await _voicePlayer.seek(Duration.zero);
+      if (!mounted) return;
+      setState(() {
+        _loadingAudioUrl = null;
+        _playingPreviewPath = path;
+        _playingAudioUrl = null;
+      });
+      unawaited(_voicePlayer.play());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAudioUrl = null);
+      AppToast.error(context, 'Unable to preview this voice note right now.');
+    }
+  }
+
+  Future<void> _openAudioUrl(String audioUrl) async {
+    final trimmed = audioUrl.trim();
+    if (trimmed.isEmpty) {
+      AppToast.error(context, 'Voice note not found');
+      return;
+    }
+    if (_playingAudioUrl == trimmed) {
+      await _voicePlayer.pause();
+      if (!mounted) return;
+      setState(() {
+        _playingAudioUrl = null;
+        _voiceCurrentPosition = Duration.zero;
+      });
+      return;
+    }
+    try {
+      if (mounted) {
+        setState(() {
+          _loadingAudioUrl = trimmed;
+          _voiceCurrentPosition = Duration.zero;
+        });
+      }
+      await _voicePlayer.setUrl(trimmed);
+      await _voicePlayer.seek(Duration.zero);
+      if (!mounted) return;
+      setState(() {
+        _loadingAudioUrl = null;
+        _playingAudioUrl = trimmed;
+        _playingPreviewPath = null;
+        _voiceTotalDuration = _voicePlayer.duration ?? Duration.zero;
+      });
+      unawaited(_voicePlayer.play());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAudioUrl = null);
+      AppToast.error(context, 'Unable to play voice note right now');
+    }
+  }
+
+  Future<void> _seekVoice(double ratio) async {
+    final totalMs = _voiceTotalDuration.inMilliseconds;
+    if (totalMs <= 0) return;
+    final targetMs = (ratio.clamp(0.0, 1.0) * totalMs).round();
+    await _voicePlayer.seek(Duration(milliseconds: targetMs));
+  }
+
+  Future<void> _cyclePlaybackSpeed() async {
+    const speeds = <double>[1.0, 1.25, 1.5, 1.75, 2.0];
+    final idx = speeds.indexOf(_voicePlaybackSpeed);
+    final next = speeds[(idx + 1) % speeds.length];
+    await _voicePlayer.setSpeed(next);
+    if (!mounted) return;
+    setState(() => _voicePlaybackSpeed = next);
+  }
+
+  // âœ… open image fullscreen with pinch-to-zoom
   Future<void> _openFullImage(
     BuildContext context, {
     String? url,
@@ -1177,7 +1492,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                           Text(
                             group.communityLabel ??
                                 '${group.membersCount} members'
-                                    '${group.category.isNotEmpty ? ' · ${group.category}' : ''}',
+                                    '${group.category.isNotEmpty ? ' Â· ${group.category}' : ''}',
                             style: TextStyle(
                               color: colors.textMuted,
                               fontSize: 11,
@@ -1299,7 +1614,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                         _GroupMessageBubble(
                                           message: message,
                                           isMine: isMine,
-                                          canEdit: isMine,
+                                          canEdit: isMine && !message.isVoiceNote,
                                           canDelete: isMine || group.isOwner,
                                           showAvatar:
                                               !isMine && !groupedWithPrevious,
@@ -1352,13 +1667,27 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                             );
                                           },
                                           onLinkTap: _handleLinkTap,
+                                          onOpenAudioUrl: _openAudioUrl,
+                                          loadingAudioUrl: _loadingAudioUrl,
+                                          playingAudioUrl: _playingAudioUrl,
+                                          formatAudioDuration:
+                                              _formatAudioDuration,
+                                          voiceCurrentPosition:
+                                              _voiceCurrentPosition,
+                                          voiceTotalDuration:
+                                              _voiceTotalDuration,
+                                          voicePlaybackSpeed:
+                                              _voicePlaybackSpeed,
+                                          onSeekVoice: _seekVoice,
+                                          onCyclePlaybackSpeed:
+                                              _cyclePlaybackSpeed,
                                           onOpenFullImage: (url, bytes) =>
                                               _openFullImage(
                                                 context,
                                                 url: url,
                                                 bytes: bytes,
-                                              ), // 👈
-                                          onMentionTap: _openProfile, // 👈
+                                              ), // ðŸ‘ˆ
+                                          onMentionTap: _openProfile, // ðŸ‘ˆ
                                         ),
                                       ],
                                     );
@@ -1495,70 +1824,272 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                   ],
                                 ),
                               ),
-                            Row(
-                              children: [
-                                _ComposerIconButton(
-                                  onPressed: _toggleEmojiPicker,
-                                  icon: Icon(
-                                    _showEmojiPicker
-                                        ? Icons.keyboard_rounded
-                                        : Icons.emoji_emotions_outlined,
-                                    size: 20,
+                            if (_selectedAudio != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: colors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: colors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (_loadingAudioUrl == (_selectedAudio?.path ?? ''))
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colors.brand,
+                                        ),
+                                      )
+                                    else
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 24,
+                                          minHeight: 24,
+                                        ),
+                                        onPressed: _toggleSelectedAudioPreview,
+                                        icon: Icon(
+                                          _playingPreviewPath == (_selectedAudio?.path ?? '')
+                                              ? Icons.pause_circle_filled_rounded
+                                              : Icons.play_circle_fill_rounded,
+                                          color: colors.brand,
+                                        ),
+                                      ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _selectedAudioLabel(),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: colors.textPrimary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          if ((_selectedAudio?.size ?? 0) > 0)
+                                            Text(
+                                              '${_selectedAudioDurationSeconds != null ? _formatAudioDuration(_selectedAudioDurationSeconds!) : '--:--'} - ${_formatAudioSize(_selectedAudio!.size)}',
+                                              style: TextStyle(
+                                                color: colors.textMuted,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          if (_voiceUploadProgress > 0 && _voiceUploadProgress < 1) ...[
+                                            const SizedBox(height: 6),
+                                            LinearProgressIndicator(
+                                              value: _voiceUploadProgress,
+                                              minHeight: 4,
+                                            ),
+                                          ],
+                                          if (_voiceUploadFailed) ...[
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Send failed',
+                                                  style: TextStyle(
+                                                    color: Colors.red.shade600,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                TextButton(
+                                                  onPressed: _isSending ? null : _sendMessage,
+                                                  child: const Text('Retry'),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedAudio = null;
+                                          _selectedAudioDurationSeconds = null;
+                                          _playingPreviewPath = null;
+                                        });
+                                      },
+                                      icon: const Icon(Icons.close),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    AppSendActionButton(
+                                      onPressed: _sendMessage,
+                                      isBusy: _isSending,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (_isRecordingVoice)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: colors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.mic_rounded, color: colors.brand),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Recording $_recordDurationLabel ',
+                                            style: TextStyle(
+                                              color: colors.textPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          _VoiceWaveform(level: _recordLevel),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: _cancelVoiceRecording,
+                                      icon: const Icon(Icons.delete_outline_rounded),
+                                    ),
+                                    IconButton(
+                                      onPressed: _stopVoiceRecording,
+                                      tooltip: 'Finish recording',
+                                      icon: const Icon(Icons.check_rounded),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (_selectedAudio != null || _isRecordingVoice)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Voice notes expire after 30 days.',
+                                    style: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                if (_editingMessage == null) ...[
-                                  const SizedBox(width: 4),
+                              ),
+                            Row(
+                              children: [
+                                if (!(_isRecordingVoice || _selectedAudio != null)) ...[
                                   _ComposerIconButton(
-                                    onPressed: _openImagePicker,
-                                    icon: const Icon(
-                                      Icons.add_photo_alternate_outlined,
+                                    onPressed: _toggleEmojiPicker,
+                                    icon: Icon(
+                                      _showEmojiPicker
+                                          ? Icons.keyboard_rounded
+                                          : Icons.emoji_emotions_outlined,
                                       size: 20,
                                     ),
                                   ),
-                                ],
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _controller,
-                                    focusNode: _composerFocusNode,
-                                    textCapitalization:
-                                        TextCapitalization.sentences,
-                                    minLines: 1,
-                                    maxLines: 5,
-                                    onSubmitted: (_) => _sendMessage(),
-                                    onTap: () {
-                                      if (_showEmojiPicker) {
-                                        setState(() {
-                                          _showEmojiPicker = false;
-                                        });
-                                      }
-                                      _scrollToBottom();
-                                    },
-                                    decoration: InputDecoration(
-                                      hintText: 'Message ...',
-                                      filled: true,
-                                      fillColor: colors.surfaceMuted,
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 12,
-                                          ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide.none,
+                                  if (_editingMessage == null) ...[
+                                    const SizedBox(width: 4),
+                                    _ComposerIconButton(
+                                      onPressed: _openImagePicker,
+                                      icon: const Icon(
+                                        Icons.add_photo_alternate_outlined,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _controller,
+                                      focusNode: _composerFocusNode,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      minLines: 1,
+                                      maxLines: 5,
+                                      onSubmitted: (_) => _sendMessage(),
+                                      onTap: () {
+                                        if (_showEmojiPicker) {
+                                          setState(() {
+                                            _showEmojiPicker = false;
+                                          });
+                                        }
+                                        _scrollToBottom();
+                                      },
+                                      decoration: InputDecoration(
+                                        hintText: 'Message ...',
+                                        filled: true,
+                                        fillColor: colors.surfaceMuted,
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 12,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          borderSide: BorderSide.none,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                AppSendActionButton(
-                                  onPressed: _sendMessage,
-                                  isBusy: _isSending,
+                                  const SizedBox(width: 8),
+                                ],
+                                Builder(
+                                  builder: (context) {
+                                    if (_isRecordingVoice || _selectedAudio != null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final hasTypedText = _controller.text.trim().isNotEmpty;
+                                    final hasPhoto = _selectedPhoto != null;
+                                    final hasAudio = _selectedAudio != null;
+                                    final shouldShowSend = hasTypedText || hasPhoto || hasAudio || _editingMessage != null;
+                                    if (shouldShowSend) {
+                                      return AppSendActionButton(
+                                        onPressed: _sendMessage,
+                                        isBusy: _isSending,
+                                      );
+                                    }
+                                    return GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.lightImpact();
+                                        unawaited(_startVoiceRecordingLocked());
+                                      },
+                                      child: Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: colors.brand,
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Icon(
+                                          Icons.mic_none_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
-                            if (_showEmojiPicker)
+                            if (_showEmojiPicker && !(_isRecordingVoice || _selectedAudio != null))
                               SizedBox(
                                 height: 320,
                                 child: EmojiPicker(
@@ -1927,8 +2458,17 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.onCopy,
     required this.onReact,
     required this.onLinkTap,
-    required this.onOpenFullImage, // 👈
-    required this.onMentionTap, // 👈
+    required this.onOpenAudioUrl,
+    required this.loadingAudioUrl,
+    required this.playingAudioUrl,
+    required this.formatAudioDuration,
+    required this.voiceCurrentPosition,
+    required this.voiceTotalDuration,
+    required this.voicePlaybackSpeed,
+    required this.onSeekVoice,
+    required this.onCyclePlaybackSpeed,
+    required this.onOpenFullImage, // ðŸ‘ˆ
+    required this.onMentionTap, // ðŸ‘ˆ
   });
 
   final GroupMessage message;
@@ -1945,10 +2485,19 @@ class _GroupMessageBubble extends StatelessWidget {
   final Future<void> Function() onCopy;
   final Future<void> Function(GroupMessage message, String emoji) onReact;
   final Future<void> Function(String url) onLinkTap;
-  final void Function(String? url, Uint8List? bytes) onOpenFullImage; // 👈
-  final Future<void> Function(String username) onMentionTap; // 👈
+  final Future<void> Function(String audioUrl) onOpenAudioUrl;
+  final String? loadingAudioUrl;
+  final String? playingAudioUrl;
+  final String Function(int seconds) formatAudioDuration;
+  final Duration voiceCurrentPosition;
+  final Duration voiceTotalDuration;
+  final double voicePlaybackSpeed;
+  final Future<void> Function(double ratio) onSeekVoice;
+  final Future<void> Function() onCyclePlaybackSpeed;
+  final void Function(String? url, Uint8List? bytes) onOpenFullImage; // ðŸ‘ˆ
+  final Future<void> Function(String username) onMentionTap; // ðŸ‘ˆ
 
-  // ✅ unified style for links, mentions, hashtags on bubbles
+  // âœ… unified style for links, mentions, hashtags on bubbles
   TextStyle _interactiveStyleForBubble(AppThemeColors colors, bool isMine) {
     final color = isMine ? const Color(0xFFE0F2FE) : colors.brand;
     return TextStyle(
@@ -2196,7 +2745,7 @@ class _GroupMessageBubble extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          // ✅ network image with tap to fullscreen
+                          // âœ… network image with tap to fullscreen
                           if (message.photoUrl.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -2221,7 +2770,7 @@ class _GroupMessageBubble extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          // ✅ local image with tap to fullscreen
+                          // âœ… local image with tap to fullscreen
                           if (message.localImageBytes != null)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -2244,7 +2793,218 @@ class _GroupMessageBubble extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          if (message.message.isNotEmpty)
+                          if (message.isVoiceNote &&
+                              message.audioUrl.isEmpty &&
+                              message.status.trim().toLowerCase() ==
+                                  'sending') ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isMine
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : colors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isMine
+                                        ? Colors.white.withValues(alpha: 0.18)
+                                        : colors.borderStrong,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: isMine
+                                            ? Colors.white
+                                            : colors.brand,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Sending voice note...',
+                                      style: TextStyle(
+                                        color: isMine
+                                            ? Colors.white
+                                            : colors.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ] else if (message.audioUrl.isNotEmpty) ...[
+                            SizedBox(
+                              width: maxBubbleWidth * 0.92,
+                              child: GestureDetector(
+                                onTap: () => onOpenAudioUrl(message.audioUrl),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMine
+                                        ? Colors.white.withValues(alpha: 0.12)
+                                        : colors.surfaceMuted,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isMine
+                                          ? Colors.white.withValues(alpha: 0.18)
+                                          : colors.borderStrong,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Builder(
+                                            builder: (context) {
+                                              final isLoading =
+                                                  loadingAudioUrl == message.audioUrl;
+                                              final isPlaying =
+                                                  playingAudioUrl == message.audioUrl;
+                                              if (isLoading) {
+                                                return SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: isMine ? Colors.white : colors.brand,
+                                                  ),
+                                                );
+                                              }
+                                              return Icon(
+                                                isPlaying
+                                                    ? Icons.pause_circle_filled_rounded
+                                                    : Icons.play_circle_fill_rounded,
+                                                size: 18,
+                                                color: isMine ? Colors.white : colors.brand,
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              'Voice note ${message.audioDurationSeconds != null ? formatAudioDuration(message.audioDurationSeconds!) : '--:--'}',
+                                              style: TextStyle(
+                                                color: isMine ? Colors.white : colors.textPrimary,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (playingAudioUrl == message.audioUrl) ...[
+                                        const SizedBox(height: 6),
+                                        SizedBox(
+                                          width: maxBubbleWidth * 0.78,
+                                          child: SliderTheme(
+                                            data: SliderTheme.of(context).copyWith(
+                                              trackHeight: 2.0,
+                                              thumbShape: const RoundSliderThumbShape(
+                                                enabledThumbRadius: 4,
+                                              ),
+                                            ),
+                                            child: Slider(
+                                              value: voiceTotalDuration.inMilliseconds <= 0
+                                                  ? 0
+                                                  : (voiceCurrentPosition.inMilliseconds /
+                                                          voiceTotalDuration.inMilliseconds)
+                                                      .clamp(0.0, 1.0),
+                                              onChanged: (value) {
+                                                unawaited(onSeekVoice(value));
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              formatAudioDuration(
+                                                voiceCurrentPosition.inSeconds,
+                                              ),
+                                              style: TextStyle(
+                                                color: isMine ? Colors.white70 : colors.textMuted,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                fontFeatures: const <FontFeature>[
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            TextButton(
+                                              onPressed: () {
+                                                unawaited(onCyclePlaybackSpeed());
+                                              },
+                                              style: TextButton.styleFrom(
+                                                minimumSize: const Size(0, 20),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 0,
+                                                ),
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                              child: Text(
+                                                '${voicePlaybackSpeed.toStringAsFixed(voicePlaybackSpeed == voicePlaybackSpeed.roundToDouble() ? 0 : 2)}x',
+                                                style: TextStyle(
+                                                  color: isMine ? Colors.white : colors.brand,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ] else if ((message.isVoiceNote || message.voiceNoteExpired) &&
+                              message.status.toLowerCase() != 'sending') ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'Voice note not found',
+                                style: TextStyle(
+                                  color: isMine ? Colors.white70 : colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (message.audioUrl.isNotEmpty &&
+                              message.message.isNotEmpty &&
+                              (!message.isVoiceNote ||
+                                  (message.audioUrl.isEmpty &&
+                                      message.status.trim().toLowerCase() !=
+                                          'sending')))
+                            const SizedBox(height: 10),
+                          if (message.message.isNotEmpty &&
+                              (!message.isVoiceNote ||
+                                  (message.audioUrl.isEmpty &&
+                                      message.status.trim().toLowerCase() !=
+                                          'sending')))
                             RichDisplayText(
                               text: message.message,
                               style: TextStyle(
@@ -2254,7 +3014,7 @@ class _GroupMessageBubble extends StatelessWidget {
                                 fontSize: 14,
                                 height: 1.45,
                               ),
-                              // ✅ all three use the same visible style
+                              // âœ… all three use the same visible style
                               linkStyle: _interactiveStyleForBubble(
                                 colors,
                                 isMine,
@@ -2622,6 +3382,39 @@ class _ComposerIconButton extends StatelessWidget {
             child: icon,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VoiceWaveform extends StatelessWidget {
+  const _VoiceWaveform({required this.level});
+
+  final double level;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return SizedBox(
+      height: 18,
+      child: Row(
+        children: List.generate(20, (index) {
+          final t = (index + 1) / 20;
+          final active = t <= (0.15 + (level * 0.85));
+          final barHeight = 4 + (10 * (0.5 + (math.sin(index * 0.8) * 0.5)));
+          return Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 90),
+              width: 3,
+              height: barHeight,
+              decoration: BoxDecoration(
+                color: active ? colors.brand : colors.border,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

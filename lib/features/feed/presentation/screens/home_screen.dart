@@ -930,6 +930,18 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _openQuotePreview(QuoteCard quote) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => _QuoteFullscreenViewer(
+          quote: quote,
+          onViewPost: () => _openPostById(quote.id),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
   Future<void> _openBlogsFeed() async {
     _setActiveSidebarItem('Blog');
     await Navigator.of(context).push(
@@ -1340,7 +1352,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                       autofocusComment: true,
                                                     ),
                                                 onOpenPost: _openPostDetail,
-                                                onOpenPostById: _openPostById,
+                                                onOpenPostById: _openQuotePreview,
                                                 onOpenBlog: _openBlogDetail,
                                                 onOpenPostsFeed: _openPostsFeed,
                                                 onOpenHashtag: _openSearchQuery,
@@ -1407,7 +1419,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                 autofocusComment: true,
                                               ),
                                           onOpenPost: _openPostDetail,
-                                          onOpenPostById: _openPostById,
+                                          onOpenPostById: _openQuotePreview,
                                           onOpenBlog: _openBlogDetail,
                                           onOpenPostsFeed: _openPostsFeed,
                                           onOpenHashtag: _openSearchQuery,
@@ -2762,7 +2774,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenUpdateComment;
   final Future<void> Function(FeedEntry entry) onOpenPost;
-  final Future<void> Function(int postId) onOpenPostById;
+  final Future<void> Function(QuoteCard quote) onOpenPostById;
   final Future<void> Function(FeedEntry entry) onOpenBlog;
   final Future<void> Function({String initialCategory}) onOpenPostsFeed;
   final Future<void> Function(String hashtag) onOpenHashtag;
@@ -3589,7 +3601,7 @@ class _QuoteGrid extends StatelessWidget {
   const _QuoteGrid({required this.quotes, required this.onOpenQuote});
 
   final List<QuoteCard> quotes;
-  final Future<void> Function(int postId) onOpenQuote;
+  final Future<void> Function(QuoteCard quote) onOpenQuote;
 
   @override
   Widget build(BuildContext context) {
@@ -3613,7 +3625,7 @@ class _QuoteGrid extends StatelessWidget {
         return Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => onOpenQuote(quote.id),
+            onTap: () => onOpenQuote(quote),
             borderRadius: BorderRadius.circular(18),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
@@ -3662,6 +3674,120 @@ class _QuoteGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _QuoteFullscreenViewer extends StatelessWidget {
+  const _QuoteFullscreenViewer({
+    required this.quote,
+    required this.onViewPost,
+  });
+
+  final QuoteCard quote;
+  final Future<void> Function() onViewPost;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (quote.photoUrl.isNotEmpty)
+              AppNetworkImage(
+                imageUrl: quote.photoUrl,
+                fit: BoxFit.contain,
+                backgroundColor: colors.surfaceMuted,
+              )
+            else
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF273469), Color(0xFF3D5AFE)],
+                  ),
+                ),
+              ),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromRGBO(0, 0, 0, 0.48),
+                    Color.fromRGBO(0, 0, 0, 0.16),
+                    Color.fromRGBO(0, 0, 0, 0.78),
+                  ],
+                  stops: [0.0, 0.35, 1.0],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: FilledButton.tonalIcon(
+                  onPressed: () async {
+                    await onViewPost();
+                  },
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('View Post'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.28),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 10,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.35),
+                ),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 30,
+              child: Text(
+                quote.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                  shadows: [
+                    Shadow(
+                      color: Color.fromRGBO(0, 0, 0, 0.55),
+                      blurRadius: 10,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

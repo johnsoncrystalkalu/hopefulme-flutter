@@ -1,4 +1,5 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
@@ -97,12 +98,16 @@ class GroupRepository {
     required String message,
     int? replyId,
     XFile? photo,
+    PlatformFile? audio,
+    int? audioDurationSeconds,
+    void Function(int sentBytes, int totalBytes)? onUploadProgress,
   }) async {
     final trimmed = message.trim();
-    final effectiveMessage = trimmed.isEmpty && photo != null
-        ? 'Shared a photo'
+    final hasAttachment = photo != null || audio != null;
+    final effectiveMessage = trimmed.isEmpty && hasAttachment
+        ? (audio != null ? 'sent a voice note' : 'Shared a photo')
         : trimmed;
-    final response = photo == null
+    final response = (photo == null && audio == null)
         ? await _authRepository.post(
             'groups/$groupId/messages',
             body: {
@@ -117,18 +122,41 @@ class GroupRepository {
             'groups/$groupId/messages',
             fields: {
               'message': effectiveMessage,
+              ...?switch (audioDurationSeconds) {
+                final seconds? => {'audio_duration_seconds': '$seconds'},
+                null => null,
+              },
               ...?switch (replyId) {
                 final value? => {'reply_id': '$value'},
                 null => null,
               },
             },
             files: [
-              ApiMultipartFile(
-                field: 'photo',
-                filename: photo.name,
-                bytes: await photo.readAsBytes(),
-              ),
+              ...?switch (photo) {
+                final pickedPhoto? => [
+                    ApiMultipartFile(
+                      field: 'photo',
+                      filename: pickedPhoto.name,
+                      bytes: await pickedPhoto.readAsBytes(),
+                    ),
+                  ],
+                null => null,
+              },
+              ...?switch (audio) {
+                final pickedAudio? => [
+                    ApiMultipartFile(
+                      field: 'audio',
+                      filename: pickedAudio.name,
+                      path: pickedAudio.path,
+                      bytes: pickedAudio.path == null
+                          ? pickedAudio.bytes
+                          : null,
+                    ),
+                  ],
+                null => null,
+              },
             ],
+            onSendProgress: onUploadProgress,
           );
     return GroupMessage.fromJson(
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},

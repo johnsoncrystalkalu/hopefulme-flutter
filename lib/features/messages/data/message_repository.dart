@@ -1,5 +1,6 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -59,8 +60,14 @@ class MessageRepository {
     int page = 1,
     int? beforeId,
     int? afterId,
+    int window = 30,
+    bool compact = false,
   }) async {
-    final query = <String, dynamic>{'page': page};
+    final query = <String, dynamic>{
+      'page': page,
+      'window': window.clamp(20, 50),
+      if (compact) 'compact': 1,
+    };
     if (beforeId != null) {
       query['before_id'] = beforeId;
     }
@@ -78,7 +85,12 @@ class MessageRepository {
     String username, {
     required int afterId,
   }) {
-    return fetchThread(username, afterId: afterId);
+    return fetchThread(
+      username,
+      afterId: afterId,
+      window: 30,
+      compact: true,
+    );
   }
 
   Future<ChatMessage> sendMessage(
@@ -86,12 +98,16 @@ class MessageRepository {
     required String message,
     int? replyId,
     XFile? photo,
+    PlatformFile? audio,
+    int? audioDurationSeconds,
+    void Function(int sentBytes, int totalBytes)? onUploadProgress,
   }) async {
     final trimmed = message.trim();
-    final effectiveMessage = trimmed.isEmpty && photo != null
-        ? 'Shared a photo'
+    final hasAttachment = photo != null || audio != null;
+    final effectiveMessage = trimmed.isEmpty && hasAttachment
+        ? (audio != null ? 'sent a voice note' : 'Shared a photo')
         : trimmed;
-    final response = photo == null
+    final response = (photo == null && audio == null)
         ? await _authRepository.post(
             'messages/$username',
             body: {
@@ -106,18 +122,41 @@ class MessageRepository {
             'messages/$username',
             fields: {
               'message': effectiveMessage,
+              ...?switch (audioDurationSeconds) {
+                final seconds? => {'audio_duration_seconds': '$seconds'},
+                null => null,
+              },
               ...?switch (replyId) {
                 final id? => {'reply_id': '$id'},
                 null => null,
               },
             },
             files: [
-              ApiMultipartFile(
-                field: 'photo',
-                filename: photo.name,
-                bytes: await photo.readAsBytes(),
-              ),
+              ...?switch (photo) {
+                final pickedPhoto? => [
+                    ApiMultipartFile(
+                      field: 'photo',
+                      filename: pickedPhoto.name,
+                      bytes: await pickedPhoto.readAsBytes(),
+                    ),
+                  ],
+                null => null,
+              },
+              ...?switch (audio) {
+                final pickedAudio? => [
+                    ApiMultipartFile(
+                      field: 'audio',
+                      filename: pickedAudio.name,
+                      path: pickedAudio.path,
+                      bytes: pickedAudio.path == null
+                          ? pickedAudio.bytes
+                          : null,
+                    ),
+                  ],
+                null => null,
+              },
             ],
+            onSendProgress: onUploadProgress,
           );
     return ChatMessage.fromJson(
       response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},

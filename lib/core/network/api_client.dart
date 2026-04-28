@@ -58,6 +58,7 @@ class ApiClient {
     String path, {
     Map<String, String>? fields,
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
+    void Function(int sentBytes, int totalBytes)? onSendProgress,
   }) => _sendJsonRequest(() async {
     final token = await tokenStorage.readToken();
     final request = http.MultipartRequest('POST', await _buildUri(path));
@@ -66,16 +67,29 @@ class ApiClient {
       request.fields.addAll(fields);
     }
     for (final file in files) {
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          file.field,
-          file.bytes,
-          filename: file.filename,
-        ),
-      );
+      if (file.path != null && file.path!.trim().isNotEmpty) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            file.field,
+            file.path!,
+            filename: file.filename,
+          ),
+        );
+      } else {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            file.field,
+            file.bytes!,
+            filename: file.filename,
+          ),
+        );
+      }
     }
 
-    final streamed = await request.send().timeout(AppConfig.requestTimeout);
+    final streamed = await _sendMultipartRequest(
+      request,
+      onSendProgress: onSendProgress,
+    ).timeout(AppConfig.requestTimeout);
     return (await http.Response.fromStream(streamed), token);
   });
 
@@ -83,6 +97,7 @@ class ApiClient {
     String path, {
     Map<String, String>? fields,
     List<ApiMultipartFile> files = const <ApiMultipartFile>[],
+    void Function(int sentBytes, int totalBytes)? onSendProgress,
   }) => _sendJsonRequest(() async {
     final token = await tokenStorage.readToken();
     final request = http.MultipartRequest('POST', await _buildUri(path));
@@ -92,18 +107,61 @@ class ApiClient {
       request.fields.addAll(fields);
     }
     for (final file in files) {
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          file.field,
-          file.bytes,
-          filename: file.filename,
-        ),
-      );
+      if (file.path != null && file.path!.trim().isNotEmpty) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            file.field,
+            file.path!,
+            filename: file.filename,
+          ),
+        );
+      } else {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            file.field,
+            file.bytes!,
+            filename: file.filename,
+          ),
+        );
+      }
     }
 
-    final streamed = await request.send().timeout(AppConfig.requestTimeout);
+    final streamed = await _sendMultipartRequest(
+      request,
+      onSendProgress: onSendProgress,
+    ).timeout(AppConfig.requestTimeout);
     return (await http.Response.fromStream(streamed), token);
   });
+
+  Future<http.StreamedResponse> _sendMultipartRequest(
+    http.MultipartRequest request, {
+    void Function(int sentBytes, int totalBytes)? onSendProgress,
+  }) async {
+    if (onSendProgress == null) {
+      return request.send();
+    }
+
+    final totalBytes = request.contentLength;
+    final byteStream = request.finalize();
+    final streamedRequest = http.StreamedRequest(request.method, request.url)
+      ..headers.addAll(request.headers)
+      ..contentLength = totalBytes;
+
+    var sent = 0;
+    unawaited(() async {
+      try {
+        await for (final chunk in byteStream) {
+          sent += chunk.length;
+          onSendProgress(sent, totalBytes);
+          streamedRequest.sink.add(chunk);
+        }
+      } finally {
+        await streamedRequest.sink.close();
+      }
+    }());
+
+    return _httpClient.send(streamedRequest);
+  }
 
   Future<Map<String, dynamic>> patch(
     String path, {
@@ -351,10 +409,12 @@ class ApiMultipartFile {
   const ApiMultipartFile({
     required this.field,
     required this.filename,
-    required this.bytes,
+    this.bytes,
+    this.path,
   });
 
   final String field;
   final String filename;
-  final Uint8List bytes;
+  final Uint8List? bytes;
+  final String? path;
 }

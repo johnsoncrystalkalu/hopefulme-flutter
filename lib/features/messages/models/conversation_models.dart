@@ -120,6 +120,12 @@ class ChatMessage {
     required this.recipientId,
     required this.message,
     required this.photoUrl,
+    required this.audioUrl,
+    required this.isVoiceNote,
+    required this.voiceNoteExpired,
+    required this.audioDurationSeconds,
+    required this.audioMimeType,
+    required this.audioSizeBytes,
     required this.replyId,
     required this.status,
     required this.createdAt,
@@ -136,6 +142,12 @@ class ChatMessage {
   final int recipientId;
   final String message;
   final String photoUrl;
+  final String audioUrl;
+  final bool isVoiceNote;
+  final bool voiceNoteExpired;
+  final int audioDurationSeconds;
+  final String audioMimeType;
+  final int audioSizeBytes;
   final int replyId;
   final String status;
   final String createdAt;
@@ -148,6 +160,12 @@ class ChatMessage {
   ChatMessage copyWith({
     String? message,
     String? photoUrl,
+    String? audioUrl,
+    bool? isVoiceNote,
+    bool? voiceNoteExpired,
+    int? audioDurationSeconds,
+    String? audioMimeType,
+    int? audioSizeBytes,
     String? status,
     List<ChatReactionSummary>? reactions,
     Uint8List? localImageBytes,
@@ -160,6 +178,12 @@ class ChatMessage {
       recipientId: recipientId,
       message: message ?? this.message,
       photoUrl: photoUrl ?? this.photoUrl,
+      audioUrl: audioUrl ?? this.audioUrl,
+      isVoiceNote: isVoiceNote ?? this.isVoiceNote,
+      voiceNoteExpired: voiceNoteExpired ?? this.voiceNoteExpired,
+      audioDurationSeconds: audioDurationSeconds ?? this.audioDurationSeconds,
+      audioMimeType: audioMimeType ?? this.audioMimeType,
+      audioSizeBytes: audioSizeBytes ?? this.audioSizeBytes,
       replyId: replyId,
       status: status ?? this.status,
       createdAt: createdAt,
@@ -187,6 +211,12 @@ class ChatMessage {
       recipientId: parseInt(json['recipient_id']),
       message: json['message']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      audioUrl: ImageUrlResolver.resolve(json['audio_url']?.toString() ?? ''),
+      isVoiceNote: parseBool(json['is_voice_note']),
+      voiceNoteExpired: parseBool(json['voice_note_expired']),
+      audioDurationSeconds: parseInt(json['audio_duration_seconds']),
+      audioMimeType: json['audio_mime_type']?.toString() ?? '',
+      audioSizeBytes: parseInt(json['audio_size_bytes']),
       replyId: parseInt(json['reply_id']),
       status: json['status']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
