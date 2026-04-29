@@ -282,6 +282,23 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     await prefs.remove(_draftKey);
   }
 
+  Future<void> _discardAndClose() async {
+    _controller.clear();
+    if (mounted) {
+      setState(() {
+        _selectedPhoto = null;
+        _selectedPhotoBytes = null;
+        _showEmojiPicker = false;
+        _clearMentionState();
+        _hasTypedContent = false;
+      });
+    }
+    await _clearDraft();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _pickPhoto() async {
     FocusScope.of(context).unfocus();
     final photo = await _imagePicker.pickImage(
@@ -897,7 +914,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       TextButton(
                         onPressed: _submitting
                             ? null
-                            : () => Navigator.of(context).pop(),
+                            : _discardAndClose,
                         child: const Text('Discard'),
                       ),
                       const Spacer(),

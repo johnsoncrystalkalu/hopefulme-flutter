@@ -90,9 +90,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   StreamSubscription<PlayerState>? _voicePlayerStateSub;
   StreamSubscription<Duration>? _voicePositionSub;
   StreamSubscription<Duration?>? _voiceDurationSub;
-  Duration _voiceCurrentPosition = Duration.zero;
-  Duration _voiceTotalDuration = Duration.zero;
-  double _voicePlaybackSpeed = 1.0;
+  final ValueNotifier<_VoiceTickerState> _voiceTicker = ValueNotifier(
+    const _VoiceTickerState(),
+  );
+  Duration _lastRenderedVoicePosition = Duration.zero;
   double _voiceUploadProgress = 0;
   bool _voiceUploadFailed = false;
   int _optimisticId = -1;
@@ -104,6 +105,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   bool _isRestoringDraft = false;
   Object? _error;
   GroupMessage? _editingMessage;
+  GroupMessage? _activeBubbleActionsMessage;
+  bool _activeBubbleActionsCanCopy = false;
+  bool _activeBubbleActionsCanEdit = false;
+  bool _activeBubbleActionsCanDelete = false;
 
   String get _draftKey => 'group_draft_${widget.groupId}';
 
@@ -161,17 +166,31 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         setState(() {
           _playingAudioUrl = null;
           _playingPreviewPath = null;
-          _voiceCurrentPosition = Duration.zero;
         });
+        _voiceTicker.value = _voiceTicker.value.copyWith(
+          position: Duration.zero,
+        );
       }
     });
     _voicePositionSub = _voicePlayer.positionStream.listen((position) {
       if (!mounted) return;
-      setState(() => _voiceCurrentPosition = position);
+      final deltaMs =
+          (position - _lastRenderedVoicePosition).inMilliseconds.abs();
+      if (deltaMs < 120 && position != Duration.zero) {
+        return;
+      }
+      _lastRenderedVoicePosition = position;
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: position);
     });
     _voiceDurationSub = _voicePlayer.durationStream.listen((duration) {
       if (!mounted) return;
-      setState(() => _voiceTotalDuration = duration ?? Duration.zero);
+      final nextDuration = duration ?? Duration.zero;
+      if (nextDuration == _voiceTicker.value.totalDuration) {
+        return;
+      }
+      _voiceTicker.value = _voiceTicker.value.copyWith(
+        totalDuration: nextDuration,
+      );
     });
   }
 
@@ -185,6 +204,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     _voicePlayerStateSub?.cancel();
     _voicePositionSub?.cancel();
     _voiceDurationSub?.cancel();
+    _voiceTicker.dispose();
     if (_typingSent) {
       unawaited(_sendTypingStatus(false));
     }
@@ -853,17 +873,17 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
       if (!mounted) return;
       setState(() {
         _playingAudioUrl = null;
-        _voiceCurrentPosition = Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       return;
     }
     try {
       if (mounted) {
         setState(() {
           _loadingAudioUrl = trimmed;
-          _voiceCurrentPosition = Duration.zero;
         });
       }
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       await _voicePlayer.setUrl(trimmed);
       await _voicePlayer.seek(Duration.zero);
       if (!mounted) return;
@@ -871,8 +891,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
         _loadingAudioUrl = null;
         _playingAudioUrl = trimmed;
         _playingPreviewPath = null;
-        _voiceTotalDuration = _voicePlayer.duration ?? Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(
+        totalDuration: _voicePlayer.duration ?? Duration.zero,
+      );
       unawaited(_voicePlayer.play());
     } catch (_) {
       if (!mounted) return;
@@ -882,7 +904,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   }
 
   Future<void> _seekVoice(double ratio) async {
-    final totalMs = _voiceTotalDuration.inMilliseconds;
+    final totalMs = _voiceTicker.value.totalDuration.inMilliseconds;
     if (totalMs <= 0) return;
     final targetMs = (ratio.clamp(0.0, 1.0) * totalMs).round();
     await _voicePlayer.seek(Duration(milliseconds: targetMs));
@@ -890,11 +912,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
 
   Future<void> _cyclePlaybackSpeed() async {
     const speeds = <double>[1.0, 1.25, 1.5, 1.75, 2.0];
-    final idx = speeds.indexOf(_voicePlaybackSpeed);
+    final idx = speeds.indexOf(_voiceTicker.value.playbackSpeed);
     final next = speeds[(idx + 1) % speeds.length];
     await _voicePlayer.setSpeed(next);
-    if (!mounted) return;
-    setState(() => _voicePlaybackSpeed = next);
+    _voiceTicker.value = _voiceTicker.value.copyWith(playbackSpeed: next);
   }
 
   // âœ… open image fullscreen with pinch-to-zoom
@@ -956,6 +977,75 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     } catch (error) {
       if (!mounted) return;
       AppToast.error(context, error);
+    }
+  }
+
+  void _showInlineBubbleActions({
+    required GroupMessage message,
+    required bool canCopy,
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    setState(() {
+      _activeBubbleActionsMessage = message;
+      _activeBubbleActionsCanCopy = canCopy;
+      _activeBubbleActionsCanEdit = canEdit;
+      _activeBubbleActionsCanDelete = canDelete;
+    });
+  }
+
+  Future<void> _handleInlineBubbleAction(String value) async {
+    final message = _activeBubbleActionsMessage;
+    if (message == null) {
+      return;
+    }
+    if (value == 'reply') {
+      setState(() {
+        _replyingTo = message;
+        _editingMessage = null;
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+    if (value.startsWith('react:')) {
+      await _toggleReaction(message, value.substring(6));
+      if (!mounted) return;
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+    if (value == 'copy') {
+      await Clipboard.setData(ClipboardData(text: message.message));
+      if (mounted) {
+        AppToast.info(context, 'Text copied');
+      }
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+    if (value == 'edit') {
+      setState(() {
+        _editingMessage = message;
+        _controller.text = message.message;
+        _controller.selection = TextSelection.collapsed(
+          offset: message.message.length,
+        );
+        _replyingTo = null;
+        _showEmojiPicker = false;
+        _selectedPhoto = null;
+        _selectedPhotoBytes = null;
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+    if (value == 'delete') {
+      await _deleteMessage(message);
+      if (!mounted) return;
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
     }
   }
 
@@ -1539,8 +1629,20 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                       ),
                     ),
                   Expanded(
-                    child: Stack(
-                      children: [
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () {
+                        if (_activeBubbleActionsMessage == null &&
+                            _replyingTo == null) {
+                          return;
+                        }
+                        setState(() {
+                          _activeBubbleActionsMessage = null;
+                          _replyingTo = null;
+                        });
+                      },
+                      child: Stack(
+                        children: [
                         Positioned.fill(
                           child: group == null
                               ? const SizedBox.shrink()
@@ -1633,51 +1735,26 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                               _editingMessage = null;
                                             });
                                           },
-                                          onEdit: () {
-                                            setState(() {
-                                              _editingMessage = message;
-                                              _controller.text =
-                                                  message.message;
-                                              _controller.selection =
-                                                  TextSelection.collapsed(
-                                                    offset:
-                                                        message.message.length,
-                                                  );
-                                              _replyingTo = null;
-                                              _showEmojiPicker = false;
-                                              _selectedPhoto = null;
-                                              _selectedPhotoBytes = null;
-                                            });
-                                          },
-                                          onDelete: () =>
-                                              _deleteMessage(message),
                                           onReact: _toggleReaction,
-                                          onCopy: () async {
-                                            await Clipboard.setData(
-                                              ClipboardData(
-                                                text: message.message,
+                                          onShowActions:
+                                              (
+                                                selectedMessage,
+                                                canCopy,
+                                                canEdit,
+                                                canDelete,
+                                              ) => _showInlineBubbleActions(
+                                                message: selectedMessage,
+                                                canCopy: canCopy,
+                                                canEdit: canEdit,
+                                                canDelete: canDelete,
                                               ),
-                                            );
-                                            if (!context.mounted) {
-                                              return;
-                                            }
-                                            AppToast.info(
-                                              context,
-                                              'Text copied',
-                                            );
-                                          },
                                           onLinkTap: _handleLinkTap,
                                           onOpenAudioUrl: _openAudioUrl,
                                           loadingAudioUrl: _loadingAudioUrl,
                                           playingAudioUrl: _playingAudioUrl,
                                           formatAudioDuration:
                                               _formatAudioDuration,
-                                          voiceCurrentPosition:
-                                              _voiceCurrentPosition,
-                                          voiceTotalDuration:
-                                              _voiceTotalDuration,
-                                          voicePlaybackSpeed:
-                                              _voicePlaybackSpeed,
+                                          voiceTicker: _voiceTicker,
                                           onSeekVoice: _seekVoice,
                                           onCyclePlaybackSpeed:
                                               _cyclePlaybackSpeed,
@@ -1726,7 +1803,8 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                               ),
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   if (group != null && group.isMember) ...[
@@ -1735,6 +1813,13 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                       curve: Curves.easeOutCubic,
                       child: Column(
                         children: [
+                          if (_activeBubbleActionsMessage != null)
+                            _InlineGroupBubbleActionsBar(
+                              canCopy: _activeBubbleActionsCanCopy,
+                              canEdit: _activeBubbleActionsCanEdit,
+                              canDelete: _activeBubbleActionsCanDelete,
+                              onActionTap: _handleInlineBubbleAction,
+                            ),
                           if (isSomeoneElseTyping)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1927,6 +2012,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                     AppSendActionButton(
                                       onPressed: _sendMessage,
                                       isBusy: _isSending,
+                                      size: 40,
                                     ),
                                   ],
                                 ),
@@ -1986,7 +2072,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                     'Voice notes expire after 30 days.',
                                     style: TextStyle(
                                       color: colors.textMuted,
-                                      fontSize: 10,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -2064,6 +2150,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                       return AppSendActionButton(
                                         onPressed: _sendMessage,
                                         isBusy: _isSending,
+                                        size: 40,
                                       );
                                     }
                                     return GestureDetector(
@@ -2453,18 +2540,14 @@ class _GroupMessageBubble extends StatelessWidget {
     required this.compactTopSpacing,
     required this.onProfileTap,
     required this.onReply,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onCopy,
+    required this.onShowActions,
     required this.onReact,
     required this.onLinkTap,
     required this.onOpenAudioUrl,
     required this.loadingAudioUrl,
     required this.playingAudioUrl,
     required this.formatAudioDuration,
-    required this.voiceCurrentPosition,
-    required this.voiceTotalDuration,
-    required this.voicePlaybackSpeed,
+    required this.voiceTicker,
     required this.onSeekVoice,
     required this.onCyclePlaybackSpeed,
     required this.onOpenFullImage, // ðŸ‘ˆ
@@ -2480,18 +2563,20 @@ class _GroupMessageBubble extends StatelessWidget {
   final bool compactTopSpacing;
   final VoidCallback? onProfileTap;
   final VoidCallback onReply;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final Future<void> Function() onCopy;
+  final void Function(
+    GroupMessage message,
+    bool canCopy,
+    bool canEdit,
+    bool canDelete,
+  )
+  onShowActions;
   final Future<void> Function(GroupMessage message, String emoji) onReact;
   final Future<void> Function(String url) onLinkTap;
   final Future<void> Function(String audioUrl) onOpenAudioUrl;
   final String? loadingAudioUrl;
   final String? playingAudioUrl;
   final String Function(int seconds) formatAudioDuration;
-  final Duration voiceCurrentPosition;
-  final Duration voiceTotalDuration;
-  final double voicePlaybackSpeed;
+  final ValueNotifier<_VoiceTickerState> voiceTicker;
   final Future<void> Function(double ratio) onSeekVoice;
   final Future<void> Function() onCyclePlaybackSpeed;
   final void Function(String? url, Uint8List? bytes) onOpenFullImage; // ðŸ‘ˆ
@@ -2507,114 +2592,6 @@ class _GroupMessageBubble extends StatelessWidget {
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
       decorationColor: color,
-    );
-  }
-
-  Future<String?> _showBubbleActions(BuildContext context) {
-    final canCopy = message.message.trim().isNotEmpty;
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: false,
-      builder: (sheetContext) {
-        final colors = sheetContext.appColors;
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colors.border),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: ReactionConfig.chatQuick
-                          .map(
-                            (emoji) => InkWell(
-                              borderRadius: BorderRadius.circular(999),
-                              onTap: () => Navigator.of(
-                                sheetContext,
-                              ).pop('react:$emoji'),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 3,
-                                ),
-                                child: Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 22),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _GroupBubbleActionButton(
-                          icon: Icons.reply_outlined,
-                          label: 'Reply',
-                          color: colors.brand,
-                          onTap: () => Navigator.of(sheetContext).pop('reply'),
-                        ),
-                        if (canCopy) ...[
-                          const SizedBox(width: 10),
-                          _GroupBubbleActionButton(
-                            icon: Icons.content_copy_rounded,
-                            label: 'Copy',
-                            color: colors.textSecondary,
-                            onTap: () => Navigator.of(sheetContext).pop('copy'),
-                          ),
-                        ],
-                        if (canEdit) ...[
-                          const SizedBox(width: 10),
-                          _GroupBubbleActionButton(
-                            icon: Icons.edit_rounded,
-                            label: 'Edit',
-                            color: colors.textSecondary,
-                            onTap: () => Navigator.of(sheetContext).pop('edit'),
-                          ),
-                        ],
-                        if (canDelete) ...[
-                          const SizedBox(width: 10),
-                          _GroupBubbleActionButton(
-                            icon: Icons.delete_outline_rounded,
-                            label: 'Delete',
-                            color: colors.dangerText,
-                            onTap: () =>
-                                Navigator.of(sheetContext).pop('delete'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -2680,14 +2657,12 @@ class _GroupMessageBubble extends StatelessWidget {
                   child: GestureDetector(
                     onLongPressStart: (_) async {
                       HapticFeedback.mediumImpact();
-                      final value = await _showBubbleActions(context);
-                      if (value == 'reply') onReply();
-                      if (value != null && value.startsWith('react:')) {
-                        await onReact(message, value.substring(6));
-                      }
-                      if (value == 'copy') await onCopy();
-                      if (value == 'edit') onEdit();
-                      if (value == 'delete') onDelete();
+                      onShowActions(
+                        message,
+                        message.message.trim().isNotEmpty,
+                        canEdit,
+                        canDelete,
+                      );
                     },
                     child: Container(
                       constraints: BoxConstraints(maxWidth: maxBubbleWidth),
@@ -2909,71 +2884,81 @@ class _GroupMessageBubble extends StatelessWidget {
                                           ),
                                         ],
                                       ),
-                                      if (playingAudioUrl == message.audioUrl) ...[
-                                        const SizedBox(height: 6),
-                                        SizedBox(
-                                          width: maxBubbleWidth * 0.78,
-                                          child: SliderTheme(
-                                            data: SliderTheme.of(context).copyWith(
-                                              trackHeight: 2.0,
-                                              thumbShape: const RoundSliderThumbShape(
-                                                enabledThumbRadius: 4,
-                                              ),
-                                            ),
-                                            child: Slider(
-                                              value: voiceTotalDuration.inMilliseconds <= 0
-                                                  ? 0
-                                                  : (voiceCurrentPosition.inMilliseconds /
-                                                          voiceTotalDuration.inMilliseconds)
-                                                      .clamp(0.0, 1.0),
-                                              onChanged: (value) {
-                                                unawaited(onSeekVoice(value));
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              formatAudioDuration(
-                                                voiceCurrentPosition.inSeconds,
-                                              ),
-                                              style: TextStyle(
-                                                color: isMine ? Colors.white70 : colors.textMuted,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                                fontFeatures: const <FontFeature>[
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            TextButton(
-                                              onPressed: () {
-                                                unawaited(onCyclePlaybackSpeed());
-                                              },
-                                              style: TextButton.styleFrom(
-                                                minimumSize: const Size(0, 20),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 0,
+                                      if (playingAudioUrl == message.audioUrl)
+                                        ValueListenableBuilder<_VoiceTickerState>(
+                                          valueListenable: voiceTicker,
+                                          builder: (context, ticker, _) {
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const SizedBox(height: 6),
+                                                SizedBox(
+                                                  width: maxBubbleWidth * 0.78,
+                                                  child: SliderTheme(
+                                                    data: SliderTheme.of(context).copyWith(
+                                                      trackHeight: 2.0,
+                                                      thumbShape: const RoundSliderThumbShape(
+                                                        enabledThumbRadius: 4,
+                                                      ),
+                                                    ),
+                                                    child: Slider(
+                                                      value: ticker.totalDuration.inMilliseconds <= 0
+                                                          ? 0
+                                                          : (ticker.position.inMilliseconds /
+                                                                  ticker.totalDuration.inMilliseconds)
+                                                              .clamp(0.0, 1.0),
+                                                      onChanged: (value) {
+                                                        unawaited(onSeekVoice(value));
+                                                      },
+                                                    ),
+                                                  ),
                                                 ),
-                                                tapTargetSize:
-                                                    MaterialTapTargetSize.shrinkWrap,
-                                              ),
-                                              child: Text(
-                                                '${voicePlaybackSpeed.toStringAsFixed(voicePlaybackSpeed == voicePlaybackSpeed.roundToDouble() ? 0 : 2)}x',
-                                                style: TextStyle(
-                                                  color: isMine ? Colors.white : colors.brand,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w800,
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      formatAudioDuration(
+                                                        ticker.position.inSeconds,
+                                                      ),
+                                                      style: TextStyle(
+                                                        color: isMine ? Colors.white70 : colors.textMuted,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontFeatures: const <FontFeature>[
+                                                          FontFeature.tabularFigures(),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        unawaited(onCyclePlaybackSpeed());
+                                                      },
+                                                      style: TextButton.styleFrom(
+                                                        minimumSize: const Size(0, 20),
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 0,
+                                                        ),
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: Text(
+                                                        '${ticker.playbackSpeed.toStringAsFixed(ticker.playbackSpeed == ticker.playbackSpeed.roundToDouble() ? 0 : 2)}x',
+                                                        style: TextStyle(
+                                                          color: isMine ? Colors.white : colors.brand,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ),
-                                          ],
+                                              ],
+                                            );
+                                          },
                                         ),
-                                      ],
                                     ],
                                   ),
                                 ),
@@ -3181,52 +3166,6 @@ class _MessageDeliveryStatus extends StatelessWidget {
   }
 }
 
-class _GroupBubbleActionButton extends StatelessWidget {
-  const _GroupBubbleActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _GroupReactionBar extends StatelessWidget {
   const _GroupReactionBar({required this.reactions, required this.onTapEmoji});
 
@@ -3274,6 +3213,186 @@ class _GroupReactionBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InlineGroupBubbleActionsBar extends StatelessWidget {
+  const _InlineGroupBubbleActionsBar({
+    required this.canCopy,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onActionTap,
+  });
+
+  final bool canCopy;
+  final bool canEdit;
+  final bool canDelete;
+  final Future<void> Function(String action) onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final actionItems = <({
+      IconData icon,
+      String label,
+      String action,
+      Color? color,
+    })>[
+      (
+        icon: Icons.reply_outlined,
+        label: 'Reply',
+        action: 'reply',
+        color: colors.brand,
+      ),
+      if (canCopy)
+        (
+          icon: Icons.content_copy_rounded,
+          label: 'Copy',
+          action: 'copy',
+          color: null,
+        ),
+      if (canEdit)
+        (
+          icon: Icons.edit_rounded,
+          label: 'Edit',
+          action: 'edit',
+          color: null,
+        ),
+      if (canDelete)
+        (
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          action: 'delete',
+          color: colors.dangerText,
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted.withValues(alpha: 0.92),
+        border: Border(
+          top: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < ReactionConfig.chatQuick.length; i++) ...[
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: i == ReactionConfig.chatQuick.length - 1 ? 0 : 6,
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () => onActionTap(
+                        'react:${ReactionConfig.chatQuick[i]}',
+                      ),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Text(
+                          ReactionConfig.chatQuick[i],
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var i = 0; i < actionItems.length; i++) ...[
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: i == actionItems.length - 1 ? 0 : 6,
+                    ),
+                    child: InkWell(
+                      onTap: () => onActionTap(actionItems[i].action),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              actionItems[i].icon,
+                              size: 14,
+                              color: actionItems[i].color ?? colors.textSecondary,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                actionItems[i].label,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color:
+                                      actionItems[i].color ?? colors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceTickerState {
+  const _VoiceTickerState({
+    this.position = Duration.zero,
+    this.totalDuration = Duration.zero,
+    this.playbackSpeed = 1.0,
+  });
+
+  final Duration position;
+  final Duration totalDuration;
+  final double playbackSpeed;
+
+  _VoiceTickerState copyWith({
+    Duration? position,
+    Duration? totalDuration,
+    double? playbackSpeed,
+  }) {
+    return _VoiceTickerState(
+      position: position ?? this.position,
+      totalDuration: totalDuration ?? this.totalDuration,
+      playbackSpeed: playbackSpeed ?? this.playbackSpeed,
     );
   }
 }

@@ -7,6 +7,8 @@ class ReactionConfig {
     '\u{1F44D}',
     '\u{1F602}',
     '\u{1F64F}',
+    '\u{1F4AA}',
+    '\u{1F525}',
   ];
 
   // Broader expressive reactions for updates/feed content.

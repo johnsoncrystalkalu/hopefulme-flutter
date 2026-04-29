@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:heroicons/heroicons.dart';
 //import 'package:flutter/cupertino.dart';
 
@@ -1688,7 +1689,10 @@ class _HomeTopBar extends StatelessWidget {
           children: [
             if (onMenuTap != null) ...[
               IconButton(
-                onPressed: onMenuTap,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  onMenuTap?.call();
+                },
                 icon: HeroIcon(
                   HeroIcons.bars3,
                   size: isCompactTopBar ? 24 : 26,
@@ -1803,7 +1807,10 @@ class _TopBarIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => onTap(),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(999),
       child: Padding(
         padding: const EdgeInsets.all(2),
@@ -3712,20 +3719,6 @@ class _QuoteFullscreenViewer extends StatelessWidget {
                   ),
                 ),
               ),
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color.fromRGBO(0, 0, 0, 0.48),
-                    Color.fromRGBO(0, 0, 0, 0.16),
-                    Color.fromRGBO(0, 0, 0, 0.78),
-                  ],
-                  stops: [0.0, 0.35, 1.0],
-                ),
-              ),
-            ),
             Positioned(
               top: 8,
               left: 0,

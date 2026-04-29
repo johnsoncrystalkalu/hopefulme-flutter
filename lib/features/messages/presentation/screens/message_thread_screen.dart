@@ -94,9 +94,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   StreamSubscription<PlayerState>? _voicePlayerStateSub;
   StreamSubscription<Duration>? _voicePositionSub;
   StreamSubscription<Duration?>? _voiceDurationSub;
-  Duration _voiceCurrentPosition = Duration.zero;
-  Duration _voiceTotalDuration = Duration.zero;
-  double _voicePlaybackSpeed = 1.0;
+  final ValueNotifier<_VoiceTickerState> _voiceTicker = ValueNotifier(
+    const _VoiceTickerState(),
+  );
   double _recordLevel = 0;
   double _voiceUploadProgress = 0;
   bool _voiceUploadFailed = false;
@@ -105,9 +105,17 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   bool _typingSent = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
+  Timer? _draftPersistDebounce;
+  String _lastPersistedDraft = '';
+  Duration _lastRenderedVoicePosition = Duration.zero;
+  String? _lastSendSignature;
+  DateTime? _lastSendAt;
   bool _isKeyboardVisible = false;
   Object? _error;
   ChatMessage? _editingMessage;
+  ChatMessage? _activeBubbleActionsMessage;
+  bool _activeBubbleActionsIsMine = false;
+  bool _activeBubbleActionsHasText = false;
 
   String get _draftKey => 'message_draft_${widget.username}';
 
@@ -212,21 +220,31 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         setState(() {
           _playingAudioUrl = null;
           _playingPreviewPath = null;
-          _voiceCurrentPosition = Duration.zero;
         });
+        _voiceTicker.value = _voiceTicker.value.copyWith(
+          position: Duration.zero,
+        );
       }
     });
     _voicePositionSub = _voicePlayer.positionStream.listen((position) {
       if (!mounted) return;
-      setState(() {
-        _voiceCurrentPosition = position;
-      });
+      final deltaMs =
+          (position - _lastRenderedVoicePosition).inMilliseconds.abs();
+      if (deltaMs < 120 && position != Duration.zero) {
+        return;
+      }
+      _lastRenderedVoicePosition = position;
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: position);
     });
     _voiceDurationSub = _voicePlayer.durationStream.listen((duration) {
       if (!mounted) return;
-      setState(() {
-        _voiceTotalDuration = duration ?? Duration.zero;
-      });
+      final nextDuration = duration ?? Duration.zero;
+      if (nextDuration == _voiceTicker.value.totalDuration) {
+        return;
+      }
+      _voiceTicker.value = _voiceTicker.value.copyWith(
+        totalDuration: nextDuration,
+      );
     });
     unawaited(_restoreDraft());
     _loadThread();
@@ -247,11 +265,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     }
     _pollTimer?.cancel();
     _typingDebounce?.cancel();
+    _draftPersistDebounce?.cancel();
     _recordTimer?.cancel();
     _recordMeterTimer?.cancel();
     _voicePlayerStateSub?.cancel();
     _voicePositionSub?.cancel();
     _voiceDurationSub?.cancel();
+    _voiceTicker.dispose();
     unawaited(_audioRecorder.dispose());
     unawaited(_voicePlayer.dispose());
     if (_typingSent) {
@@ -295,6 +315,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   Future<void> _restoreDraft() async {
     final prefs = await SharedPreferences.getInstance();
     final savedDraft = prefs.getString(_draftKey)?.trimRight() ?? '';
+    _lastPersistedDraft = savedDraft;
     if (!mounted || savedDraft.isEmpty) return;
     _isRestoringDraft = true;
     _controller.text = savedDraft;
@@ -481,6 +502,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
     final hasAudio = _selectedAudio != null;
+    final replyTargetId = _replyingTo?.id ?? 0;
     final effectiveText = text.isEmpty && (hasPhoto || hasAudio)
         ? (hasAudio ? 'sent a voice note' : 'Shared a photo')
         : text;
@@ -488,6 +510,21 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _isSending) {
       return;
     }
+    final sendSignature = [
+      text,
+      hasPhoto ? '1' : '0',
+      hasAudio ? '1' : '0',
+      replyTargetId.toString(),
+      _editingMessage?.id.toString() ?? '0',
+    ].join('|');
+    final now = DateTime.now();
+    if (_lastSendSignature == sendSignature &&
+        _lastSendAt != null &&
+        now.difference(_lastSendAt!) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastSendSignature = sendSignature;
+    _lastSendAt = now;
 
     if (_editingMessage != null) {
       final editingMessage = _editingMessage!;
@@ -603,7 +640,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         audioDurationSeconds: selectedAudioDurationSeconds ?? 0,
         audioMimeType: selectedAudio?.extension ?? '',
         audioSizeBytes: selectedAudio?.size ?? 0,
-        replyId: _replyingTo?.id ?? 0,
+        replyId: replyTargetId,
         status: 'sending',
         createdAt: DateTime.now().toIso8601String(),
         sender:
@@ -668,12 +705,41 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
           },
         );
         if (!mounted) return;
+        final resolvedSent =
+            sent.replyTo != null ||
+                optimisticMessage.replyTo == null ||
+                optimisticMessage.replyId == 0
+            ? sent
+            : ChatMessage(
+                id: sent.id,
+                conversationId: sent.conversationId,
+                senderId: sent.senderId,
+                recipientId: sent.recipientId,
+                message: sent.message,
+                photoUrl: sent.photoUrl,
+                audioUrl: sent.audioUrl,
+                isVoiceNote: sent.isVoiceNote,
+                voiceNoteExpired: sent.voiceNoteExpired,
+                audioDurationSeconds: sent.audioDurationSeconds,
+                audioMimeType: sent.audioMimeType,
+                audioSizeBytes: sent.audioSizeBytes,
+                replyId: sent.replyId == 0
+                    ? optimisticMessage.replyId
+                    : sent.replyId,
+                status: sent.status,
+                createdAt: sent.createdAt,
+                sender: sent.sender,
+                recipient: sent.recipient,
+                replyTo: optimisticMessage.replyTo,
+                reactions: sent.reactions,
+                localImageBytes: sent.localImageBytes,
+              );
         setState(() {
           _hasThreadChanges = true;
           _voiceUploadProgress = 0;
           _voiceUploadFailed = false;
           final replaced = _messages
-              .map((item) => item.id == optimisticId ? sent : item)
+              .map((item) => item.id == optimisticId ? resolvedSent : item)
               .toList();
           _messages = _dedupeById(replaced);
         });
@@ -700,6 +766,29 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
           }
           if (text.isNotEmpty && _controller.text.trim().isEmpty) {
             _controller.text = text;
+          }
+          if (_replyingTo == null && optimisticMessage.replyTo != null) {
+            _replyingTo = ChatMessage(
+              id: optimisticMessage.replyTo!.id,
+              conversationId: _conversation?.id ?? 0,
+              senderId: optimisticMessage.replyTo!.sender?.id ?? 0,
+              recipientId: widget.currentUser?.id ?? 0,
+              message: optimisticMessage.replyTo!.message,
+              photoUrl: '',
+              audioUrl: '',
+              isVoiceNote: false,
+              voiceNoteExpired: false,
+              audioDurationSeconds: 0,
+              audioMimeType: '',
+              audioSizeBytes: 0,
+              replyId: 0,
+              status: 'sent',
+              createdAt: '',
+              sender: optimisticMessage.replyTo!.sender,
+              recipient: widget.currentUser?.toConversationUser(),
+              replyTo: null,
+              reactions: const <ChatReactionSummary>[],
+            );
           }
         });
         AppToast.error(
@@ -912,8 +1001,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       setState(() {
         _playingAudioUrl = null;
         _playingPreviewPath = null;
-        _voiceCurrentPosition = Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       return;
     }
 
@@ -922,9 +1011,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       setState(() {
         _loadingAudioUrl = trimmed;
         _loadingPreviewPath = null;
-        _voiceCurrentPosition = Duration.zero;
       });
       }
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       await _voicePlayer.stop();
       await _voicePlayer.setUrl(
         trimmed,
@@ -938,8 +1027,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _loadingAudioUrl = null;
         _playingAudioUrl = trimmed;
         _playingPreviewPath = null;
-        _voiceTotalDuration = _voicePlayer.duration ?? Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(
+        totalDuration: _voicePlayer.duration ?? Duration.zero,
+      );
       await _voicePlayer.play();
     } catch (_) {
       try {
@@ -979,8 +1070,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
           if (_playingAudioUrl == trimmed) {
             _playingAudioUrl = null;
           }
-          _voiceCurrentPosition = Duration.zero;
         });
+        _voiceTicker.value = _voiceTicker.value.copyWith(
+          position: Duration.zero,
+        );
         AppToast.error(context, 'Voice note not found');
       }
     }
@@ -1023,9 +1116,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       setState(() {
         _loadingPreviewPath = path;
         _loadingAudioUrl = null;
-        _voiceCurrentPosition = Duration.zero;
       });
       }
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       await _voicePlayer.stop();
       await _voicePlayer.setFilePath(path);
       if (!mounted) return;
@@ -1033,22 +1126,24 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _loadingPreviewPath = null;
         _playingPreviewPath = path;
         _playingAudioUrl = null;
-        _voiceTotalDuration = _voicePlayer.duration ?? Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(
+        totalDuration: _voicePlayer.duration ?? Duration.zero,
+      );
       await _voicePlayer.play();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loadingPreviewPath = null;
         _playingPreviewPath = null;
-        _voiceCurrentPosition = Duration.zero;
       });
+      _voiceTicker.value = _voiceTicker.value.copyWith(position: Duration.zero);
       AppToast.error(context, 'Unable to preview this voice note.');
     }
   }
 
   Future<void> _seekVoice(double ratio) async {
-    final totalMs = _voiceTotalDuration.inMilliseconds;
+    final totalMs = _voiceTicker.value.totalDuration.inMilliseconds;
     if (totalMs <= 0) return;
     final targetMs = (ratio.clamp(0.0, 1.0) * totalMs).round();
     await _voicePlayer.seek(Duration(milliseconds: targetMs));
@@ -1056,13 +1151,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
 
   Future<void> _cycleVoiceSpeed() async {
     const speeds = <double>[1.0, 1.25, 1.5, 2.0];
-    final currentIndex = speeds.indexOf(_voicePlaybackSpeed);
+    final currentIndex = speeds.indexOf(_voiceTicker.value.playbackSpeed);
     final next = speeds[(currentIndex + 1) % speeds.length];
     await _voicePlayer.setSpeed(next);
-    if (!mounted) return;
-    setState(() {
-      _voicePlaybackSpeed = next;
-    });
+    _voiceTicker.value = _voiceTicker.value.copyWith(playbackSpeed: next);
   }
 
   // âœ… open image fullscreen with pinch-to-zoom
@@ -1141,7 +1233,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   }
 
   void _handleComposerChanged() {
-    unawaited(_persistDraft(_controller.text));
+    _scheduleDraftPersist(_controller.text);
     if (_isRestoringDraft) return;
     final text = _controller.text.trim();
     if (text.isEmpty) {
@@ -1321,120 +1413,81 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     }
   }
 
-  Future<String?> _showBubbleActions({
+  void _showInlineBubbleActions({
+    required ChatMessage message,
     required bool isMine,
     required bool hasText,
-    required ChatMessage message,
   }) {
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: false,
-      builder: (sheetContext) {
-        final colors = sheetContext.appColors;
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colors.border),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: ReactionConfig.chatQuick
-                            .map(
-                              (emoji) => InkWell(
-                                borderRadius: BorderRadius.circular(999),
-                                onTap: () => Navigator.of(
-                                  sheetContext,
-                                ).pop('react:$emoji'),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 3,
-                                  ),
-                                  child: Text(
-                                    emoji,
-                                    style: const TextStyle(fontSize: 22),
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _BubbleActionButton(
-                            icon: Icons.reply_outlined,
-                            label: 'Reply',
-                            color: colors.brand,
-                            onTap: () =>
-                                Navigator.of(sheetContext).pop('reply'),
-                          ),
-                          if (hasText) ...[
-                            const SizedBox(width: 10),
-                            _BubbleActionButton(
-                              icon: Icons.content_copy_rounded,
-                              label: 'Copy',
-                              color: colors.textSecondary,
-                              onTap: () =>
-                                  Navigator.of(sheetContext).pop('copy'),
-                            ),
-                          ],
-                          if (isMine && !message.isVoiceNote) ...[
-                            const SizedBox(width: 10),
-                            _BubbleActionButton(
-                              icon: Icons.edit_rounded,
-                              label: 'Edit',
-                              color: colors.textSecondary,
-                              onTap: () =>
-                                  Navigator.of(sheetContext).pop('edit'),
-                            ),
-                          ],
-                          if (isMine) ...[
-                            const SizedBox(width: 10),
-                            _BubbleActionButton(
-                              icon: Icons.delete_outline_rounded,
-                              label: 'Delete',
-                              color: colors.dangerText,
-                              onTap: () =>
-                                  Navigator.of(sheetContext).pop('delete'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+    setState(() {
+      _activeBubbleActionsMessage = message;
+      _activeBubbleActionsIsMine = isMine;
+      _activeBubbleActionsHasText = hasText;
+    });
+  }
+
+  Future<void> _handleInlineBubbleAction(String value) async {
+    final message = _activeBubbleActionsMessage;
+    if (message == null) {
+      return;
+    }
+
+    if (value == 'reply') {
+      setState(() {
+        _replyingTo = message;
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+
+    if (value.startsWith('react:')) {
+      await _toggleReaction(message, value.substring(6));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+
+    if (value == 'copy') {
+      await Clipboard.setData(ClipboardData(text: message.message));
+      if (mounted) {
+        AppToast.info(context, 'Text copied');
+      }
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+
+    if (value == 'edit') {
+      setState(() {
+        _editingMessage = message;
+        _controller.text = message.message;
+        _controller.selection = TextSelection.collapsed(
+          offset: message.message.length,
         );
-      },
-    );
+        _replyingTo = null;
+        _showEmojiPicker = false;
+        _selectedPhoto = null;
+        _selectedPhotoBytes = null;
+        _selectedAudio = null;
+        _selectedAudioDurationSeconds = null;
+        _activeBubbleActionsMessage = null;
+      });
+      return;
+    }
+
+    if (value == 'delete') {
+      await _deleteMessage(message);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _activeBubbleActionsMessage = null;
+      });
+    }
   }
 
   List<ChatReactionSummary> _optimisticToggleReactions(
@@ -1675,8 +1728,19 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         body: Column(
           children: [
             Expanded(
-              child: Stack(
-                children: [
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  if (_activeBubbleActionsMessage == null && _replyingTo == null) {
+                    return;
+                  }
+                  setState(() {
+                    _activeBubbleActionsMessage = null;
+                    _replyingTo = null;
+                  });
+                },
+                child: Stack(
+                  children: [
                   Positioned.fill(
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -1773,7 +1837,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                               _SwipeReplyWrapper(
                                                 onReply: startReply,
                                                 child: GestureDetector(
-                                                  onLongPressStart: (_) async {
+                                                  onLongPressStart: (_) {
                                                     HapticFeedback.mediumImpact();
                                                     final isPendingVoiceNote =
                                                         item.isVoiceNote &&
@@ -1784,67 +1848,11 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                                         item.message
                                                             .trim()
                                                             .isNotEmpty;
-                                                    final value =
-                                                        await _showBubbleActions(
-                                                          isMine: isMine,
-                                                          hasText: hasText,
-                                                          message: item,
-                                                        );
-                                                    if (!context.mounted) {
-                                                      return;
-                                                    }
-
-                                                    if (value == 'reply') {
-                                                      startReply();
-                                                    } else if (value != null &&
-                                                        value.startsWith(
-                                                          'react:',
-                                                        )) {
-                                                      await _toggleReaction(
-                                                        item,
-                                                        value.substring(6),
-                                                      );
-                                                    } else if (value ==
-                                                        'copy') {
-                                                      await Clipboard.setData(
-                                                        ClipboardData(
-                                                          text: item.message,
-                                                        ),
-                                                      );
-                                                      if (context.mounted) {
-                                                        AppToast.info(
-                                                          context,
-                                                          'Text copied',
-                                                        );
-                                                      }
-                                                    } else if (value ==
-                                                        'edit') {
-                                                      setState(() {
-                                                        _editingMessage = item;
-                                                        _controller.text =
-                                                            item.message;
-                                                        _controller.selection =
-                                                            TextSelection.collapsed(
-                                                              offset: item
-                                                                  .message
-                                                                  .length,
-                                                            );
-                                                        _replyingTo = null;
-                                                        _showEmojiPicker =
-                                                            false;
-                                                        _selectedPhoto = null;
-                                                        _selectedPhotoBytes =
-                                                            null;
-                                                        _selectedAudio = null;
-                                                        _selectedAudioDurationSeconds =
-                                                            null;
-                                                      });
-                                                    } else if (value ==
-                                                        'delete') {
-                                                      await _deleteMessage(
-                                                        item,
-                                                      );
-                                                    }
+                                                    _showInlineBubbleActions(
+                                                      message: item,
+                                                      isMine: isMine,
+                                                      hasText: hasText,
+                                                    );
                                                   },
                                                   child: Container(
                                                     constraints: BoxConstraints(
@@ -1996,56 +2004,66 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                                                                       ),
                                                                     ],
                                                                   ),
-                                                                  if (_playingAudioUrl == item.audioUrl) ...[
-                                                                    const SizedBox(height: 6),
-                                                                    SizedBox(
-                                                                      width: maxBubbleWidth * 0.78,
-                                                                      child: SliderTheme(
-                                                                        data: SliderTheme.of(context).copyWith(
-                                                                          trackHeight: 2.0,
-                                                                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-                                                                        ),
-                                                                        child: Slider(
-                                                                          value: _voiceTotalDuration.inMilliseconds <= 0
-                                                                              ? 0
-                                                                              : (_voiceCurrentPosition.inMilliseconds /
-                                                                                    _voiceTotalDuration.inMilliseconds)
-                                                                                  .clamp(0.0, 1.0),
-                                                                          onChanged: _seekVoice,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                    Row(
-                                                                      mainAxisSize: MainAxisSize.min,
-                                                                      children: [
-                                                                        Text(
-                                                                          _formatAudioDuration(_voiceCurrentPosition.inSeconds),
-                                                                          style: TextStyle(
-                                                                            color: isMine ? Colors.white70 : colors.textMuted,
-                                                                            fontSize: 10,
-                                                                            fontWeight: FontWeight.w600,
-                                                                          ),
-                                                                        ),
-                                                                        const SizedBox(width: 6),
-                                                                        TextButton(
-                                                                          onPressed: _cycleVoiceSpeed,
-                                                                          style: TextButton.styleFrom(
-                                                                            minimumSize: const Size(0, 20),
-                                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                                                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                                          ),
-                                                                          child: Text(
-                                                                            '${_voicePlaybackSpeed.toStringAsFixed(_voicePlaybackSpeed == _voicePlaybackSpeed.roundToDouble() ? 0 : 2)}x',
-                                                                            style: TextStyle(
-                                                                              color: isMine ? Colors.white : colors.brand,
-                                                                              fontSize: 10,
-                                                                              fontWeight: FontWeight.w800,
+                                                                  if (_playingAudioUrl == item.audioUrl)
+                                                                    ValueListenableBuilder<_VoiceTickerState>(
+                                                                      valueListenable: _voiceTicker,
+                                                                      builder: (context, ticker, _) {
+                                                                        return Column(
+                                                                          crossAxisAlignment:
+                                                                              CrossAxisAlignment.start,
+                                                                          children: [
+                                                                            const SizedBox(height: 6),
+                                                                            SizedBox(
+                                                                              width: maxBubbleWidth * 0.78,
+                                                                              child: SliderTheme(
+                                                                                data: SliderTheme.of(context).copyWith(
+                                                                                  trackHeight: 2.0,
+                                                                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                                                                                ),
+                                                                                child: Slider(
+                                                                                  value: ticker.totalDuration.inMilliseconds <= 0
+                                                                                      ? 0
+                                                                                      : (ticker.position.inMilliseconds /
+                                                                                            ticker.totalDuration.inMilliseconds)
+                                                                                          .clamp(0.0, 1.0),
+                                                                                  onChanged: _seekVoice,
+                                                                                ),
+                                                                              ),
                                                                             ),
-                                                                          ),
-                                                                        ),
-                                                                      ],
+                                                                            Row(
+                                                                              mainAxisSize: MainAxisSize.min,
+                                                                              children: [
+                                                                                Text(
+                                                                                  _formatAudioDuration(ticker.position.inSeconds),
+                                                                                  style: TextStyle(
+                                                                                    color: isMine ? Colors.white70 : colors.textMuted,
+                                                                                    fontSize: 10,
+                                                                                    fontWeight: FontWeight.w600,
+                                                                                  ),
+                                                                                ),
+                                                                                const SizedBox(width: 6),
+                                                                                TextButton(
+                                                                                  onPressed: _cycleVoiceSpeed,
+                                                                                  style: TextButton.styleFrom(
+                                                                                    minimumSize: const Size(0, 20),
+                                                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                                                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                                  ),
+                                                                                  child: Text(
+                                                                                    '${ticker.playbackSpeed.toStringAsFixed(ticker.playbackSpeed == ticker.playbackSpeed.roundToDouble() ? 0 : 2)}x',
+                                                                                    style: TextStyle(
+                                                                                      color: isMine ? Colors.white : colors.brand,
+                                                                                      fontSize: 10,
+                                                                                      fontWeight: FontWeight.w800,
+                                                                                    ),
+                                                                                  ),
+                                                                                ),
+                                                                              ],
+                                                                            ),
+                                                                          ],
+                                                                        );
+                                                                      },
                                                                     ),
-                                                                  ],
                                                                 ],
                                                               ),
                                                             ),
@@ -2309,7 +2327,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                         child: const Icon(Icons.keyboard_arrow_down_rounded),
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
             AnimatedSize(
@@ -2317,6 +2336,12 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
               curve: Curves.easeOutCubic,
               child: Column(
                 children: [
+                  if (_activeBubbleActionsMessage != null)
+                    _InlineBubbleActionsBar(
+                      hasText: _activeBubbleActionsHasText,
+                      isMine: _activeBubbleActionsIsMine,
+                      onActionTap: _handleInlineBubbleAction,
+                    ),
                   if (_replyingTo != null)
                     _ReplyPreview(
                       message: _replyingTo!,
@@ -2507,6 +2532,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                             AppSendActionButton(
                               onPressed: _sendMessage,
                               isBusy: _isSending,
+                              size: 40,
                             ),
                           ],
                         ),
@@ -2574,7 +2600,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                             'Voice notes expire after 30 days.',
                             style: TextStyle(
                               color: colors.textMuted,
-                              fontSize: 10,
+                              fontSize: 8,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -2668,6 +2694,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                               return AppSendActionButton(
                                 onPressed: _sendMessage,
                                 isBusy: _isSending,
+                                size: 40,
                               );
                             }
                             return GestureDetector(
@@ -2738,52 +2765,6 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                       ),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BubbleActionButton extends StatelessWidget {
-  const _BubbleActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -2999,7 +2980,10 @@ extension on _MessageThreadScreenState {
       merged[message.id] = message;
     }
     for (final message in incoming) {
-      merged[message.id] = message;
+      final previous = merged[message.id];
+      merged[message.id] = previous == null
+          ? message
+          : _mergeMessagePair(previous, message);
     }
     final incomingPersisted = incoming
         .where((message) => message.id > 0)
@@ -3030,9 +3014,71 @@ extension on _MessageThreadScreenState {
   List<ChatMessage> _dedupeById(List<ChatMessage> items) {
     final merged = <int, ChatMessage>{};
     for (final message in items) {
-      merged[message.id] = message;
+      final previous = merged[message.id];
+      merged[message.id] = previous == null
+          ? message
+          : _mergeMessagePair(previous, message);
     }
     return merged.values.toList(growable: false);
+  }
+
+  void _scheduleDraftPersist(String rawText) {
+    final nextDraft = rawText.trimRight();
+    if (nextDraft == _lastPersistedDraft) {
+      return;
+    }
+    _draftPersistDebounce?.cancel();
+    _draftPersistDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) {
+        return;
+      }
+      final latest = _controller.text.trimRight();
+      if (latest == _lastPersistedDraft) {
+        return;
+      }
+      _lastPersistedDraft = latest;
+      unawaited(_persistDraft(latest));
+    });
+  }
+
+  ChatMessage _mergeMessagePair(ChatMessage base, ChatMessage incoming) {
+    final resolvedReplyId = incoming.replyId != 0 ? incoming.replyId : base.replyId;
+    final resolvedReplyTo = incoming.replyTo ?? base.replyTo;
+    final resolvedSender = incoming.sender ?? base.sender;
+    final resolvedRecipient = incoming.recipient ?? base.recipient;
+    final resolvedLocalImageBytes =
+        incoming.localImageBytes ?? base.localImageBytes;
+
+    if (resolvedReplyId == incoming.replyId &&
+        identical(resolvedReplyTo, incoming.replyTo) &&
+        identical(resolvedSender, incoming.sender) &&
+        identical(resolvedRecipient, incoming.recipient) &&
+        identical(resolvedLocalImageBytes, incoming.localImageBytes)) {
+      return incoming;
+    }
+
+    return ChatMessage(
+      id: incoming.id,
+      conversationId: incoming.conversationId,
+      senderId: incoming.senderId,
+      recipientId: incoming.recipientId,
+      message: incoming.message,
+      photoUrl: incoming.photoUrl,
+      audioUrl: incoming.audioUrl,
+      isVoiceNote: incoming.isVoiceNote,
+      voiceNoteExpired: incoming.voiceNoteExpired,
+      audioDurationSeconds: incoming.audioDurationSeconds,
+      audioMimeType: incoming.audioMimeType,
+      audioSizeBytes: incoming.audioSizeBytes,
+      replyId: resolvedReplyId,
+      status: incoming.status,
+      createdAt: incoming.createdAt,
+      sender: resolvedSender,
+      recipient: resolvedRecipient,
+      replyTo: resolvedReplyTo,
+      reactions: incoming.reactions,
+      localImageBytes: resolvedLocalImageBytes,
+    );
   }
 
   bool _isSameLogicalMessage(ChatMessage pending, ChatMessage persisted) {
@@ -3205,6 +3251,158 @@ class _ReplyPreview extends StatelessWidget {
   }
 }
 
+class _InlineBubbleActionsBar extends StatelessWidget {
+  const _InlineBubbleActionsBar({
+    required this.hasText,
+    required this.isMine,
+    required this.onActionTap,
+  });
+
+  final bool hasText;
+  final bool isMine;
+  final Future<void> Function(String action) onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final actionItems = <({
+      IconData icon,
+      String label,
+      String action,
+      Color? color,
+    })>[
+      (
+        icon: Icons.reply_outlined,
+        label: 'Reply',
+        action: 'reply',
+        color: colors.brand,
+      ),
+      if (hasText)
+        (
+          icon: Icons.content_copy_rounded,
+          label: 'Copy',
+          action: 'copy',
+          color: null,
+        ),
+      if (isMine)
+        (
+          icon: Icons.edit_rounded,
+          label: 'Edit',
+          action: 'edit',
+          color: null,
+        ),
+      if (isMine)
+        (
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          action: 'delete',
+          color: colors.dangerText,
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted.withValues(alpha: 0.92),
+        border: Border(
+          top: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < ReactionConfig.chatQuick.length; i++) ...[
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: i == ReactionConfig.chatQuick.length - 1 ? 0 : 6,
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () => onActionTap('react:${ReactionConfig.chatQuick[i]}'),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Text(
+                          ReactionConfig.chatQuick[i],
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var i = 0; i < actionItems.length; i++) ...[
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: i == actionItems.length - 1 ? 0 : 6,
+                    ),
+                    child: InkWell(
+                      onTap: () => onActionTap(actionItems[i].action),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              actionItems[i].icon,
+                              size: 14,
+                              color: actionItems[i].color ?? colors.textSecondary,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                actionItems[i].label,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color:
+                                      actionItems[i].color ?? colors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatDateDivider extends StatelessWidget {
   const _ChatDateDivider({required this.label});
 
@@ -3345,6 +3543,30 @@ class _MessageDeliveryStatus extends StatelessWidget {
             child: Icon(Icons.done_rounded, size: 14, color: iconColor),
           ),
       ],
+    );
+  }
+}
+
+class _VoiceTickerState {
+  const _VoiceTickerState({
+    this.position = Duration.zero,
+    this.totalDuration = Duration.zero,
+    this.playbackSpeed = 1.0,
+  });
+
+  final Duration position;
+  final Duration totalDuration;
+  final double playbackSpeed;
+
+  _VoiceTickerState copyWith({
+    Duration? position,
+    Duration? totalDuration,
+    double? playbackSpeed,
+  }) {
+    return _VoiceTickerState(
+      position: position ?? this.position,
+      totalDuration: totalDuration ?? this.totalDuration,
+      playbackSpeed: playbackSpeed ?? this.playbackSpeed,
     );
   }
 }

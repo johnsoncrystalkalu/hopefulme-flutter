@@ -25,13 +25,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<LibraryItem> _featured = <LibraryItem>[];
   Timer? _searchDebounce;
   bool _isLoading = true;
+  bool _isSearching = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _page = 1;
   int _total = 0;
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  String _pendingSearchQuery = '';
   String? _error;
+  int _activeRequestId = 0;
 
   @override
   void initState() {
@@ -48,15 +51,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({bool preserveVisibleContent = false}) async {
+    final requestId = ++_activeRequestId;
     setState(() {
-      _isLoading = true;
       _error = null;
       _page = 1;
-      _total = 0;
       _hasMore = true;
-      _items.clear();
-      _featured = <LibraryItem>[];
+      if (preserveVisibleContent) {
+        _isSearching = true;
+      } else {
+        _isLoading = true;
+        _total = 0;
+        _items.clear();
+        _featured = <LibraryItem>[];
+      }
     });
 
     try {
@@ -65,11 +73,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
         category: _selectedCategory,
         search: _searchQuery,
       );
-      if (!mounted) {
+      if (!mounted || requestId != _activeRequestId) {
         return;
       }
       setState(() {
-        _items.addAll(page.items);
+        _page = 1;
+        _items
+          ..clear()
+          ..addAll(page.items);
         _featured = page.featured;
         _total = page.total;
         _hasMore = page.hasMore;
@@ -85,6 +96,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isSearching = false;
         });
       }
     }
@@ -148,24 +160,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() {
       _selectedCategory = category;
     });
-    _loadInitial();
+    _loadInitial(preserveVisibleContent: true);
   }
 
   void _onSearchChanged(String value) {
+    _pendingSearchQuery = value;
+  }
+
+  void _applySearch() {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      final rawQuery = value.trim();
-      final nextQuery = rawQuery.isEmpty || rawQuery.length >= 2
-          ? rawQuery
-          : '';
-      if (nextQuery == _searchQuery) {
-        return;
-      }
-      setState(() {
-        _searchQuery = nextQuery;
-      });
-      _loadInitial();
+    final rawQuery = _pendingSearchQuery.trim();
+    final nextQuery = rawQuery;
+    if (nextQuery == _searchQuery) {
+      return;
+    }
+    setState(() {
+      _searchQuery = nextQuery;
     });
+    _loadInitial(preserveVisibleContent: true);
   }
 
   @override
@@ -224,10 +236,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   TextField(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
+                    onSubmitted: (_) => _applySearch(),
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
                       hintText: 'Search books by title or author',
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: _applySearch,
+                        tooltip: 'Search',
+                      ),
+                      suffixIcon: _isSearching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
                       filled: true,
                       fillColor: colors.surface,
                       contentPadding: const EdgeInsets.symmetric(
