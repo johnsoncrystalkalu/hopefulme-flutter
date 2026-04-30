@@ -133,6 +133,7 @@ class ProfileSummary {
     required this.role2,
     required this.rank,
     required this.location,
+    required this.countryFlagEmoji,
     required this.city,
     required this.state,
     required this.birthday,
@@ -171,6 +172,7 @@ class ProfileSummary {
   final String role2;
   final String rank;
   final String location;
+  final String countryFlagEmoji;
   final String city;
   final String state;
   final String birthday;
@@ -270,6 +272,7 @@ class ProfileSummary {
       role2: json['role2']?.toString() ?? '',
       rank: json['rank']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
+      countryFlagEmoji: json['country_flag_emoji']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
       birthday: json['bdae']?.toString() ?? '',

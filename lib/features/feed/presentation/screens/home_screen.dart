@@ -20,6 +20,7 @@ import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -932,6 +933,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openQuotePreview(QuoteCard quote) async {
+    if (quote.photoUrl.trim().isNotEmpty) {
+      await FullscreenNetworkImageScreen.show(
+        context,
+        imageUrl: quote.photoUrl,
+        primaryActionLabel: 'View Post',
+        onPrimaryAction: () => _openPostById(quote.id),
+      );
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => _QuoteFullscreenViewer(
@@ -1750,6 +1761,9 @@ class _HomeTopBar extends StatelessWidget {
                 if (value == 'profile') {
                   await onProfileTap();
                 }
+                if (value == 'menu') {
+                  onMenuTap?.call();
+                }
                 if (value == 'theme') {
                   await themeController.cycleThemeMode();
                 }
@@ -1765,6 +1779,11 @@ class _HomeTopBar extends StatelessWidget {
                   value: 'profile',
                   child: Text('View Profile'),
                 ),
+                if (onMenuTap != null)
+                  const PopupMenuItem(
+                    value: 'menu',
+                    child: Text('View Menu'),
+                  ),
                 PopupMenuItem(
                   value: 'theme',
                   child: Text(
@@ -3754,28 +3773,6 @@ class _QuoteFullscreenViewer extends StatelessWidget {
                   backgroundColor: Colors.black.withValues(alpha: 0.35),
                 ),
                 icon: const Icon(Icons.close_rounded, color: Colors.white),
-              ),
-            ),
-            Positioned(
-              left: 18,
-              right: 18,
-              bottom: 30,
-              child: Text(
-                quote.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                  shadows: [
-                    Shadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.55),
-                      blurRadius: 10,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],

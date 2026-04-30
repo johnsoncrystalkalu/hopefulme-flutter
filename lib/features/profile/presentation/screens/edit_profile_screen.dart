@@ -167,11 +167,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       if (_selectedCountry.isNotEmpty &&
           !_countryOptions.contains(_selectedCountry)) {
-        _selectedCountry = '';
+        _countryOptions = <String>[_selectedCountry, ..._countryOptions];
       }
 
       if (_selectedState.isNotEmpty) {
         _stateOptions = <String>[_selectedState];
+      }
+
+      final initialCountry = _selectedCountry;
+      final shouldAutoLoadStates = initialCountry.trim().isNotEmpty;
+      if (shouldAutoLoadStates) {
+        // Auto-load states so the dropdown is ready without requiring a tap.
+        _loadingStates = true;
       }
     } catch (error) {
       _error = error;
@@ -181,6 +188,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isLoading = false;
         });
       }
+    }
+
+    if (mounted && _selectedCountry.trim().isNotEmpty) {
+      await _loadStates(_selectedCountry, preserveSelection: true);
     }
   }
 
@@ -207,7 +218,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _hasLoadedStatesForSelectedCountry = true;
         if (_selectedState.isNotEmpty &&
             !_stateOptions.contains(_selectedState)) {
-          _selectedState = '';
+          if (preserveSelection) {
+            _stateOptions = <String>[_selectedState, ..._stateOptions];
+          } else {
+            _selectedState = '';
+          }
         }
       });
     } catch (error) {
@@ -532,7 +547,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                               _LabeledField(
                                 label:
-                                    'Secondary Role (Your work, career, dream, or aspiration)',
+                                    'Secondary Role (Career, Passion, or Aspiration)',
                                 child: TextFormField(
                                   controller: _secondaryRoleController,
                                   textCapitalization:
@@ -541,42 +556,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     hintText:
                                         'Enter role that reflects your career',
                                   ),
-                                ),
-                              ),
-                               _LabeledField(
-                                label: 'Invited By (username)',
-                                hint: _canEditReferrer
-                                    ? 'Optional. Add only if someone invited you.'
-                                    : 'Inviter is already set and cannot be changed.',
-                                child: TextFormField(
-                                  controller: _referrerController,
-                                  enabled: _canEditReferrer,
-                                  textInputAction: TextInputAction.done,
-                                  decoration: const InputDecoration(
-                                    prefixText: '@',
-                                    hintText: 'inviter username',
-                                  ),
-                                  validator: (value) {
-                                    final cleaned = (value ?? '')
-                                        .trim()
-                                        .replaceFirst('@', '');
-                                    if (cleaned.isEmpty) {
-                                      return null;
-                                    }
-                                    if (!RegExp(
-                                      r'^[a-zA-Z0-9_-]+$',
-                                    ).hasMatch(cleaned)) {
-                                      return 'Use a valid username only.';
-                                    }
-                                    final ownUsername = _usernameController.text
-                                        .trim()
-                                        .replaceFirst('@', '')
-                                        .toLowerCase();
-                                    if (cleaned.toLowerCase() == ownUsername) {
-                                      return 'You cannot refer yourself.';
-                                    }
-                                    return null;
-                                  },
                                 ),
                               ),
                             ],
@@ -818,6 +797,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                               ),
                             ),
+                            if (!widget.showOnboardingIntro)
+                              _LabeledField(
+                                label: 'Invited By (username)',
+                                hint: _canEditReferrer
+                                    ? 'Optional. Add only if someone invited you.'
+                                    : 'Inviter is already set and cannot be changed.',
+                                child: TextFormField(
+                                  controller: _referrerController,
+                                  enabled: _canEditReferrer,
+                                  textInputAction: TextInputAction.done,
+                                  decoration: const InputDecoration(
+                                    prefixText: '@',
+                                    hintText: 'inviter username',
+                                  ),
+                                  validator: (value) {
+                                    final cleaned = (value ?? '')
+                                        .trim()
+                                        .replaceFirst('@', '');
+                                    if (cleaned.isEmpty) {
+                                      return null;
+                                    }
+                                    if (!RegExp(
+                                      r'^[a-zA-Z0-9_-]+$',
+                                    ).hasMatch(cleaned)) {
+                                      return 'Use a valid username only.';
+                                    }
+                                    final ownUsername = _usernameController.text
+                                        .trim()
+                                        .replaceFirst('@', '')
+                                        .toLowerCase();
+                                    if (cleaned.toLowerCase() == ownUsername) {
+                                      return 'You cannot refer yourself.';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
                           ],
                         ),
                       ),

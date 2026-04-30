@@ -730,6 +730,7 @@ ProfileDashboard _copyDashboardWithFollow({
       role2: source.profile.role2,
       rank: source.profile.rank,
       location: source.profile.location,
+      countryFlagEmoji: source.profile.countryFlagEmoji,
       city: source.profile.city,
       state: source.profile.state,
       birthday: source.profile.birthday,
@@ -2876,8 +2877,7 @@ class _OverviewLocationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final country = profile.location.trim();
-    final flagUrl = _countryFlagUrl(country);
+    final countryFlagEmoji = profile.countryFlagEmoji.trim();
     final cityState = profile.cityStateLabel;
 
     return Padding(
@@ -2909,41 +2909,16 @@ class _OverviewLocationRow extends StatelessWidget {
               ),
             ),
           ),
-          if (flagUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.network(
-                flagUrl,
-                width: 34,
-                height: 24,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.flag_outlined,
-                  size: 18,
-                  color: context.appColors.icon,
-                ),
-              ),
+          if (countryFlagEmoji.isNotEmpty)
+            Text(
+              countryFlagEmoji,
+              style: const TextStyle(fontSize: 22, height: 1),
             )
           else
             Icon(Icons.flag_outlined, size: 18, color: context.appColors.icon),
         ],
       ),
     );
-  }
-
-  String _countryFlagUrl(String country) {
-    if (country.isEmpty) {
-      return '';
-    }
-
-    final baseUri = Uri.tryParse(AppConfig.fromEnvironment().webBaseUrl);
-    if (baseUri == null) {
-      return '';
-    }
-
-    return baseUri
-        .resolve('/img/flags/${Uri.encodeComponent(country.toLowerCase())}.png')
-        .toString();
   }
 }
 
