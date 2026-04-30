@@ -3866,19 +3866,10 @@ class _BirthdayCelebrationCard extends StatelessWidget {
                             color: Theme.of(context).cardColor,
                             shape: BoxShape.circle,
                           ),
-                          child: CircleAvatar(
+                          child: _Avatar(
+                            imageUrl: user.photoUrl,
+                            label: user.displayName,
                             radius: 28,
-                            backgroundImage: user.photoUrl.isNotEmpty
-                                ? NetworkImage(
-                                    ImageUrlResolver.avatar(
-                                      user.photoUrl,
-                                      size: 80,
-                                    ),
-                                  )
-                                : null,
-                            child: user.photoUrl.isEmpty
-                                ? const Icon(Icons.person)
-                                : null,
                           ),
                         ),
                       ),
@@ -4010,19 +4001,11 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             color: colors.surfaceMuted,
                           ),
                           child: ClipOval(
-                            child: AppNetworkImage(
-                              imageUrl: previewUsers[index].photoUrl.isNotEmpty
-                                  ? ImageUrlResolver.avatar(
-                                      previewUsers[index].photoUrl,
-                                      size: 60,
-                                    )
-                                  : '',
-                              width: 44,
-                              height: 44,
+                            child: _Avatar(
+                              imageUrl: previewUsers[index].photoUrl,
+                              label: previewUsers[index].displayName,
+                              radius: 22,
                               backgroundColor: colors.surfaceMuted,
-                              placeholderLabel: previewUsers[index].displayName,
-                              placeholderIcon: Icons.person,
-                              showShimmer: false,
                             ),
                           ),
                         ),

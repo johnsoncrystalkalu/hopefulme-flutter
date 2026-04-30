@@ -39,6 +39,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   final List<ConversationListItem> _items = <ConversationListItem>[];
   final List<ConversationListItem> _activeSourceItems =
       <ConversationListItem>[];
+  List<ConversationListItem> _activeTodayItems = <ConversationListItem>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -93,17 +94,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
         _page = page.currentPage;
         _hasMore = page.hasMore;
         _unreadTotal = page.unreadTotal;
+        _recomputeActiveTodayItems();
+        _isLoading = false;
       });
     } catch (error) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _error = error;
+        _isLoading = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -128,15 +129,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
         _page = page.currentPage;
         _hasMore = page.hasMore;
         _unreadTotal = page.unreadTotal;
+        _recomputeActiveTodayItems();
+        _isLoadingMore = false;
       });
     } catch (_) {
       // Ignore transient pagination failures; users can keep scrolling/retrying.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
+      if (!mounted) {
+        return;
       }
+      setState(() {
+        _isLoadingMore = false;
+      });
     }
   }
 
@@ -162,7 +165,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
       ),
     );
-    if ((changed ?? false) || item.unreadCount > 0) {
+    if (changed ?? false) {
       await _loadInitial();
     }
   }
@@ -184,14 +187,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
       ),
     );
-  }
-
-  DateTime? _parseTimestamp(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    return DateTime.tryParse(trimmed)?.toLocal();
   }
 
   bool _wasSeenToday(ConversationListItem item) {
@@ -241,10 +236,42 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return users;
   }
 
+  void _recomputeActiveTodayItems() {
+    _activeTodayItems = _buildActiveTodayItems();
+  }
+
+  int get _listItemCount => _items.length + (_activeTodayItems.isNotEmpty ? 1 : 0) + (_isLoadingMore ? 1 : 0);
+
+  Widget _buildListItem(BuildContext context, int index) {
+    if (_activeTodayItems.isNotEmpty && index == 0) {
+      return _ActiveTodaySection(
+        items: _activeTodayItems,
+        onOpenConversation: _openConversation,
+      );
+    }
+
+    final headerOffset = _activeTodayItems.isNotEmpty ? 1 : 0;
+    final conversationIndex = index - headerOffset;
+    if (conversationIndex < _items.length) {
+      final item = _items[conversationIndex];
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: _ConversationTile(
+          item: item,
+          onTap: () => _openConversation(item),
+        ),
+      );
+    }
+
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final activeTodayItems = _buildActiveTodayItems();
     final unreadTotal = _unreadTotal;
 
     return Scaffold(
@@ -292,103 +319,107 @@ class _MessagesScreenState extends State<MessagesScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,
-              child: ListView(
+              child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                children: [
-                  if (activeTodayItems.isNotEmpty) ...[
-                    Text(
-                      'Active Today',
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 90,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: activeTodayItems.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 14),
-                        itemBuilder: (context, index) {
-                          final item = activeTodayItems[index];
-                          return GestureDetector(
-                            onTap: () => _openConversation(item),
-                            child: SizedBox(
-                              width: 64,
-                              child: Column(
-                                children: [
-                                  Stack(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 26,
-                                        backgroundImage:
-                                            item.otherUser.photoUrl.isNotEmpty
-                                            ? NetworkImage(
-                                                ImageUrlResolver.avatar(
-                                                  item.otherUser.photoUrl,
-                                                  size: 80,
-                                                ),
-                                              )
-                                            : null,
-                                        child: item.otherUser.photoUrl.isEmpty
-                                            ? const HeroIcon(HeroIcons.user)
-                                            : null,
-                                      ),
-                                      if (item.otherUser.isOnline)
-                                        const Positioned(
-                                          right: 0,
-                                          bottom: 0,
-                                          child: CircleAvatar(
-                                            radius: 6,
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  VerifiedNameText(
-                                    name: item.otherUser.displayName,
-                                    verified: item.otherUser.isVerified,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: colors.textSecondary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-                  ..._items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _ConversationTile(
-                        item: item,
-                        onTap: () => _openConversation(item),
-                      ),
-                    ),
-                  ),
-                  if (_isLoadingMore)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                ],
+                itemCount: _listItemCount,
+                itemBuilder: _buildListItem,
               ),
             ),
+    );
+  }
+}
+
+class _ActiveTodaySection extends StatelessWidget {
+  const _ActiveTodaySection({
+    required this.items,
+    required this.onOpenConversation,
+  });
+
+  final List<ConversationListItem> items;
+  final ValueChanged<ConversationListItem> onOpenConversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Active Today',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return GestureDetector(
+                  onTap: () => onOpenConversation(item),
+                  child: SizedBox(
+                    width: 64,
+                    child: Column(
+                      children: [
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 26,
+                              backgroundImage: item.otherUser.photoUrl.isNotEmpty
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        item.otherUser.photoUrl,
+                                        size: 80,
+                                      ),
+                                    )
+                                  : null,
+                              child: item.otherUser.photoUrl.isEmpty
+                                  ? const HeroIcon(HeroIcons.user)
+                                  : null,
+                            ),
+                            if (item.otherUser.isOnline)
+                              const Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: CircleAvatar(
+                                  radius: 6,
+                                  backgroundColor: Colors.green,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        VerifiedNameText(
+                          name: item.otherUser.displayName,
+                          verified: item.otherUser.isVerified,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -427,23 +458,19 @@ class _ConversationTile extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  InkWell(
-                    onTap: onTap,
-                    borderRadius: BorderRadius.circular(999),
-                    child: CircleAvatar(
-                      radius: 27,
-                      backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                          ? NetworkImage(
-                              ImageUrlResolver.avatar(
-                                item.otherUser.photoUrl,
-                                size: 80,
-                              ),
-                            )
-                          : null,
-                      child: item.otherUser.photoUrl.isEmpty
-                          ? const HeroIcon(HeroIcons.user)
-                          : null,
-                    ),
+                  CircleAvatar(
+                    radius: 27,
+                    backgroundImage: item.otherUser.photoUrl.isNotEmpty
+                        ? NetworkImage(
+                            ImageUrlResolver.avatar(
+                              item.otherUser.photoUrl,
+                              size: 80,
+                            ),
+                          )
+                        : null,
+                    child: item.otherUser.photoUrl.isEmpty
+                        ? const HeroIcon(HeroIcons.user)
+                        : null,
                   ),
                   if (item.otherUser.isOnline)
                     const Positioned(
@@ -464,20 +491,16 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: InkWell(
-                            onTap: onTap,
-                            borderRadius: BorderRadius.circular(8),
-                            child: VerifiedNameText(
-                              name: item.otherUser.displayName,
-                              verified: item.otherUser.isVerified,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 14,
-                                fontWeight: item.unreadCount > 0
-                                    ? FontWeight.w800
-                                    : FontWeight.w700,
-                              ),
+                          child: VerifiedNameText(
+                            name: item.otherUser.displayName,
+                            verified: item.otherUser.isVerified,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: item.unreadCount > 0
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
                             ),
                           ),
                         ),

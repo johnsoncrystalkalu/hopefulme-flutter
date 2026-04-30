@@ -746,7 +746,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _scrollToBottomAnimated();
         _primeRealtimeBurst();
         _scheduleNextPoll(immediate: true);
-        unawaited(_pollLatestMessages());
+      //  unawaited(_pollLatestMessages()); jck check
       } catch (error) {
         if (!mounted) return;
         setState(() {
@@ -3088,16 +3088,37 @@ extension on _MessageThreadScreenState {
 
     final pendingText = pending.message.trim();
     final persistedText = persisted.message.trim();
-    final sameText = pendingText == persistedText;
-    final sameSender = pending.senderId == persisted.senderId;
-    final sameRecipient = pending.recipientId == persisted.recipientId;
-    final sameReplyTarget = pending.replyId == persisted.replyId;
     final pendingHasPhoto =
         (pending.localImageBytes != null) || pending.photoUrl.trim().isNotEmpty;
     final persistedHasPhoto = persisted.photoUrl.trim().isNotEmpty;
-    final samePhotoShape = pendingHasPhoto == persistedHasPhoto;
-    final pendingHasAudio = pending.audioSizeBytes > 0 || pending.audioUrl.trim().isNotEmpty;
+    final pendingHasAudio =
+        pending.audioSizeBytes > 0 || pending.audioUrl.trim().isNotEmpty;
     final persistedHasAudio = persisted.audioUrl.trim().isNotEmpty;
+
+    final pendingIsVoicePlaceholder =
+        pendingHasAudio &&
+        (pendingText.isEmpty ||
+            pendingText.toLowerCase() == 'sent a voice note');
+    final persistedIsVoicePlaceholder =
+        persistedHasAudio &&
+        (persistedText.isEmpty ||
+            persistedText.toLowerCase() == 'sent a voice note');
+    final pendingIsMediaPlaceholder =
+        pendingHasPhoto && pendingText.isEmpty;
+    final persistedIsMediaPlaceholder =
+        persistedHasPhoto && persistedText.isEmpty;
+
+    final shouldRelaxTextMatch =
+        (pendingIsVoicePlaceholder && persistedIsVoicePlaceholder) ||
+        (pendingIsMediaPlaceholder && persistedIsMediaPlaceholder);
+    final sameText = shouldRelaxTextMatch || pendingText == persistedText;
+    final sameSender = pending.senderId == persisted.senderId;
+    final sameConversation =
+        pending.conversationId > 0 &&
+        pending.conversationId == persisted.conversationId;
+    final sameRecipient = pending.recipientId == persisted.recipientId;
+    final sameReplyTarget = pending.replyId == persisted.replyId;
+    final samePhotoShape = pendingHasPhoto == persistedHasPhoto;
     final sameAudioShape = pendingHasAudio == persistedHasAudio;
 
     final pendingTime = DateTime.tryParse(pending.createdAt);
@@ -3109,7 +3130,7 @@ extension on _MessageThreadScreenState {
 
     return sameText &&
         sameSender &&
-        sameRecipient &&
+        (sameConversation || sameRecipient) &&
         sameReplyTarget &&
         samePhotoShape &&
         sameAudioShape &&
