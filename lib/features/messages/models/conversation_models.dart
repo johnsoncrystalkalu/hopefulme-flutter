@@ -71,7 +71,9 @@ class ConversationUser {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
       lastSeen: json['last_seen']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
       isVerified: parseBool(json['verified']),

@@ -361,7 +361,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                           subtitle:
                               'Shown on your profile, feed, comments, and chats.',
                           preview: _MediaPreview.avatar(
-                            imageUrl: profile?.photoUrl ?? '',
+                            imageUrl: profile?.mainPhotoUrl ?? '',
                             bytes: _pendingPhotoBytes,
                             fallbackLabel:
                                 profile?.displayName ?? 'HopefulMe User',
@@ -386,7 +386,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                           subtitle: 'Used at the top of your profile page (optional).',
                           preview: _MediaPreview.cover(
                             imageUrl: profile?.coverUrl ?? '',
-                            fallbackImageUrl: profile?.photoUrl ?? '',
+                            fallbackImageUrl: profile?.mainPhotoUrl ?? '',
                             bytes: _pendingCoverBytes,
                           ),
                           primaryLabel: _isUploadingCover

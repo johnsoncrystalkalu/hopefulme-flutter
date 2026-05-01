@@ -46,7 +46,9 @@ class User {
       gender: json['gender']?.toString() ?? '',
       rank: json['rank']?.toString() ?? '',
       role1: json['role1']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
       theme: json['theme']?.toString() ?? '',
       isVerified: parseBool(json['verified']),
       isAdmin:

@@ -43,7 +43,12 @@ class AppNotification {
       contentId: parseInt(data['content_id']),
       inspirationId: parseInt(data['inspiration_id']),
       icon: data['icon']?.toString() ?? _defaultIcon(data['type']?.toString()),
-      avatarUrl: ImageUrlResolver.resolve(data['avatar']?.toString() ?? ''),
+      avatarUrl: ImageUrlResolver.resolve(
+        data['avatar_thumb']?.toString() ??
+            data['photo_thumb_url']?.toString() ??
+            data['avatar']?.toString() ??
+            '',
+      ),
       isRead: json['read_at'] != null,
       createdAt: json['created_at']?.toString() ?? '',
     );

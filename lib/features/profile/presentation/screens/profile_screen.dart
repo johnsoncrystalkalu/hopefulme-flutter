@@ -740,6 +740,7 @@ ProfileDashboard _copyDashboardWithFollow({
       device: source.profile.device,
       verified: source.profile.verified,
       photoUrl: source.profile.photoUrl,
+      mainPhotoUrl: source.profile.mainPhotoUrl,
       coverUrl: source.profile.coverUrl,
       followersCount: followersCount,
       followingCount: source.profile.followingCount,
@@ -805,7 +806,7 @@ class _ProfileHero extends StatelessWidget {
     final colors = context.appColors;
     final imageUrl = profile.coverUrl.isNotEmpty
         ? profile.coverUrl
-        : profile.photoUrl;
+        : profile.mainPhotoUrl;
 
     return SizedBox(
       height: 260,
@@ -1154,7 +1155,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                     : CrossAxisAlignment.start,
                 children: [
                   _LargeAvatar(
-                    imageUrl: profile.photoUrl,
+                    imageUrl: profile.mainPhotoUrl,
                     label: profile.displayName,
                     isEditable: isCurrentUser,
                     onEditMedia: isCurrentUser ? onEditMedia : null,
@@ -2247,7 +2248,7 @@ class _ProfileRail extends StatelessWidget {
           child: Column(
             children: [
               _LargeAvatar(
-                imageUrl: profile.photoUrl,
+                imageUrl: profile.mainPhotoUrl,
                 label: profile.displayName,
                 size: 64,
                 borderRadius: 18,

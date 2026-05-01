@@ -320,7 +320,7 @@ class _MeetMainColumn extends StatelessWidget {
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: width >= 760 ? 3 : 2,
-            childAspectRatio: 0.78,
+            childAspectRatio: 0.66,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
           ),
@@ -377,6 +377,9 @@ class _FriendOfDayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final friendImageUrl = user.mainPhotoUrl.isNotEmpty
+        ? user.mainPhotoUrl
+        : user.photoUrl;
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
@@ -495,20 +498,17 @@ class _FriendOfDayCard extends StatelessWidget {
                                     offset: const Offset(0, 8),
                                   ),
                                 ],
-                                image: user.photoUrl.isNotEmpty
+                                image: friendImageUrl.isNotEmpty
                                     ? DecorationImage(
                                         image: NetworkImage(
-                                          ImageUrlResolver.thumbnail(
-                                            user.photoUrl,
-                                            size: 300,
-                                          ),
+                                          friendImageUrl,
                                         ),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
                                 color: colors.avatarPlaceholder,
                               ),
-                              child: user.photoUrl.isEmpty
+                              child: friendImageUrl.isEmpty
                                   ? Icon(
                                       Icons.person,
                                       size: 44,
@@ -617,15 +617,18 @@ class _FriendSuggestionCard extends StatelessWidget {
   final VoidCallback onProfileTap;
   final VoidCallback onHelloTap;
 
-  @override
+@override
 Widget build(BuildContext context) {
   final colors = context.appColors;
+  final suggestionImageUrl = user.mainPhotoUrl.isNotEmpty
+      ? user.mainPhotoUrl
+      : user.photoUrl;
 
   return InkWell(
     onTap: onProfileTap,
     borderRadius: BorderRadius.circular(30),
     child: Container(
-      padding: const EdgeInsets.all(16), // ↓ reduced from 18
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(30),
@@ -637,25 +640,23 @@ Widget build(BuildContext context) {
           Stack(
             children: [
               Container(
-                width: 78, // ↓ slightly smaller
-                height: 78,
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: colors.surface, width: 3),
-                  image: user.photoUrl.isNotEmpty
+                  image: suggestionImageUrl.isNotEmpty
                       ? DecorationImage(
-                          image: NetworkImage(
-                            ImageUrlResolver.avatar(user.photoUrl, size: 120),
-                          ),
+                          image: NetworkImage(suggestionImageUrl),
                           fit: BoxFit.cover,
                         )
                       : null,
                   color: colors.avatarPlaceholder,
                 ),
-                child: user.photoUrl.isEmpty
+                child: suggestionImageUrl.isEmpty
                     ? Icon(
                         Icons.person,
-                        size: 32,
+                        size: 44,
                         color: colors.accentSoftText,
                       )
                     : null,
@@ -769,7 +770,7 @@ class _OnlinePanel extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const Spacer(),
+          const SizedBox(height: 10),
                 // Text(
                 //   'See All',
                 //   style: TextStyle(

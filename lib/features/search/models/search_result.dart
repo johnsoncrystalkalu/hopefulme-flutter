@@ -87,7 +87,9 @@ class SearchUser {
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
       isOnline: parseBool(json['is_online']),
       lastSeen: json['last_seen']?.toString() ?? '',
       isVerified: parseBool(json['verified']),

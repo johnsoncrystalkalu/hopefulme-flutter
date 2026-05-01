@@ -112,7 +112,9 @@ class ProfileConnectionUser {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
       lastSeen: json['last_seen']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
       isVerified: parseBool(json['verified']),
@@ -143,6 +145,7 @@ class ProfileSummary {
     required this.device,
     required this.verified,
     required this.photoUrl,
+    this.mainPhotoUrl = '',
     required this.coverUrl,
     required this.followersCount,
     required this.followingCount,
@@ -182,6 +185,7 @@ class ProfileSummary {
   final String device;
   final String verified;
   final String photoUrl;
+  final String mainPhotoUrl;
   final String coverUrl;
   final int followersCount;
   final int followingCount;
@@ -281,7 +285,10 @@ class ProfileSummary {
       theme: json['theme']?.toString() ?? '',
       device: json['device']?.toString() ?? '',
       verified: json['verified']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
+      mainPhotoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       coverUrl: ImageUrlResolver.resolve(json['cover_url']?.toString() ?? ''),
       followersCount: parseInt(json['followers_count']),
       followingCount: parseInt(json['following_count']),
@@ -367,7 +374,9 @@ class ProfileMutualFollower {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
       isVerified: parseBool(json['verified']),
     );
   }

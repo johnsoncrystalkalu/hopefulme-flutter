@@ -291,6 +291,7 @@ class FeedUser {
     required this.username,
     required this.fullname,
     required this.photoUrl,
+    this.mainPhotoUrl = '',
     required this.verified,
     required this.isOnline,
     required this.lastSeen,
@@ -306,6 +307,7 @@ class FeedUser {
   final String username;
   final String fullname;
   final String photoUrl;
+  final String mainPhotoUrl;
   final String verified;
   final bool isOnline;
   final String lastSeen;
@@ -338,7 +340,10 @@ class FeedUser {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? '',
+      ),
+      mainPhotoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       verified: json['verified']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
       lastSeen: json['last_seen']?.toString() ?? '',
