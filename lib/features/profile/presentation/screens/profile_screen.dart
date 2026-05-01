@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
@@ -14,6 +15,7 @@ import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/inspire_composer_screen.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_articles_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_connections_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_photos_screen.dart';
@@ -21,8 +23,10 @@ import 'package:hopefulme_flutter/features/profile/presentation/screens/profile_
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
 import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_templates_screen.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
@@ -241,11 +245,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _copyProfileUrl(String username) async {
-    await Clipboard.setData(
-      ClipboardData(text: 'https://ahopefulme.com/$username'),
-    );
-    if (mounted) AppToast.success(context, 'Profile link copied!');
+  Future<void> _shareProfile(String username) async {
+    final url = 'https://ahopefulme.com/$username';
+    try {
+      await Share.share(url, subject: 'HopefulMe Profile');
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (mounted) {
+        AppToast.info(context, 'Profile link copied to clipboard');
+      }
+    }
   }
 
   Future<void> _openFlyerTemplates() async {
@@ -265,6 +274,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openAccountSettings() async {
+    final username = widget.currentUser?.username.trim() ?? '';
+    if (username.isEmpty) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AccountSettingsScreen(
+          username: username,
+          repository: widget.profileRepository,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSettingsAndPrivacy() async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+    final username = authController.currentUser?.username.trim() ?? '';
+    if (username.isEmpty) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+
+    final themeController = ThemeController();
+    await themeController.restore();
+    if (!mounted) {
+      themeController.dispose();
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SettingsScreen(
+          username: username,
+          isVerified: authController.currentUser?.isVerified ?? false,
+          currentUser: authController.currentUser,
+          authRepository: authController.authRepository,
+          profileRepository: widget.profileRepository,
+          themeController: themeController,
+          onLogout: () async {
+            await authController.logout();
+            return true;
+          },
+          onCheckForUpdates: () async {
+            if (!mounted) return;
+            AppToast.info(context, 'Update check is available from Home.');
+          },
+        ),
+      ),
+    );
+    themeController.dispose();
   }
 
   Future<void> _loginAsUser(ProfileSummary profile) async {
@@ -550,7 +616,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              _ProfileHero(profile: dashboard.profile),
+              _ProfileHero(
+                profile: dashboard.profile,
+                onOpenSettingsAndPrivacy: _openSettingsAndPrivacy,
+                onOpenAccountSettings: _openAccountSettings,
+                onCopyProfileUrl: () => _shareProfile(dashboard.profile.username),
+              ),
               Transform.translate(
                 offset: const Offset(0, -56),
                 child: Padding(
@@ -579,7 +650,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onPosts: _openUpdatesFeed,
                         mutualFollowers: dashboard.mutualFollowers,
                         onCopyProfileUrl: (username) =>
-                            _copyProfileUrl(username),
+                            _shareProfile(username),
                         onReportUser: (username) => _reportUser(username),
                         menuKey: _avatarMenuKey,
                       ),
@@ -797,9 +868,17 @@ Future<void> _openAdminEditUser(BuildContext context, String username) {
 enum _ProfileTab { timeline, about, photos, articles }
 
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.profile});
+  const _ProfileHero({
+    required this.profile,
+    required this.onOpenSettingsAndPrivacy,
+    required this.onOpenAccountSettings,
+    required this.onCopyProfileUrl,
+  });
 
   final ProfileSummary profile;
+  final Future<void> Function() onOpenSettingsAndPrivacy;
+  final Future<void> Function() onOpenAccountSettings;
+  final Future<void> Function() onCopyProfileUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -847,6 +926,74 @@ class _ProfileHero extends StatelessWidget {
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.arrow_back),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: PopupMenuButton<String>(
+                  tooltip: 'Profile options',
+                  onSelected: (value) {
+                    if (value == 'settings_privacy') {
+                      onOpenSettingsAndPrivacy();
+                      return;
+                    }
+                    if (value == 'account_settings') {
+                      onOpenAccountSettings();
+                      return;
+                    }
+                    if (value == 'share_profile') {
+                      onCopyProfileUrl();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem<String>(
+                      value: 'settings_privacy',
+                      child: Row(
+                        children: [
+                          Icon(Icons.settings_outlined, size: 18),
+                          SizedBox(width: 10),
+                          Text('Settings & Privacy'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'account_settings',
+                      child: Row(
+                        children: [
+                          Icon(Icons.manage_accounts_outlined, size: 18),
+                          SizedBox(width: 10),
+                          Text('Account Settings'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'share_profile',
+                      child: Row(
+                        children: [
+                          Icon(Icons.share_outlined, size: 18),
+                          SizedBox(width: 10),
+                          Text('Share Profile'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color.fromRGBO(255, 255, 255, 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1008,12 +1155,12 @@ class _ProfileHeaderCard extends StatelessWidget {
       ),
       items: [
         const PopupMenuItem(
-          value: 'copy_url',
+          value: 'share_profile',
           child: Row(
             children: [
-              Icon(Icons.link, size: 20),
+              Icon(Icons.share_outlined, size: 20),
               SizedBox(width: 12),
-              Text('Copy Profile URL'),
+              Text('Share Profile'),
             ],
           ),
         ),
@@ -1029,7 +1176,7 @@ class _ProfileHeaderCard extends StatelessWidget {
         ),
       ],
     );
-    if (value == 'copy_url') {
+    if (value == 'share_profile') {
       onCopyProfileUrl?.call(username);
     } else if (value == 'report') {
       onReportUser?.call(username);

@@ -929,11 +929,27 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
               appBar: AppBar(
                 backgroundColor: context.appColors.surface,
                 surfaceTintColor: context.appColors.surface,
+                centerTitle: true,
                 leading: IconButton(
                   onPressed: _close,
                   icon: const Icon(Icons.arrow_back),
                 ),
-                // title: const Text('Update'),
+                title: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'HopefulMe',
+                        style: TextStyle(
+                          color: context.appColors.icon,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                     
+                    ],
+                  ),
+                ),
                 actions: [
                   if (detail != null)
                     PopupMenuButton<String>(

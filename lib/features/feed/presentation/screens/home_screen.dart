@@ -133,13 +133,11 @@ class _HomeScreenState extends State<HomeScreen>
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
-  List<FeedEntry> _homeUpdates = const <FeedEntry>[];
+  List<FeedEntry> _homeUpdates = <FeedEntry>[];
   bool _isLoadingMoreHomeUpdates = false;
   bool _hasLoadMoreHomeUpdatesError = false;
   bool _hasMoreHomeUpdates = true;
   int _homeUpdatesPage = 1;
-  bool _homePaginationInFlight = false;
-  double _lastHomePaginationTriggerPixels = -1;
   bool _isTopbarRefreshInFlight = false;
   int? _highlightedUpdateId;
   Timer? _highlightedUpdateTimer;
@@ -212,7 +210,11 @@ class _HomeScreenState extends State<HomeScreen>
   void didPopNext() {
     _isHomeRouteVisible = true;
     _syncTopbarPolling();
-    unawaited(_refreshTopbarData(silent: true));
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        unawaited(_refreshTopbarData(silent: true));
+      }
+    });
   }
 
   @override
@@ -290,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen>
     final updates = dashboard.feed
         .where((entry) => entry.type == 'update' || entry.type == 'advert')
         .take(_maxHomeUpdatesRetained)
-        .toList(growable: false);
+        .toList(growable: true);
     if (!mounted) {
       _homeUpdates = updates;
       _homeUpdatesPage = 1;
@@ -309,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _handleHomeScroll() {
     if (!_homeScrollController.hasClients ||
-        _homePaginationInFlight ||
         _hasLoadMoreHomeUpdatesError ||
         _isLoadingMoreHomeUpdates ||
         !_hasMoreHomeUpdates) {
@@ -317,17 +318,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     final position = _homeScrollController.position;
     if (position.extentAfter <= 320) {
-      final delta = (position.pixels - _lastHomePaginationTriggerPixels).abs();
-      if (delta < 80) {
-        return;
-      }
-      _lastHomePaginationTriggerPixels = position.pixels;
-      _homePaginationInFlight = true;
-      unawaited(
-        _loadMoreHomeUpdates().whenComplete(() {
-          _homePaginationInFlight = false;
-        }),
-      );
+      unawaited(_loadMoreHomeUpdates());
     }
   }
 
@@ -373,6 +364,15 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _retryLoadMoreHomeUpdates() => _loadMoreHomeUpdates();
 
+  void _resetBottomNavToHome() {
+    if (!mounted || _selectedBottomNav == 0) {
+      return;
+    }
+    setState(() {
+      _selectedBottomNav = 0;
+    });
+  }
+
   void _highlightPostedUpdate(int updateId) {
     _highlightedUpdateTimer?.cancel();
     setState(() {
@@ -404,16 +404,29 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-    if (result?.shouldRefresh == true) {
-      await _refreshDashboard();
+    _handleDetailReturn(result, updateId: updateId);
+  }
+
+  void _handleDetailReturn(UpdateDetailResult? result, {required int updateId}) {
+    if (result == null || !mounted) {
+      return;
     }
+    if (result.deleted) {
+      setState(() {
+        _homeUpdates = _homeUpdates
+            .where((entry) => !(entry.type == 'update' && entry.id == updateId))
+            .toList(growable: true);
+      });
+      return;
+    }
+    // Keep scroll stable on return; refresh can happen via pull-to-refresh.
   }
 
   List<FeedEntry> _mergeFeedEntries(
     List<FeedEntry> existing,
     List<FeedEntry> next,
   ) {
-    final merged = <FeedEntry>[...existing];
+    final merged = List<FeedEntry>.of(existing, growable: true);
     final seenIds = merged
         .map((entry) => '${entry.type}:${entry.id}')
         .toSet();
@@ -422,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen>
         merged.add(entry);
       }
     }
-    return List<FeedEntry>.unmodifiable(merged);
+    return merged;
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
@@ -566,12 +579,7 @@ class _HomeScreenState extends State<HomeScreen>
       currentUser: widget.authController.currentUser,
       username: widget.authController.currentUser?.username ?? '',
     );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _selectedBottomNav = 0;
-    });
+    _resetBottomNavToHome();
   }
 
   Future<void> _goHome() async {
@@ -581,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _activeSidebarItemLabel = 'Home';
       _selectedBottomNav = 0;
-      _homeUpdates = const <FeedEntry>[];
+      _homeUpdates = <FeedEntry>[];
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
       _hasLoadMoreHomeUpdatesError = false;
@@ -645,7 +653,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
     setState(() {
       _activeSidebarItemLabel = 'Home';
-      _selectedBottomNav = 0;
+      if (_selectedBottomNav != 0) {
+        _selectedBottomNav = 0;
+      }
     });
   }
 
@@ -767,12 +777,7 @@ class _HomeScreenState extends State<HomeScreen>
       currentUser: widget.authController.currentUser,
       username: username,
     );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _selectedBottomNav = 0;
-    });
+    _resetBottomNavToHome();
   }
 
   Future<void> _openUpdateDetail(
@@ -810,9 +815,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-    if (result?.shouldRefresh == true) {
-      await _refreshDashboard();
-    }
+    _handleDetailReturn(result, updateId: entry.id);
   }
 
   Future<void> _openPostDetail(FeedEntry entry) async {
@@ -854,12 +857,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _selectedBottomNav = 0;
-    });
+    _resetBottomNavToHome();
   }
 
   Future<void> _openSearchQuery(String query) async {
@@ -876,12 +874,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _selectedBottomNav = 0;
-    });
+    _resetBottomNavToHome();
   }
 
   Future<void> _openActivities() async {
@@ -1285,18 +1278,24 @@ class _HomeScreenState extends State<HomeScreen>
                     valueListenable: _topBarSnapshot,
                     builder: (context, topBar, _) => _HomeTopBar(
                       user: user,
-                      themeController: widget.themeController,
                       unreadNotifications: topBar.unreadNotifications,
                       unreadMessages: topBar.unreadMessages,
                       onMessageCenterTap: _openMessages,
                       onNotificationCenterTap: _openNotifications,
-                      onHomeTap: _goHome,
                       onProfileTap: _openProfile,
                       onSettingsTap: _openSettings,
                       onMenuTap: isDesktop
                           ? null
                           : () {
-                              _scaffoldKey.currentState?.openDrawer();
+                              final state = _scaffoldKey.currentState;
+                              if (state == null) {
+                                return;
+                              }
+                              if (state.isDrawerOpen) {
+                                Navigator.of(context).pop();
+                              } else {
+                                state.openDrawer();
+                              }
                             },
                     ),
                   ),
@@ -1313,14 +1312,14 @@ class _HomeScreenState extends State<HomeScreen>
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          cacheExtent: 420,
+                          cacheExtent: 700,
                           slivers: [
                             SliverPadding(
                               padding: EdgeInsets.fromLTRB(
                                 16,
                                 8,
                                 16,
-                                showBottomNav ? 28 : 24,
+                                4,
                               ),
                               sliver: SliverToBoxAdapter(
                                 child: LayoutBuilder(
@@ -1328,78 +1327,53 @@ class _HomeScreenState extends State<HomeScreen>
                                     final fitsRail =
                                         constraints.maxWidth >= 1380;
                                     if (fitsRail) {
-                                      return Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: ConstrainedBox(
-                                              constraints: const BoxConstraints(
-                                                maxWidth: 900,
-                                              ),
-                                              child: _HomeContent(
-                                                user: user,
-                                                dashboard: dashboard,
-                                                homeUpdates: _homeUpdates,
-                                                isLoadingMoreUpdates:
-                                                    _isLoadingMoreHomeUpdates,
-                                                hasLoadMoreUpdatesError:
-                                                    _hasLoadMoreHomeUpdatesError,
-                                                feedRepository:
-                                                    widget.feedRepository,
-                                                homeGroupsPreviewFuture:
-                                                    _homeGroupsPreviewFuture,
-                                                highlightedUpdateId:
-                                                    _highlightedUpdateId,
-                                                onRetryLoadMore:
-                                                    _retryLoadMoreHomeUpdates,
-                                                onOpenEditMedia: _openEditMedia,
-                                                onCreateUpdate:
-                                                    _openCreateUpdate,
-                                                onMeetNewFriendsTap:
-                                                    _openMeetNewFriends,
-                                                onOpenProfile: _openUserProfile,
-                                                onOpenUpdate: _openUpdateDetail,
-                                                onOpenUpdateComment: (entry) =>
-                                                    _openUpdateDetail(
-                                                      entry,
-                                                      autofocusComment: true,
-                                                    ),
-                                                onOpenPost: _openPostDetail,
-                                                onOpenPostById: _openQuotePreview,
-                                                onOpenBlog: _openBlogDetail,
-                                                onOpenPostsFeed: _openPostsFeed,
-                                                onOpenHashtag: _openSearchQuery,
-                                                onOpenLink: _handleLinkTap,
-                                                onOpenTodayBirthdays:
-                                                    _openTodayBirthdays,
-                                                onOpenGroups: _openGroups,
-                                                onOpenGroupPreview:
-                                                    _openGroupPreview,
-                                                updateRepository:
-                                                    widget.updateRepository,
-                                                isLoading:
-                                                    snapshot.connectionState ==
-                                                        ConnectionState
-                                                            .waiting &&
-                                                    dashboard == null,
-                                                error: snapshot.error
-                                                    ?.toString(),
-                                              ),
-                                            ),
+                                      return Align(
+                                        alignment: Alignment.topCenter,
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 900,
                                           ),
-                                          const SizedBox(width: 24),
-                                          SizedBox(
-                                            width: 360,
-                                            child: RepaintBoundary(
-                                              child: _RightRail(
-                                                user: user,
-                                                dashboard: dashboard,
-                                                onOpenProfile: _openUserProfile,
-                                              ),
-                                            ),
+                                          child: _HomeContent(
+                                            user: user,
+                                            dashboard: dashboard,
+                                            feedRepository:
+                                                widget.feedRepository,
+                                            homeGroupsPreviewFuture:
+                                                _homeGroupsPreviewFuture,
+                                            highlightedUpdateId:
+                                                _highlightedUpdateId,
+                                            onOpenEditMedia: _openEditMedia,
+                                            onCreateUpdate:
+                                                _openCreateUpdate,
+                                            onMeetNewFriendsTap:
+                                                _openMeetNewFriends,
+                                            onOpenProfile: _openUserProfile,
+                                            onOpenUpdate: _openUpdateDetail,
+                                            onOpenUpdateComment: (entry) =>
+                                                _openUpdateDetail(
+                                                  entry,
+                                                  autofocusComment: true,
+                                                ),
+                                            onOpenPost: _openPostDetail,
+                                            onOpenPostById: _openQuotePreview,
+                                            onOpenBlog: _openBlogDetail,
+                                            onOpenPostsFeed: _openPostsFeed,
+                                            onOpenHashtag: _openSearchQuery,
+                                            onOpenLink: _handleLinkTap,
+                                            onOpenTodayBirthdays:
+                                                _openTodayBirthdays,
+                                            onOpenGroups: _openGroups,
+                                            onOpenGroupPreview:
+                                                _openGroupPreview,
+                                            updateRepository:
+                                                widget.updateRepository,
+                                            isLoading:
+                                                snapshot.connectionState ==
+                                                    ConnectionState.waiting &&
+                                                dashboard == null,
+                                            error: snapshot.error?.toString(),
                                           ),
-                                        ],
+                                        ),
                                       );
                                     }
                                     return Column(
@@ -1409,18 +1383,11 @@ class _HomeScreenState extends State<HomeScreen>
                                         _HomeContent(
                                           user: user,
                                           dashboard: dashboard,
-                                          homeUpdates: _homeUpdates,
-                                          isLoadingMoreUpdates:
-                                              _isLoadingMoreHomeUpdates,
-                                          hasLoadMoreUpdatesError:
-                                              _hasLoadMoreHomeUpdatesError,
                                           feedRepository: widget.feedRepository,
                                           homeGroupsPreviewFuture:
                                               _homeGroupsPreviewFuture,
                                           highlightedUpdateId:
                                               _highlightedUpdateId,
-                                          onRetryLoadMore:
-                                              _retryLoadMoreHomeUpdates,
                                           onOpenEditMedia: _openEditMedia,
                                           onCreateUpdate: _openCreateUpdate,
                                           onMeetNewFriendsTap:
@@ -1464,6 +1431,98 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                               ),
                             ),
+                            if (_homeUpdates.isNotEmpty)
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  0,
+                                ),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final entry = _homeUpdates[index];
+                                    final isHighlighted =
+                                        entry.type == 'update' &&
+                                        entry.id == _highlightedUpdateId;
+                                    return Padding(
+                                      key: ValueKey(
+                                        'home-update-${entry.type}-${entry.id}',
+                                      ),
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
+                                      child: RepaintBoundary(
+                                        child: _HighlightFrame(
+                                          isHighlighted: isHighlighted,
+                                          child: _FeedEntryCard(
+                                            entry: entry,
+                                            currentUser: user,
+                                            onOpenProfile: _openUserProfile,
+                                            onOpenUpdate: _openUpdateDetail,
+                                            onOpenComment: (entry) =>
+                                                _openUpdateDetail(
+                                                  entry,
+                                                  autofocusComment: true,
+                                                ),
+                                            onOpenPost: _openPostDetail,
+                                            onOpenBlog: _openBlogDetail,
+                                            onOpenHashtag: _openSearchQuery,
+                                            onOpenLink: _handleLinkTap,
+                                            updateRepository:
+                                                widget.updateRepository,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }, childCount: _homeUpdates.length),
+                                ),
+                              ),
+                            if (_isLoadingMoreHomeUpdates ||
+                                _hasLoadMoreHomeUpdatesError)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    24,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.topCenter,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 900,
+                                      ),
+                                      child: _isLoadingMoreHomeUpdates
+                                          ? const Padding(
+                                              padding: EdgeInsets.only(
+                                                bottom: 28,
+                                              ),
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
+                                            )
+                                          : Center(
+                                              child: TextButton.icon(
+                                                onPressed:
+                                                    _retryLoadMoreHomeUpdates,
+                                                icon: const Icon(
+                                                  Icons.refresh_rounded,
+                                                ),
+                                                label: const Text(
+                                                  'Tap to retry loading more',
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       );
@@ -1484,12 +1543,17 @@ class _HomeScreenState extends State<HomeScreen>
     final navIconSize = isCompactBottomNav ? 22.0 : 24.0;
     final createButtonSize = isCompactBottomNav ? 48.0 : 52.0;
     final createIconSize = isCompactBottomNav ? 26.0 : 28.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedNavColor = colors.brand;
+    final unselectedNavColor = isDark
+        ? colors.textPrimary.withValues(alpha: 0.82)
+        : colors.textPrimary.withValues(alpha: 0.86);
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(0, 0, 0, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.surface.withValues(alpha: 0.97),
           border: Border(
             top: BorderSide(color: colors.border.withValues(alpha: 0.95)),
           ),
@@ -1506,42 +1570,73 @@ class _HomeScreenState extends State<HomeScreen>
           backgroundColor: Colors.transparent,
           indicatorColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
+          labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>((states) {
+            final selected = states.contains(MaterialState.selected);
+            return TextStyle(
+              color: selected ? selectedNavColor : unselectedNavColor,
+              fontSize: isCompactBottomNav ? 11.0 : 11.5,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+            );
+          }),
           selectedIndex: _selectedBottomNav,
           onDestinationSelected: (index) {
-            setState(() {
-              _selectedBottomNav = index;
-            });
-            if (index == 0) {
-              _goHome();
-            }
-            if (index == 1) {
-              _openSearch();
-            }
-            if (index == 2) {
-              _openCreateUpdate();
-            }
-            if (index == 3) {
-              _openGroups();
-            }
-            if (index == 4) {
-              _openProfile();
+            switch (index) {
+              case 2:
+                _openCreateUpdate();
+                return;
+              case 0:
+                setState(() {
+                  _selectedBottomNav = 0;
+                });
+                _goHome();
+                return;
+              case 1:
+                setState(() {
+                  _selectedBottomNav = 1;
+                });
+                _openSearch();
+                return;
+              case 3:
+                setState(() {
+                  _selectedBottomNav = 3;
+                });
+                _openGroups();
+                return;
+              case 4:
+                setState(() {
+                  _selectedBottomNav = 4;
+                });
+                _openMeetNewFriends();
+                return;
+              default:
+                return;
             }
           },
           destinations: [
             NavigationDestination(
-              icon: HeroIcon(HeroIcons.home, size: navIconSize),
+              icon: HeroIcon(
+                HeroIcons.home,
+                size: navIconSize,
+                color: unselectedNavColor,
+              ),
               selectedIcon: HeroIcon(
                 HeroIcons.home,
                 size: navIconSize,
+                color: selectedNavColor,
                 style: HeroIconStyle.solid,
               ),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: HeroIcon(HeroIcons.magnifyingGlass, size: navIconSize),
+              icon: HeroIcon(
+                HeroIcons.magnifyingGlass,
+                size: navIconSize,
+                color: unselectedNavColor,
+              ),
               selectedIcon: HeroIcon(
                 HeroIcons.magnifyingGlass,
                 size: navIconSize,
+                color: selectedNavColor,
                 style: HeroIconStyle.solid,
               ),
               label: 'Search',
@@ -1569,6 +1664,7 @@ class _HomeScreenState extends State<HomeScreen>
                 dotOnly: true,
                 iconSize: navIconSize,
                 boxSize: isCompactBottomNav ? 28 : 30,
+                iconColor: unselectedNavColor,
               ),
               selectedIcon: _BadgeTopBarIcon(
                 icon: HeroIcons.users,
@@ -1577,17 +1673,23 @@ class _HomeScreenState extends State<HomeScreen>
                 solid: true,
                 iconSize: navIconSize,
                 boxSize: isCompactBottomNav ? 28 : 30,
+                iconColor: selectedNavColor,
               ),
               label: 'Groups',
             ),
             NavigationDestination(
-              icon: HeroIcon(HeroIcons.user, size: navIconSize),
-              selectedIcon: HeroIcon(
-                HeroIcons.user,
+              icon: HeroIcon(
+                HeroIcons.userPlus,
                 size: navIconSize,
+                color: unselectedNavColor,
+              ),
+              selectedIcon: HeroIcon(
+                HeroIcons.userPlus,
+                size: navIconSize,
+                color: selectedNavColor,
                 style: HeroIconStyle.solid,
               ),
-              label: 'Profile',
+              label: 'Connect',
             ),
           ],
         ),
@@ -1659,24 +1761,20 @@ class _TopBarSnapshot {
 class _HomeTopBar extends StatelessWidget {
   const _HomeTopBar({
     required this.user,
-    required this.themeController,
     required this.unreadNotifications,
     required this.unreadMessages,
     required this.onMessageCenterTap,
     required this.onNotificationCenterTap,
-    required this.onHomeTap,
     required this.onProfileTap,
     required this.onSettingsTap,
     required this.onMenuTap,
   });
 
   final User? user;
-  final ThemeController themeController;
   final int unreadNotifications;
   final int unreadMessages;
   final Future<void> Function() onMessageCenterTap;
   final Future<void> Function() onNotificationCenterTap;
-  final Future<void> Function() onHomeTap;
   final Future<void> Function() onProfileTap;
   final Future<void> Function() onSettingsTap;
   final VoidCallback? onMenuTap;
@@ -1684,9 +1782,11 @@ class _HomeTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final iconColor = Theme.of(context).brightness == Brightness.dark
-        ? colors.textSecondary
-        : colors.icon;
+        ? colors.textPrimary
+        : colors.textPrimary.withValues(alpha: 0.9);
     final isCompactTopBar = MediaQuery.sizeOf(context).width < 360;
+    final actionBoxSize = isCompactTopBar ? 30.0 : 32.0;
+    final actionIconSize = isCompactTopBar ? 23.0 : 24.0;
     return SafeArea(
       bottom: false,
       child: Container(
@@ -1695,7 +1795,7 @@ class _HomeTopBar extends StatelessWidget {
           vertical: isCompactTopBar ? 10 : 12,
         ),
         decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.96),
+          color: colors.surface.withValues(alpha: 0.94),
           border: Border(bottom: BorderSide(color: colors.borderStrong)),
         ),
         child: Row(
@@ -1714,7 +1814,7 @@ class _HomeTopBar extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              SizedBox(width: isCompactTopBar ? 8 : 12),
+              SizedBox(width: isCompactTopBar ? 4 : 8),
             ],
             RichText(
               text: TextSpan(
@@ -1731,9 +1831,9 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                      color: Color(0xFFe08016),
+                      color: Color(0xFFF59E0B),
                       fontSize: isCompactTopBar ? 23 : 26,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: -1.1,
                     ),
                   ),
@@ -1746,61 +1846,33 @@ class _HomeTopBar extends StatelessWidget {
               // icon: HeroIcons.chatBubbleLeftEllipsis,
               unreadCount: unreadMessages,
               onTap: onMessageCenterTap,
-              iconSize: isCompactTopBar ? 22 : 24,
-              boxSize: isCompactTopBar ? 28 : 30,
+              iconSize: actionIconSize,
+              boxSize: actionBoxSize,
             ),
-            SizedBox(width: isCompactTopBar ? 10 : 16),
+            SizedBox(width: isCompactTopBar ? 4 : 8),
             _TopBarIconButton(
               icon: HeroIcons.bell,
               unreadCount: unreadNotifications,
               onTap: onNotificationCenterTap,
-              iconSize: isCompactTopBar ? 22 : 24,
-              boxSize: isCompactTopBar ? 28 : 30,
+              iconSize: actionIconSize,
+              boxSize: actionBoxSize,
             ),
-            SizedBox(width: isCompactTopBar ? 10 : 16),
-            PopupMenuButton<String>(
-              onSelected: (value) async {
-                if (value == 'profile') {
-                  await onProfileTap();
-                }
-                if (value == 'menu') {
-                  onMenuTap?.call();
-                }
-                if (value == 'theme') {
-                  await themeController.cycleThemeMode();
-                }
-                if (value == 'settings') {
-                  await onSettingsTap();
-                }
-                if (value == 'home') {
-                  await onHomeTap();
-                }
+            SizedBox(width: isCompactTopBar ? 4 : 8),
+            InkWell(
+              onTap: () async {
+                HapticFeedback.lightImpact();
+                await onProfileTap();
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'profile',
-                  child: Text('View Profile'),
-                ),
-                if (onMenuTap != null)
-                  const PopupMenuItem(
-                    value: 'menu',
-                    child: Text('View Menu'),
+              borderRadius: BorderRadius.circular(999),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  AppAvatar(
+                    imageUrl: user?.photoUrl ?? '',
+                    label: user?.displayName ?? 'User',
+                    radius: (actionBoxSize / 2) - 2,
                   ),
-                PopupMenuItem(
-                  value: 'theme',
-                  child: Text(
-                    themeController.effectiveIsDark(Theme.of(context).brightness)
-                        ? 'Switch to Light Mode'
-                        : 'Switch to Dark Mode',
-                  ),
-                ),
-                const PopupMenuItem(value: 'settings', child: Text('Settings')),
-                // const PopupMenuItem(value: 'home', child: Text('Go Home')),
-              ],
-              child: AppAvatar(
-                imageUrl: user?.photoUrl ?? '',
-                label: user?.displayName ?? 'User',
-                radius: isCompactTopBar ? 15 : 16,
+                ],
               ),
             ),
           ],
@@ -1817,6 +1889,7 @@ class _TopBarIconButton extends StatelessWidget {
     required this.onTap,
     this.iconSize = 24,
     this.boxSize = 30,
+    this.solid = false,
   });
 
   final HeroIcons icon;
@@ -1824,6 +1897,7 @@ class _TopBarIconButton extends StatelessWidget {
   final Future<void> Function() onTap;
   final double iconSize;
   final double boxSize;
+  final bool solid;
 
   @override
   Widget build(BuildContext context) {
@@ -1833,14 +1907,12 @@ class _TopBarIconButton extends StatelessWidget {
         onTap();
       },
       borderRadius: BorderRadius.circular(999),
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: _BadgeTopBarIcon(
-          icon: icon,
-          count: unreadCount,
-          iconSize: iconSize,
-          boxSize: boxSize,
-        ),
+      child: _BadgeTopBarIcon(
+        icon: icon,
+        count: unreadCount,
+        iconSize: iconSize,
+        boxSize: boxSize,
+        solid: solid,
       ),
     );
   }
@@ -1854,6 +1926,7 @@ class _BadgeTopBarIcon extends StatelessWidget {
     this.solid = false,
     this.iconSize = 24,
     this.boxSize = 30,
+    this.iconColor,
   });
 
   final HeroIcons icon;
@@ -1862,13 +1935,15 @@ class _BadgeTopBarIcon extends StatelessWidget {
   final bool solid;
   final double iconSize;
   final double boxSize;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final iconColor = Theme.of(context).brightness == Brightness.dark
-        ? colors.textSecondary
-        : colors.icon;
+    final resolvedIconColor = iconColor ??
+        (Theme.of(context).brightness == Brightness.dark
+        ? colors.textPrimary
+        : colors.textPrimary.withValues(alpha: 0.9));
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1878,7 +1953,7 @@ class _BadgeTopBarIcon extends StatelessWidget {
           child: HeroIcon(
             icon,
             size: iconSize,
-            color: iconColor,
+            color: resolvedIconColor,
             style: solid ? HeroIconStyle.solid : HeroIconStyle.outline,
           ),
         ),
@@ -2333,47 +2408,6 @@ class _HomeSidebar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: InkWell(
-                      onTap: () => onSearchTap(),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 13),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.045),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.06),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            HeroIcon(
-                              HeroIcons.magnifyingGlass,
-                              size: 16,
-                              color: colors.sidebarMuted,
-                            ),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                'Search',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style: TextStyle(
-                                  color: colors.sidebarMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   _SidebarSection(
                     title: 'Community',
                     items: [
@@ -2430,7 +2464,7 @@ class _HomeSidebar extends StatelessWidget {
                       _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
-                        activeItemLabel == 'Librarypubspec',
+                        activeItemLabel == 'Library',
                         onTap: onLibraryTap,
                       ),
                       _SidebarItemData(
@@ -2772,13 +2806,9 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.user,
     required this.dashboard,
-    required this.homeUpdates,
-    required this.isLoadingMoreUpdates,
-    required this.hasLoadMoreUpdatesError,
     required this.feedRepository,
     required this.homeGroupsPreviewFuture,
     required this.highlightedUpdateId,
-    required this.onRetryLoadMore,
     required this.onOpenEditMedia,
     required this.onCreateUpdate,
     required this.onMeetNewFriendsTap,
@@ -2801,13 +2831,9 @@ class _HomeContent extends StatelessWidget {
 
   final User? user;
   final FeedDashboard? dashboard;
-  final List<FeedEntry> homeUpdates;
-  final bool isLoadingMoreUpdates;
-  final bool hasLoadMoreUpdatesError;
   final FeedRepository feedRepository;
   final Future<List<AppGroup>> homeGroupsPreviewFuture;
   final int? highlightedUpdateId;
-  final Future<void> Function() onRetryLoadMore;
   final Future<void> Function() onOpenEditMedia;
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function() onMeetNewFriendsTap;
@@ -2916,62 +2942,7 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
       );
-      widgets.add(const SizedBox(height: 16));
-    }
-
-    if (homeUpdates.isNotEmpty) {
-      widgets.addAll(
-        homeUpdates.map((entry) {
-          final isHighlighted =
-              entry.type == 'update' && entry.id == highlightedUpdateId;
-          return Padding(
-            key: ValueKey('home-update-${entry.type}-${entry.id}'),
-            padding: const EdgeInsets.only(bottom: 16),
-            child: RepaintBoundary(
-              child: _HighlightFrame(
-                isHighlighted: isHighlighted,
-                child: _FeedEntryCard(
-                  entry: entry,
-                  currentUser: user,
-                  onOpenProfile: onOpenProfile,
-                  onOpenUpdate: onOpenUpdate,
-                  onOpenComment: onOpenUpdateComment,
-                  onOpenPost: onOpenPost,
-                  onOpenBlog: onOpenBlog,
-                  onOpenHashtag: onOpenHashtag,
-                  onOpenLink: onOpenLink,
-                  updateRepository: updateRepository,
-                ),
-              ),
-            ),
-          );
-        }),
-      );
-      widgets.add(const SizedBox(height: 28));
-    }
-
-    if (isLoadingMoreUpdates) {
-      widgets.add(
-        const Padding(
-          padding: EdgeInsets.only(bottom: 28),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    if (hasLoadMoreUpdatesError) {
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Center(
-            child: TextButton.icon(
-              onPressed: onRetryLoadMore,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tap to retry loading more'),
-            ),
-          ),
-        ),
-      );
+      widgets.add(const SizedBox(height: 8));
     }
 
     return widgets;
@@ -3013,7 +2984,11 @@ class _HomeContent extends StatelessWidget {
           FeedNoticeCard(notice: data.feedNotice!, onOpenLink: onOpenLink),
           const SizedBox(height: 14),
         ],
-        _ComposerCard(user: user, onCreateUpdate: onCreateUpdate),
+        _ComposerCard(
+          user: user,
+          onCreateUpdate: onCreateUpdate,
+          onOpenProfile: onOpenProfile,
+        ),
         const SizedBox(height: 14),
         if (data.todayBirthdays.isNotEmpty) ...[
           _BirthdayCelebrationStrip(
@@ -3467,10 +3442,15 @@ class _StoriesRow extends StatelessWidget {
 }
 
 class _ComposerCard extends StatelessWidget {
-  const _ComposerCard({required this.user, required this.onCreateUpdate});
+  const _ComposerCard({
+    required this.user,
+    required this.onCreateUpdate,
+    required this.onOpenProfile,
+  });
 
   final User? user;
   final Future<void> Function() onCreateUpdate;
+  final Future<void> Function(String username) onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -3484,10 +3464,19 @@ class _ComposerCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment
                   .center, // Centered for better vertical alignment
               children: [
-                _Avatar(
-                  imageUrl: user?.photoUrl ?? '',
-                  label: user?.displayName ?? 'U',
-                  backgroundColor: context.appColors.avatarPlaceholder,
+                InkWell(
+                  onTap: () {
+                    final username = user?.username.trim() ?? '';
+                    if (username.isNotEmpty) {
+                      onOpenProfile(username);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(999),
+                  child: _Avatar(
+                    imageUrl: user?.photoUrl ?? '',
+                    label: user?.displayName ?? 'U',
+                    backgroundColor: context.appColors.avatarPlaceholder,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

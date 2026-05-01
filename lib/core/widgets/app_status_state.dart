@@ -3,6 +3,8 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 
 class AppStatusState extends StatelessWidget {
+  static const String _offlineFlyerRoute = '/flyer-templates';
+
   const AppStatusState({
     required this.title,
     required this.message,
@@ -123,19 +125,12 @@ class AppStatusState extends StatelessWidget {
                   ),
                 ),
                 if (isOffline) ...[
-                 //const SizedBox(height: 16),
-                  // Container(
-                  //   width: double.infinity,
-                  //   padding: const EdgeInsets.all(14),
-                  //   decoration: BoxDecoration(
-                  //     color: accentSurface.withValues(alpha: 0.7),
-                  //     borderRadius: BorderRadius.circular(18),
-                  //     border: Border.all(
-                  //       color: accentColor.withValues(alpha: 0.14),
-                  //     ),
-                  //   ),
-                  //   child: const SizedBox.shrink(),
-                  // ),
+                  if (onAction == null || actionLabel == null) ...[
+                    const SizedBox(height: 14),
+                    _OfflineFlyerChip(
+                      accentColor: accentColor,
+                    ),
+                  ],
                 ],
                 if (onAction != null && actionLabel != null) ...[
                   const SizedBox(height: 20),
@@ -147,11 +142,48 @@ class AppStatusState extends StatelessWidget {
                       label: Text(actionLabel!),
                     ),
                   ),
+                  if (isOffline) ...[
+                    const SizedBox(height: 10),
+                    _OfflineFlyerChip(
+                      accentColor: accentColor,
+                    ),
+                  ],
                 ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OfflineFlyerChip extends StatelessWidget {
+  const _OfflineFlyerChip({
+    required this.accentColor,
+  });
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          minimumSize: Size.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: accentColor.withValues(alpha: 0.8),
+          textStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        onPressed: () =>
+            Navigator.of(context).pushNamed(AppStatusState._offlineFlyerRoute),
+        child: const Text('Explore our offline flyer templates'),
       ),
     );
   }

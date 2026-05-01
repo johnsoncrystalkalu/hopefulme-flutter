@@ -8,6 +8,8 @@ import 'package:hopefulme_flutter/features/templates/models/flyer_template_model
 import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_template_editor_screen.dart';
 
 class FlyerTemplatesScreen extends StatefulWidget {
+  static const String routeName = '/flyer-templates';
+
   const FlyerTemplatesScreen({
     required this.repository,
     required this.webBaseUrl,

@@ -39,6 +39,7 @@ import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
+import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_templates_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_review/in_app_review.dart';
 import 'package:in_app_update/in_app_update.dart';
@@ -1301,6 +1302,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
               profileRepository: _profileRepository,
               messageRepository: _messageRepository,
               updateRepository: _updateRepository,
+            ),
+            FlyerTemplatesScreen.routeName: (context) => FlyerTemplatesScreen(
+              repository: _flyerTemplateRepository,
+              webBaseUrl: _config.webBaseUrl,
             ),
           },
           // FIX 3: Auth-state changes now only rebuild this lightweight
