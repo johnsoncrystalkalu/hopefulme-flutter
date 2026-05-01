@@ -1787,7 +1787,7 @@ class _HomeTopBar extends StatelessWidget {
                 PopupMenuItem(
                   value: 'theme',
                   child: Text(
-                    themeController.isDarkMode
+                    themeController.effectiveIsDark(Theme.of(context).brightness)
                         ? 'Switch to Light Mode'
                         : 'Switch to Dark Mode',
                   ),

@@ -191,7 +191,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Join conversations, share ideas, build community.',
+                          'Your people. Your convos. Your happy place',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 14,

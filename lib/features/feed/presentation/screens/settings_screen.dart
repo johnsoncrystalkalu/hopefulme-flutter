@@ -131,7 +131,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.person_outline_rounded,
                 title: 'Edit Profile',
-                subtitle: 'Update your name, bio, email and preferences.',
+                subtitle: 'Update your profile information.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => EditProfileScreen(
@@ -182,11 +182,9 @@ class SettingsScreen extends StatelessWidget {
               AnimatedBuilder(
                 animation: themeController,
                 builder: (context, _) {
-                  return _ThemeToggleTile(
-                    isDarkMode: themeController.isDarkMode,
-                    onChanged: (value) => themeController.setThemeMode(
-                      value ? ThemeMode.dark : ThemeMode.light,
-                    ),
+                  return _ThemeModeTile(
+                    mode: themeController.themeMode,
+                    onChanged: themeController.setThemeMode,
                   );
                 },
               ),
@@ -199,7 +197,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.ios_share_outlined,
                 title: 'Invite Friends',
-                subtitle: 'Share HopefulMe on WhatsApp, mail, and more.',
+                subtitle: 'Share HopefulMe with friends and loved ones.',
                 onTap: () => _shareInviteLink(context),
               ),
               _SettingsTile(
@@ -478,20 +476,31 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _ThemeToggleTile extends StatelessWidget {
-  const _ThemeToggleTile({required this.isDarkMode, required this.onChanged});
+class _ThemeModeTile extends StatelessWidget {
+  const _ThemeModeTile({
+    required this.mode,
+    required this.onChanged,
+  });
 
-  final bool isDarkMode;
-  final ValueChanged<bool> onChanged;
+  final ThemeMode mode;
+  final ValueChanged<ThemeMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final icon = switch (mode) {
+      ThemeMode.dark => Icons.dark_mode_outlined,
+      ThemeMode.light => Icons.light_mode_outlined,
+      ThemeMode.system => Icons.brightness_auto_outlined,
+    };
+    final subtitle = switch (mode) {
+      ThemeMode.dark => 'Dark mode',
+      ThemeMode.light => 'Light mode',
+      ThemeMode.system => 'System default',
+    };
 
-    return SwitchListTile(
-      value: isDarkMode,
-      onChanged: onChanged,
-      secondary: Container(
+    return ListTile(
+      leading: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
@@ -499,13 +508,13 @@ class _ThemeToggleTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Icon(
-          isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+          icon,
           color: colors.brand,
           size: 20,
         ),
       ),
       title: Text(
-        'Dark Theme',
+        'Theme',
         style: TextStyle(
           color: colors.textPrimary,
           fontSize: 14.2,
@@ -513,11 +522,26 @@ class _ThemeToggleTile extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        isDarkMode ? 'Dark mode is on.' : 'Light mode is on.',
+        subtitle,
         style: TextStyle(
           color: colors.textMuted,
           fontSize: 12.1,
           fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: DropdownButtonHideUnderline(
+        child: DropdownButton<ThemeMode>(
+          value: mode,
+          onChanged: (value) {
+            if (value != null) {
+              onChanged(value);
+            }
+          },
+          items: const [
+            DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
+            DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+            DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+          ],
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

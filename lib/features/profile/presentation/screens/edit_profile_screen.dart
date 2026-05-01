@@ -573,12 +573,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 18),
-                            _LabeledField(
-                              label: 'Hobbies & Interests',
-                              child: TextFormField(
-                                controller: _hobbyController,
-                              ),
-                            ),
                             if (widget.showOnboardingIntro)
                               _LabeledField(
                                 label:
@@ -620,6 +614,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           ),
                                         )
                                         .toList(),
+                                    validator: (value) {
+                                      if ((value ?? '').trim().isEmpty) {
+                                        return 'Country is required.';
+                                      }
+                                      return null;
+                                    },
                                     onChanged: (value) async {
                                       if (value == null) {
                                         return;
@@ -668,6 +668,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           ),
                                         )
                                         .toList(),
+                                    validator: (value) {
+                                      if ((value ?? '').trim().isEmpty) {
+                                        return 'State is required.';
+                                      }
+                                      return null;
+                                    },
                                     onChanged:
                                         _selectedCountry.isEmpty ||
                                             _loadingStates
@@ -785,6 +791,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       )
                                     : Column(children: [dayField, monthField]);
                               },
+                            ),
+                            _LabeledField(
+                              label: 'Hobbies & Interests',
+                              child: TextFormField(
+                                controller: _hobbyController,
+                              ),
                             ),
                             _LabeledField(
                               label: 'Favourite Quote',

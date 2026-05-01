@@ -3117,6 +3117,10 @@ extension on _MessageThreadScreenState {
         pending.conversationId > 0 &&
         pending.conversationId == persisted.conversationId;
     final sameRecipient = pending.recipientId == persisted.recipientId;
+    final pendingHasUnknownThreadIds =
+        pending.conversationId <= 0 || pending.recipientId <= 0;
+    final sameThread =
+        sameConversation || sameRecipient || pendingHasUnknownThreadIds;
     final sameReplyTarget = pending.replyId == persisted.replyId;
     final samePhotoShape = pendingHasPhoto == persistedHasPhoto;
     final sameAudioShape = pendingHasAudio == persistedHasAudio;
@@ -3130,7 +3134,7 @@ extension on _MessageThreadScreenState {
 
     return sameText &&
         sameSender &&
-        (sameConversation || sameRecipient) &&
+        sameThread &&
         sameReplyTarget &&
         samePhotoShape &&
         sameAudioShape &&
