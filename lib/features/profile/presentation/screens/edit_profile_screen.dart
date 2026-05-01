@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
@@ -314,6 +317,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+    final username = authController.currentUser?.username.trim() ?? '';
+    if (username.isEmpty) {
+      AppToast.error(context, 'Unable to open settings right now.');
+      return;
+    }
+
+    final themeController = ThemeController();
+    await themeController.restore();
+    if (!mounted) {
+      themeController.dispose();
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SettingsScreen(
+          username: username,
+          isVerified: authController.currentUser?.isVerified ?? false,
+          currentUser: authController.currentUser,
+          authRepository: authController.authRepository,
+          profileRepository: widget.repository,
+          themeController: themeController,
+          onLogout: () async {
+            await authController.logout();
+            return true;
+          },
+          onCheckForUpdates: () async {
+            if (!mounted) return;
+            AppToast.info(context, 'Update check is available from Home.');
+          },
+        ),
+      ),
+    );
+    themeController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -324,6 +369,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         title: Text(
           widget.showOnboardingIntro ? 'Complete Profile' : 'Edit Profile',
         ),
+        actions: [
+          TextButton(
+            onPressed: _openSettings,
+            child: const Text('Settings'),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

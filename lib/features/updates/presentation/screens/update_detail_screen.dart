@@ -1112,8 +1112,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                               : 13.75,
                                           height: 1.62,
                                           fontWeight: isGeneratedActivity
-                                              ? FontWeight.w500
-                                              : FontWeight.w500,
+                                              ? FontWeight.w400
+                                              : FontWeight.w400,
                                         ),
                                         onMentionTap: _openProfile,
                                         onHashtagTap: _openSearchQuery,

@@ -3367,6 +3367,8 @@ class _StoriesRow extends StatelessWidget {
       height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.only(left: 2, right: 18),
         itemCount: users.length + 1,
         separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
