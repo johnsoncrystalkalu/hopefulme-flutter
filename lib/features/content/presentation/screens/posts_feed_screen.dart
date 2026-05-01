@@ -310,7 +310,7 @@ class _PostsHeroHeader extends StatelessWidget {
     final colors = context.appColors;
     final isAll = categoryName.toLowerCase() == 'all';
     final kicker = isAll ? 'Official' : categoryName;
-    final title = isAll ? 'All Posts' : categoryName;
+    final subtitle = _subtitleForCategory(categoryName);
 
     return Container(
       width: double.infinity,
@@ -382,21 +382,11 @@ class _PostsHeroHeader extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        height: 0.95,
-                      ),
-                    ),
                     const SizedBox(height: 12),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: Text(
-                        'Stay up to date with the official posts from the community.',
+                        subtitle,
                         style: TextStyle(
                           color: colors.textMuted,
                           fontSize: 13.5,
@@ -433,7 +423,24 @@ class _PostsHeroHeader extends StatelessWidget {
       ),
     );
   }
+
+  String _subtitleForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'all':
+        return 'Latest updates from the community.';
+      case 'news':
+        return 'Official and community news updates.';
+      case 'quote':
+        return 'Inspiring quotes from HopefulMe.';
+      case 'event':
+        return 'Upcoming events and announcements.';
+      default:
+        return 'Explore posts in the $category category.';
+    }
+  }
 }
+
+
 
 class _PostCategoryStrip extends StatelessWidget {
   const _PostCategoryStrip({

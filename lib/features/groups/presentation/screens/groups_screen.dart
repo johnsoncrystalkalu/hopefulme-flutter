@@ -211,6 +211,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       height: 156,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(right: 2),
                         itemCount: myGroups.length,
                         separatorBuilder: (_, index) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
@@ -300,58 +301,67 @@ class _MyGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const borderRadius = BorderRadius.all(Radius.circular(20));
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
-      child: Ink(
-        width: 148,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          image: group.photoUrl.isNotEmpty
-              ? DecorationImage(
+      child: SizedBox(
+        width: 164,
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (group.photoUrl.isNotEmpty)
+                Image(
                   image: NetworkImage(
                     ImageUrlResolver.thumbnail(group.photoUrl, size: 300),
                   ),
                   fit: BoxFit.cover,
                 )
-              : null,
-          gradient: group.photoUrl.isEmpty
-              ? const LinearGradient(
-                  colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
-                )
-              : null,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color.fromRGBO(15, 23, 42, 0.12),
-                Color.fromRGBO(15, 23, 42, 0.82),
-              ],
-            ),
-          ),
-          padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(),
-                Text(
-                  group.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+              else
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
+                    ),
+                  ),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromRGBO(15, 23, 42, 0.12),
+                      Color.fromRGBO(15, 23, 42, 0.82),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                group.latestMessage?.time ?? '',
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Spacer(),
+                    Text(
+                      group.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      group.latestMessage?.time ?? '',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

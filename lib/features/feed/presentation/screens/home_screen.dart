@@ -2430,7 +2430,7 @@ class _HomeSidebar extends StatelessWidget {
                       _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
-                        activeItemLabel == 'Library',
+                        activeItemLabel == 'Librarypubspec',
                         onTap: onLibraryTap,
                       ),
                       _SidebarItemData(
