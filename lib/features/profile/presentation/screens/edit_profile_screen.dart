@@ -42,14 +42,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _referrerController = TextEditingController();
   final _quoteController = TextEditingController();
   final _secondaryRoleController = TextEditingController();
   final _hobbyController = TextEditingController();
   final _cityController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
   String _selectedBirthDay = '';
   String _selectedBirthMonth = '';
 
@@ -59,6 +57,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Object? _error;
   String _gender = 'male';
   String _theme = 'light';
+  String _accountEmail = '';
   String _selectedRole = '';
   String _selectedCountry = '';
   String _selectedState = '';
@@ -110,14 +109,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _fullnameController.dispose();
     _usernameController.dispose();
-    _emailController.dispose();
     _referrerController.dispose();
     _quoteController.dispose();
     _secondaryRoleController.dispose();
     _hobbyController.dispose();
     _cityController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -138,7 +135,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       _fullnameController.text = profile.fullname;
       _usernameController.text = profile.username;
-      _emailController.text = profile.email;
+      _accountEmail = profile.email;
       _referrerController.text = profile.referrerUsername;
       _quoteController.text = profile.quote;
       _secondaryRoleController.text = profile.role2;
@@ -263,7 +260,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final profile = await widget.repository.updateProfile(
         fullname: _fullnameController.text.trim(),
         username: _usernameController.text.trim().replaceFirst('@', ''),
-        email: _emailController.text.trim(),
+        email: _accountEmail.trim(),
         gender: _gender,
         quote: _quoteController.text.trim(),
         hobby: _hobbyController.text.trim(),
@@ -277,7 +274,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         phoneNumber: _phoneController.text.trim(),
         emailNotifications: _emailNotifications,
         theme: _theme,
-        password: _passwordController.text.trim(),
         referrer: _canEditReferrer ? _referrerController.text.trim() : null,
       );
       if (!mounted) {
@@ -501,24 +497,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ],
                                 ),
                               ),
-                              _LabeledField(
-                                label: 'Email',
-                                hint: 'Visible only to you.',
-                                child: TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Email is required.';
-                                    }
-                                    if (!value.contains('@')) {
-                                      return 'Enter a valid email.';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-
                               _LabeledField(
                                 label: 'Role',
                                 child: DropdownButtonFormField<String>(
@@ -849,83 +827,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ],
                         ),
                       ),
-                      if (!widget.showOnboardingIntro) ...[
-                        const SizedBox(height: 16),
-                        const _CardTitle(
-                          title: 'Security',
-                          subtitle:
-                              'Leave password blank if you are not changing it.',
-                        ),
-                        const SizedBox(height: 10),
-                        _EditCard(
-                          child: Column(
-                            children: [
-                              _LabeledField(
-                                label: 'New Password',
-                                child: TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: true,
-                                ),
-                              ),
-                              if (_error != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      _error!.toString(),
-                                      style: TextStyle(
-                                        color: colors.dangerText,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (!widget.showOnboardingIntro) ...[
-                        const SizedBox(height: 16),
-                        const _CardTitle(
-                          title: 'Preferences',
-                          subtitle:
-                              'Manage how you receive updates and notifications',
-                        ),
-                        const SizedBox(height: 10),
-                        _EditCard(
-                          child: SwitchListTile.adaptive(
-                            contentPadding: EdgeInsets.zero,
-                            value: _emailNotifications,
-                            activeThumbColor: colors.brand,
-                            activeTrackColor: colors.brand.withValues(
-                              alpha: 0.35,
-                            ),
-                            title: Text(
-                              'Email Notifications',
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            subtitle: Text(
-                              'Receive important emails like account updates and reminders.',
-                              style: TextStyle(
-                                color: colors.textMuted,
-                                fontSize: 12.5,
-                                height: 1.45,
-                              ),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _emailNotifications = value;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                      ],
+                      if (!widget.showOnboardingIntro) const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(

@@ -12,6 +12,7 @@ import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
+import 'package:hopefulme_flutter/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_media_screen.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -148,6 +149,19 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => EditProfileMediaScreen(
+                      username: username,
+                      repository: profileRepository,
+                    ),
+                  ),
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.lock_outline_rounded,
+                title: 'Account Settings',
+                subtitle: 'Change password and preferences.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => AccountSettingsScreen(
                       username: username,
                       repository: profileRepository,
                     ),

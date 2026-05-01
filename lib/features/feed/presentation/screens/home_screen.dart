@@ -685,6 +685,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openSettings() async {
+    _setActiveSidebarItem('Settings');
     final username = widget.authController.currentUser?.username ?? '';
     if (username.trim().isEmpty) {
       AppToast.error(context, 'Unable to open settings right now.');
@@ -1263,6 +1264,7 @@ class _HomeScreenState extends State<HomeScreen>
         onOutreachTap: _openOutreachPage,
         onAdminTap: _openAdminPage,
         onMeetNewFriendsTap: _openMeetNewFriends,
+        onSettingsTap: _openSettings,
         onLogoutTap: _handleLogout,
       ),
     );
@@ -2276,6 +2278,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onOutreachTap,
     required this.onAdminTap,
     required this.onMeetNewFriendsTap,
+    required this.onSettingsTap,
     required this.onLogoutTap,
   });
 
@@ -2300,6 +2303,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onOutreachTap;
   final Future<void> Function() onAdminTap;
   final Future<void> Function() onMeetNewFriendsTap;
+  final Future<void> Function() onSettingsTap;
   final Future<bool> Function() onLogoutTap;
 
   @override
@@ -2486,6 +2490,17 @@ class _HomeSidebar extends StatelessWidget {
                         'Volunteer & Support',
                         activeItemLabel == 'Volunteer & Support',
                         onTap: onVolunteerTap,
+                      ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Account',
+                    items: [
+                      _SidebarItemData(
+                        HeroIcons.cog6Tooth,
+                        'Settings',
+                        activeItemLabel == 'Settings',
+                        onTap: onSettingsTap,
                       ),
                     ],
                   ),

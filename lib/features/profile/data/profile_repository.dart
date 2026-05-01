@@ -314,6 +314,40 @@ class ProfileRepository {
     );
   }
 
+  Future<ProfileSummary> updateAccountSettings({
+    String? email,
+    bool? emailNotifications,
+    String? currentPassword,
+    String? newPassword,
+    String? newPasswordConfirmation,
+  }) async {
+    final body = <String, dynamic>{};
+    if (email != null) {
+      body['email'] = email;
+    }
+    if (emailNotifications != null) {
+      body['email_notifications'] = emailNotifications;
+    }
+    if (currentPassword != null && currentPassword.isNotEmpty) {
+      body['current_password'] = currentPassword;
+    }
+    if (newPassword != null && newPassword.isNotEmpty) {
+      body['new_password'] = newPassword;
+    }
+    if (newPasswordConfirmation != null && newPasswordConfirmation.isNotEmpty) {
+      body['new_password_confirmation'] = newPasswordConfirmation;
+    }
+
+    final response = await _authRepository.put(
+      'profile/account-settings',
+      body: body,
+    );
+
+    return ProfileSummary.fromJson(
+      response['user'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<ProfileEditOptions> fetchEditOptions() async {
     final response = await _authRepository.get('profile/edit/options');
     return ProfileEditOptions.fromJson(response);
