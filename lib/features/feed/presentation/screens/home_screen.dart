@@ -21,6 +21,7 @@ import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
+import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -94,6 +95,9 @@ class HomeScreen extends StatefulWidget {
     required this.libraryRepository,
     required this.flyerTemplateRepository,
     required this.onCheckForUpdates,
+    this.embedInMajorShell = false,
+    this.onMajorTabSelected,
+    this.pendingCreatedUpdateNotifier,
     super.key,
   });
 
@@ -112,6 +116,9 @@ class HomeScreen extends StatefulWidget {
   final LibraryRepository libraryRepository;
   final FlyerTemplateRepository flyerTemplateRepository;
   final Future<void> Function() onCheckForUpdates;
+  final bool embedInMajorShell;
+  final Future<void> Function(int index)? onMajorTabSelected;
+  final ValueNotifier<UpdateDetail?>? pendingCreatedUpdateNotifier;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -157,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen>
     _loadShellPreferences();
     _refreshTopbarData();
     _refreshUnreadGroups();
+    widget.pendingCreatedUpdateNotifier?.addListener(_handlePendingCreatedUpdate);
   }
 
   @override
@@ -179,6 +187,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    widget.pendingCreatedUpdateNotifier?.removeListener(
+      _handlePendingCreatedUpdate,
+    );
     WidgetsBinding.instance.removeObserver(this);
     if (_subscribedRoute is PageRoute<dynamic>) {
       appRouteObserver.unsubscribe(this);
@@ -189,6 +200,20 @@ class _HomeScreenState extends State<HomeScreen>
     _homeScrollController.dispose();
     _topBarSnapshot.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pendingCreatedUpdateNotifier !=
+        widget.pendingCreatedUpdateNotifier) {
+      oldWidget.pendingCreatedUpdateNotifier?.removeListener(
+        _handlePendingCreatedUpdate,
+      );
+      widget.pendingCreatedUpdateNotifier?.addListener(
+        _handlePendingCreatedUpdate,
+      );
+    }
   }
 
   @override
@@ -371,6 +396,33 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _selectedBottomNav = 0;
     });
+  }
+
+  void _handleMajorBottomNavResult(int? index) {
+    if (index == null || !mounted) {
+      _resetBottomNavToHome();
+      return;
+    }
+    switch (index) {
+      case 0:
+        _goHome();
+        return;
+      case 1:
+        _openSearch();
+        return;
+      case 2:
+        _openCreateUpdate();
+        return;
+      case 3:
+        _openGroups();
+        return;
+      case 4:
+        _openMeetNewFriends();
+        return;
+      default:
+        _resetBottomNavToHome();
+        return;
+    }
   }
 
   void _highlightPostedUpdate(int updateId) {
@@ -636,18 +688,28 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openGroups() async {
+    if (widget.onMajorTabSelected != null) {
+      await widget.onMajorTabSelected!(3);
+      return;
+    }
     _setActiveSidebarItem('Group Chats');
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final nextTab = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
         builder: (context) => GroupsScreen(
           repository: widget.groupRepository,
           currentUser: widget.authController.currentUser,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
+          showMajorBottomNav: true,
+          bottomNavIndex: 3,
         ),
       ),
     );
+    if (nextTab != null) {
+      _handleMajorBottomNavResult(nextTab);
+      return;
+    }
     if (!mounted) {
       return;
     }
@@ -845,8 +907,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openSearch() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    if (widget.onMajorTabSelected != null) {
+      await widget.onMajorTabSelected!(1);
+      return;
+    }
+    final nextTab = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
         builder: (context) => SearchScreen(
           repository: widget.searchRepository,
           contentRepository: widget.contentRepository,
@@ -854,10 +920,12 @@ class _HomeScreenState extends State<HomeScreen>
           profileRepository: widget.profileRepository,
           updateRepository: widget.updateRepository,
           currentUser: widget.authController.currentUser,
+          showMajorBottomNav: true,
+          bottomNavIndex: 1,
         ),
       ),
     );
-    _resetBottomNavToHome();
+    _handleMajorBottomNavResult(nextTab);
   }
 
   Future<void> _openSearchQuery(String query) async {
@@ -1084,18 +1152,25 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openTermsPage() => _openWebPage('Terms', '/terms');
 
   Future<void> _openMeetNewFriends() async {
+    if (widget.onMajorTabSelected != null) {
+      await widget.onMajorTabSelected!(4);
+      return;
+    }
     _setActiveSidebarItem('Meet New Friends');
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final nextTab = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
         builder: (context) => MeetNewFriendsScreen(
           feedRepository: widget.feedRepository,
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
           currentUser: widget.authController.currentUser,
+          showMajorBottomNav: true,
+          bottomNavIndex: 4,
         ),
       ),
     );
+    _handleMajorBottomNavResult(nextTab);
   }
 
   Future<void> _openTodayBirthdays(List<FeedUser> users) async {
@@ -1121,42 +1196,76 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (createdUpdate is UpdateDetail) {
-      try {
-        await _refreshDashboard();
-      } catch (_) {
-        // Ignore refresh failures to avoid crash; user already knows post succeed.
-      }
+      _applyCreatedUpdate(createdUpdate);
+    }
+  }
 
-      if (!mounted) {
-        return;
+  void _handlePendingCreatedUpdate() {
+    final update = widget.pendingCreatedUpdateNotifier?.value;
+    if (update == null) {
+      return;
+    }
+    widget.pendingCreatedUpdateNotifier?.value = null;
+    _applyCreatedUpdate(update);
+  }
+
+  void _applyCreatedUpdate(UpdateDetail createdUpdate) {
+    if (!mounted) {
+      return;
+    }
+    final entry = FeedEntry(
+      id: createdUpdate.id,
+      type: 'update',
+      updateType: createdUpdate.type,
+      title: createdUpdate.user.fullname.trim().isEmpty
+          ? createdUpdate.user.username
+          : createdUpdate.user.fullname,
+      body: createdUpdate.status,
+      photoUrl: createdUpdate.photoUrl,
+      originalPhotoUrl: createdUpdate.originalPhotoUrl,
+      device: createdUpdate.device,
+      user: createdUpdate.user,
+      likesCount: createdUpdate.likesCount,
+      commentsCount: createdUpdate.commentsCount,
+      views: createdUpdate.views,
+      createdAt: createdUpdate.createdAt,
+      linkUrl: '',
+      isLiked: createdUpdate.isLiked,
+      myReaction: createdUpdate.myReaction,
+      reactionsPreview: createdUpdate.reactionsPreview,
+    );
+    setState(() {
+      _homeUpdates = _mergeFeedEntries(<FeedEntry>[entry], _homeUpdates);
+      if (_homeUpdates.length > _maxHomeUpdatesRetained) {
+        _homeUpdates = _homeUpdates.take(_maxHomeUpdatesRetained).toList();
       }
-      _highlightPostedUpdate(createdUpdate.id);
-      if (_homeScrollController.hasClients) {
-        unawaited(
-          _homeScrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOut,
-          ),
-        );
-      }
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Update posted'),
-          duration: const Duration(seconds: 4),
-          dismissDirection: DismissDirection.horizontal,
-          showCloseIcon: true,
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () {
-              unawaited(_openUpdateDetailById(createdUpdate.id));
-            },
-          ),
+    });
+    _highlightPostedUpdate(createdUpdate.id);
+    if (_homeScrollController.hasClients) {
+      unawaited(
+        _homeScrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
         ),
       );
     }
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Update posted'),
+        duration: const Duration(seconds: 4),
+        dismissDirection: DismissDirection.horizontal,
+        showCloseIcon: true,
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () {
+            unawaited(_openUpdateDetailById(createdUpdate.id));
+          },
+        ),
+      ),
+    );
   }
 
   String _friendlyComposerError(Object error) {
@@ -1233,7 +1342,7 @@ class _HomeScreenState extends State<HomeScreen>
     final colors = context.appColors;
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1180;
-    final showBottomNav = width < 960;
+    final showBottomNav = width < 960 && !widget.embedInMajorShell;
     final sidebar = RepaintBoundary(
       child: _HomeSidebar(
         user: user,
@@ -1265,8 +1374,46 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: colors.scaffold,
-      bottomNavigationBar: showBottomNav ? _buildBottomNav() : null,
-      drawer: isDesktop ? null : Drawer(width: 256, child: sidebar),
+      bottomNavigationBar: showBottomNav
+          ? MajorBottomNav(
+              selectedIndex: _selectedBottomNav,
+              unreadGroupsCount: _topBarSnapshot.value.unreadGroups,
+              onSelected: (index) async {
+                switch (index) {
+                  case 2:
+                    await _openCreateUpdate();
+                    return;
+                  case 0:
+                    setState(() {
+                      _selectedBottomNav = 0;
+                    });
+                    _goHome();
+                    return;
+                  case 1:
+                    setState(() {
+                      _selectedBottomNav = 1;
+                    });
+                    _openSearch();
+                    return;
+                  case 3:
+                    setState(() {
+                      _selectedBottomNav = 3;
+                    });
+                    _openGroups();
+                    return;
+                  case 4:
+                    setState(() {
+                      _selectedBottomNav = 4;
+                    });
+                    _openMeetNewFriends();
+                    return;
+                  default:
+                    return;
+                }
+              },
+            )
+          : null,
+      drawer: isDesktop ? null : Drawer(width: 248, child: sidebar),
       body: Row(
         children: [
           if (isDesktop) sidebar,
@@ -1537,165 +1684,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildBottomNav() {
-    final colors = context.appColors;
-    final isCompactBottomNav = MediaQuery.sizeOf(context).width < 360;
-    final navIconSize = isCompactBottomNav ? 22.0 : 24.0;
-    final createButtonSize = isCompactBottomNav ? 48.0 : 52.0;
-    final createIconSize = isCompactBottomNav ? 26.0 : 28.0;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedNavColor = colors.brand;
-    final unselectedNavColor = isDark
-        ? colors.textPrimary.withValues(alpha: 0.82)
-        : colors.textPrimary.withValues(alpha: 0.86);
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(0, 0, 0, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.97),
-          border: Border(
-            top: BorderSide(color: colors.border.withValues(alpha: 0.95)),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, -1),
-            ),
-          ],
-        ),
-        child: NavigationBar(
-          height: isCompactBottomNav ? 70 : 76,
-          backgroundColor: Colors.transparent,
-          indicatorColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>((states) {
-            final selected = states.contains(MaterialState.selected);
-            return TextStyle(
-              color: selected ? selectedNavColor : unselectedNavColor,
-              fontSize: isCompactBottomNav ? 11.0 : 11.5,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-            );
-          }),
-          selectedIndex: _selectedBottomNav,
-          onDestinationSelected: (index) {
-            switch (index) {
-              case 2:
-                _openCreateUpdate();
-                return;
-              case 0:
-                setState(() {
-                  _selectedBottomNav = 0;
-                });
-                _goHome();
-                return;
-              case 1:
-                setState(() {
-                  _selectedBottomNav = 1;
-                });
-                _openSearch();
-                return;
-              case 3:
-                setState(() {
-                  _selectedBottomNav = 3;
-                });
-                _openGroups();
-                return;
-              case 4:
-                setState(() {
-                  _selectedBottomNav = 4;
-                });
-                _openMeetNewFriends();
-                return;
-              default:
-                return;
-            }
-          },
-          destinations: [
-            NavigationDestination(
-              icon: HeroIcon(
-                HeroIcons.home,
-                size: navIconSize,
-                color: unselectedNavColor,
-              ),
-              selectedIcon: HeroIcon(
-                HeroIcons.home,
-                size: navIconSize,
-                color: selectedNavColor,
-                style: HeroIconStyle.solid,
-              ),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: HeroIcon(
-                HeroIcons.magnifyingGlass,
-                size: navIconSize,
-                color: unselectedNavColor,
-              ),
-              selectedIcon: HeroIcon(
-                HeroIcons.magnifyingGlass,
-                size: navIconSize,
-                color: selectedNavColor,
-                style: HeroIconStyle.solid,
-              ),
-              label: 'Search',
-            ),
-            NavigationDestination(
-              icon: Container(
-                width: createButtonSize,
-                height: createButtonSize,
-                decoration: BoxDecoration(
-                  color: colors.brand,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: Colors.white,
-                  size: createIconSize,
-                ),
-              ),
-              label: '',
-            ),
-            NavigationDestination(
-              icon: _BadgeTopBarIcon(
-                icon: HeroIcons.users,
-                count: _topBarSnapshot.value.unreadGroups,
-                dotOnly: true,
-                iconSize: navIconSize,
-                boxSize: isCompactBottomNav ? 28 : 30,
-                iconColor: unselectedNavColor,
-              ),
-              selectedIcon: _BadgeTopBarIcon(
-                icon: HeroIcons.users,
-                count: _topBarSnapshot.value.unreadGroups,
-                dotOnly: true,
-                solid: true,
-                iconSize: navIconSize,
-                boxSize: isCompactBottomNav ? 28 : 30,
-                iconColor: selectedNavColor,
-              ),
-              label: 'Groups',
-            ),
-            NavigationDestination(
-              icon: HeroIcon(
-                HeroIcons.userPlus,
-                size: navIconSize,
-                color: unselectedNavColor,
-              ),
-              selectedIcon: HeroIcon(
-                HeroIcons.userPlus,
-                size: navIconSize,
-                color: selectedNavColor,
-                style: HeroIconStyle.solid,
-              ),
-              label: 'Connect',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _TopbarFetchResult {
@@ -1787,6 +1775,7 @@ class _HomeTopBar extends StatelessWidget {
     final isCompactTopBar = MediaQuery.sizeOf(context).width < 360;
     final actionBoxSize = isCompactTopBar ? 30.0 : 32.0;
     final actionIconSize = isCompactTopBar ? 23.0 : 24.0;
+    final actionSpacing = isCompactTopBar ? 6.0 : 10.0;
     return SafeArea(
       bottom: false,
       child: Container(
@@ -1807,7 +1796,7 @@ class _HomeTopBar extends StatelessWidget {
                   onMenuTap?.call();
                 },
                 icon: HeroIcon(
-                  HeroIcons.bars3,
+                  HeroIcons.bars3BottomLeft,
                   size: isCompactTopBar ? 24 : 26,
                   color: iconColor,
                 ),
@@ -1822,7 +1811,8 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Hopeful',
                     style: TextStyle(
-                      color: colors.brand,
+                     color: colors.brand,
+                     // color: Color(0xFFF59E0B),
                       fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -1.1,
@@ -1831,7 +1821,8 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                      color: Color(0xFFF59E0B),
+                     color: Color(0xFFF59E0B),
+                      //color: colors.brand,
                       fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1.1,
@@ -1849,7 +1840,7 @@ class _HomeTopBar extends StatelessWidget {
               iconSize: actionIconSize,
               boxSize: actionBoxSize,
             ),
-            SizedBox(width: isCompactTopBar ? 4 : 8),
+            SizedBox(width: actionSpacing),
             _TopBarIconButton(
               icon: HeroIcons.bell,
               unreadCount: unreadNotifications,
@@ -1857,22 +1848,23 @@ class _HomeTopBar extends StatelessWidget {
               iconSize: actionIconSize,
               boxSize: actionBoxSize,
             ),
-            SizedBox(width: isCompactTopBar ? 4 : 8),
+            SizedBox(width: actionSpacing),
             InkWell(
               onTap: () async {
                 HapticFeedback.lightImpact();
                 await onProfileTap();
               },
               borderRadius: BorderRadius.circular(999),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AppAvatar(
+              child: SizedBox(
+                width: actionBoxSize,
+                height: actionBoxSize,
+                child: Center(
+                  child: AppAvatar(
                     imageUrl: user?.photoUrl ?? '',
                     label: user?.displayName ?? 'User',
                     radius: (actionBoxSize / 2) - 2,
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -2386,7 +2378,7 @@ class _HomeSidebar extends StatelessWidget {
     final colors = context.appColors;
     final showAdminPanel = user?.rank.trim().isNotEmpty ?? false;
     return Container(
-      width: 256,
+      width: 248,
       decoration: BoxDecoration(color: colors.sidebar),
       child: SafeArea(
         bottom: false,
@@ -2394,15 +2386,15 @@ class _HomeSidebar extends StatelessWidget {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 16),
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
                     child: Text(
                       'Menu',
                       style: TextStyle(
                         color: colors.sidebarText,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
@@ -2432,23 +2424,6 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onActivitiesTap,
                       ),
                       _SidebarItemData(
-                        HeroIcons.users,
-                        'Group Chats',
-                        activeItemLabel == 'Group Chats',
-                        onTap: onGroupsTap,
-                      ),
-                      _SidebarItemData(
-                        HeroIcons.userPlus,
-                        'Meet New Friends',
-                        activeItemLabel == 'Meet New Friends',
-                        onTap: onMeetNewFriendsTap,
-                      ),
-                    ],
-                  ),
-                  _SidebarSection(
-                    title: 'Resources',
-                    items: [
-                      _SidebarItemData(
                         HeroIcons.pencilSquare,
                         'Blog & Articles',
                         activeItemLabel == 'Blog & Articles',
@@ -2461,6 +2436,25 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Inspiration Inbox',
                         onTap: onInspirationsTap,
                       ),
+
+                      // _SidebarItemData(
+                      //   HeroIcons.users,
+                      //   'Group Chats',
+                      //   activeItemLabel == 'Group Chats',
+                      //   onTap: onGroupsTap,
+                      // ),
+                      // _SidebarItemData(
+                      //   HeroIcons.userPlus,
+                      //   'Meet New Friends',
+                      //   activeItemLabel == 'Meet New Friends',
+                      //   onTap: onMeetNewFriendsTap,
+                      // ),
+                    ],
+                  ),
+                  _SidebarSection(
+                    title: 'Resources',
+                    items: [
+                    
                       _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
@@ -2519,12 +2513,12 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Advert & Partnership',
                         onTap: onAdvertiseTap,
                       ),
-                      _SidebarItemData(
-                        HeroIcons.briefcase,
-                        'Volunteer & Support',
-                        activeItemLabel == 'Volunteer & Support',
-                        onTap: onVolunteerTap,
-                      ),
+                      // _SidebarItemData(
+                      //   HeroIcons.briefcase,
+                      //   'Volunteer & Support',
+                      //   activeItemLabel == 'Volunteer & Support',
+                      //   onTap: onVolunteerTap,
+                      // ),
                     ],
                   ),
                   _SidebarSection(
@@ -2575,19 +2569,19 @@ class _SidebarSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
             child: Text(
               title,
               style: const TextStyle(
                 color: Color(0xFF7A8FA8),
-                fontSize: 9,
+                fontSize: 8.5,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
+                letterSpacing: 1.1,
               ),
             ),
           ),
@@ -2629,7 +2623,7 @@ class _SidebarItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: item.onTap == null ? null : () => item.onTap!(),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: isActive
                   ? activeColor.withValues(alpha: 0.14)
@@ -2653,9 +2647,9 @@ class _SidebarItem extends StatelessWidget {
                   item.icon,
                   style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
                   color: isActive ? activeColor : inactiveColor,
-                  size: 17,
+                  size: 16,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     item.label,
@@ -2664,7 +2658,7 @@ class _SidebarItem extends StatelessWidget {
                     softWrap: false,
                     style: TextStyle(
                       color: isActive ? Colors.white : textColor,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
@@ -2672,7 +2666,7 @@ class _SidebarItem extends StatelessWidget {
                 if (isActive)
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    size: 11,
+                    size: 10,
                     color: Colors.white.withValues(alpha: 0.8),
                   ),
               ],

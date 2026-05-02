@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
-import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
@@ -18,6 +18,9 @@ class GroupsScreen extends StatefulWidget {
     required this.profileRepository,
     required this.messageRepository,
     required this.updateRepository,
+    this.showMajorBottomNav = false,
+    this.bottomNavIndex = 3,
+    this.onMajorTabSelected,
     super.key,
   });
 
@@ -26,6 +29,9 @@ class GroupsScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final MessageRepository messageRepository;
   final UpdateRepository updateRepository;
+  final bool showMajorBottomNav;
+  final int bottomNavIndex;
+  final Future<void> Function(int index)? onMajorTabSelected;
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
@@ -153,10 +159,26 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: buildAppScreenAppBar(
-        context,
-        title: 'Groups',
-        subtitle: 'COMMUNITY',
+      bottomNavigationBar: widget.showMajorBottomNav
+          ? MajorBottomNav(
+              selectedIndex: widget.bottomNavIndex,
+              onSelected: (index) async {
+                if (index == widget.bottomNavIndex) {
+                  return;
+                }
+                if (widget.onMajorTabSelected != null) {
+                  await widget.onMajorTabSelected!(index);
+                  return;
+                }
+                if (!context.mounted) return;
+                Navigator.of(context).pop(index);
+              },
+            )
+          : null,
+      appBar: AppBar(
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
+        title: const Text('Groups'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

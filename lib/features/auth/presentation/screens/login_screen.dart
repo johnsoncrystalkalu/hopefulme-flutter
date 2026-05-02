@@ -126,9 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const TextSpan(
                                   text: 'Me',
                                   style: TextStyle(
-                                    color: Color(0xFFe08016),
+                                    color: Color(0xFFF59E0B),
                                     fontSize: 30,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
                                     letterSpacing: -1.2,
                                   ),
                                 ),
@@ -192,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Sign in to catch up with the community',
+                                  'Sign in to catch up with the community.',
                                   style: TextStyle(
                                     color: colors.textMuted,
                                     fontSize: 15,

@@ -19,6 +19,7 @@ class UpdateSubmissionModal extends StatefulWidget {
     required this.currentUser,
     this.onSuccess,
     this.onError,
+    this.fullScreen = false,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class UpdateSubmissionModal extends StatefulWidget {
   final User? currentUser;
   final void Function(UpdateDetail update)? onSuccess;
   final void Function(Object error)? onError;
+  final bool fullScreen;
 
   static Future<UpdateDetail?> show(
     BuildContext context, {
@@ -510,23 +512,32 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     final canSubmit = !_submitting && hasContent;
     final mediaQuery = MediaQuery.of(context);
     final keyboardInset = mediaQuery.viewInsets.bottom;
-    final maxSheetHeight = mediaQuery.size.height * 0.82;
+    final maxSheetHeight = widget.fullScreen
+        ? mediaQuery.size.height
+        : mediaQuery.size.height * 0.82;
 
     return SafeArea(
-      top: false,
+      top: widget.fullScreen,
       child: AnimatedPadding(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         padding: EdgeInsets.only(bottom: keyboardInset),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, keyboardInset > 0 ? 0 : 12),
+          padding: EdgeInsets.fromLTRB(
+            widget.fullScreen ? 0 : 16,
+            widget.fullScreen ? 0 : 24,
+            widget.fullScreen ? 0 : 16,
+            widget.fullScreen ? 0 : (keyboardInset > 0 ? 0 : 12),
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxSheetHeight),
             child: Container(
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: colors.borderStrong),
+            borderRadius: BorderRadius.circular(widget.fullScreen ? 0 : 32),
+            border: widget.fullScreen
+                ? null
+                : Border.all(color: colors.borderStrong),
           ),
           child: Form(
             key: _formKey,
@@ -543,32 +554,33 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    widget.fullScreen ? 8 : 20,
+                    20,
+                    0,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: _submitting
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.arrow_back_rounded),
-                            ),
-                            const SizedBox(width: 6),
+                            if (!widget.fullScreen) ...[
+                              IconButton(
+                                onPressed: _submitting
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Text(
-                                  //   'Create Update',
-                                  //     style: TextStyle(
-                                  //       color: colors.textPrimary,
-                                  //       fontSize: 20,
-                                  //       fontWeight: FontWeight.w900,
-                                  //     ),
-                                  //   ),
+                                  if (widget.fullScreen)
+                                    const SizedBox.shrink(),
                                 ],
                               ),
                             ),
@@ -579,7 +591,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: widget.fullScreen ? 8 : 18),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
@@ -596,7 +608,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                         children: [
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
                             decoration: BoxDecoration(
                               color: colors.surfaceMuted.withValues(alpha: 0.45),
                             ),
@@ -658,11 +670,11 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                             'Share an update',
                                         style: TextStyle(
                                           color: colors.textPrimary,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
+                                      const SizedBox(height: 4),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 10,
@@ -900,8 +912,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
                   decoration: BoxDecoration(
                     color: colors.surfaceMuted.withValues(alpha: 0.45),
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(32),
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(widget.fullScreen ? 0 : 32),
                     ),
                     border: Border(
                       top: BorderSide(

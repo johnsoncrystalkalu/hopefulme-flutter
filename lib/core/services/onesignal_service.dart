@@ -11,6 +11,7 @@ class OneSignalService {
   bool _isInitialized = false;
   GlobalKey<NavigatorState>? _navigatorKey;
   OneSignalNotificationOpenHandler? _onNotificationOpened;
+  Map<String, dynamic>? _pendingNotificationOpenData;
 
   Future<void> initialize({
     required String appId,
@@ -48,9 +49,23 @@ class OneSignalService {
 
   Future<void> _handleNotificationData(Map<String, dynamic> data) async {
     if (_navigatorKey?.currentContext == null) {
+      _pendingNotificationOpenData = Map<String, dynamic>.from(data);
       return;
     }
 
+    final handler = _onNotificationOpened;
+    if (handler != null) {
+      await handler(data);
+    }
+  }
+
+  Future<void> drainPendingNotificationOpen() async {
+    final data = _pendingNotificationOpenData;
+    if (data == null || _navigatorKey?.currentContext == null) {
+      return;
+    }
+
+    _pendingNotificationOpenData = null;
     final handler = _onNotificationOpened;
     if (handler != null) {
       await handler(data);

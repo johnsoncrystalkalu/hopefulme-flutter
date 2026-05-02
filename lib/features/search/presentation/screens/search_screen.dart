@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
@@ -7,6 +5,7 @@ import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/content/presentation/content_navigation.dart';
@@ -28,6 +27,9 @@ class SearchScreen extends StatefulWidget {
     required this.profileRepository,
     required this.updateRepository,
     required this.currentUser,
+    this.showMajorBottomNav = false,
+    this.bottomNavIndex = 1,
+    this.onMajorTabSelected,
     this.initialQuery,
     super.key,
   });
@@ -38,6 +40,9 @@ class SearchScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final UpdateRepository updateRepository;
   final User? currentUser;
+  final bool showMajorBottomNav;
+  final int bottomNavIndex;
+  final Future<void> Function(int index)? onMajorTabSelected;
   final String? initialQuery;
 
   @override
@@ -47,16 +52,22 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  Timer? _debounce;
   SearchResult? _result;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String _activeType = 'all';
   String? _error;
 
+  void _onQueryTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onQueryTextChanged);
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
       _controller.text = widget.initialQuery!.trim();
     }
@@ -66,17 +77,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _controller.removeListener(_onQueryTextChanged);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onChanged(String _) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      _runSearch(immediate: true);
-    });
   }
 
   void _onScroll() {
@@ -244,27 +248,73 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return Scaffold(
       backgroundColor: colors.scaffold,
+      bottomNavigationBar: widget.showMajorBottomNav
+          ? MajorBottomNav(
+              selectedIndex: widget.bottomNavIndex,
+              onSelected: (index) async {
+                if (index == widget.bottomNavIndex) {
+                  return;
+                }
+                if (widget.onMajorTabSelected != null) {
+                  await widget.onMajorTabSelected!(index);
+                  return;
+                }
+                if (!context.mounted) return;
+                Navigator.of(context).pop(index);
+              },
+            )
+          : null,
       appBar: AppBar(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
-        titleSpacing: 12,
-        title: TextField(
-          controller: _controller,
-          onChanged: _onChanged,
-          decoration: InputDecoration(
-            hintText: 'Type name or topic...',
-            filled: true,
-            fillColor: colors.surfaceMuted,
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
+        title: const Text('Search'),
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              controller: _controller,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) async {
+                FocusScope.of(context).unfocus();
+                await _runSearch(immediate: true);
+              },
+              decoration: InputDecoration(
+                hintText: 'Type name or topic...',
+                filled: true,
+                fillColor: colors.surfaceMuted,
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_controller.text.trim().isNotEmpty)
+                      IconButton(
+                        tooltip: 'Clear',
+                        onPressed: () {
+                          setState(() {
+                            _controller.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+                    IconButton(
+                      tooltip: 'Search',
+                      onPressed: () async {
+                        FocusScope.of(context).unfocus();
+                        await _runSearch(immediate: true);
+                      },
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                    ),
+                  ],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: SingleChildScrollView(

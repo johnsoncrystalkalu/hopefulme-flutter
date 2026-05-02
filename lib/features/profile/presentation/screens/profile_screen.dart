@@ -4,6 +4,7 @@ import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
+import 'package:hopefulme_flutter/core/services/app_actions_registry.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
@@ -304,10 +305,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final themeController = ThemeController();
-    await themeController.restore();
+    final sharedThemeController = AppActionsRegistry.themeController;
+    final themeController = sharedThemeController ?? ThemeController();
+    if (sharedThemeController == null) {
+      await themeController.restore();
+    }
     if (!mounted) {
-      themeController.dispose();
+      if (sharedThemeController == null) {
+        themeController.dispose();
+      }
       return;
     }
     await Navigator.of(context).push(
@@ -324,13 +330,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return true;
           },
           onCheckForUpdates: () async {
-            if (!mounted) return;
-            AppToast.info(context, 'Update check is available from Home.');
+            final checkForUpdates = AppActionsRegistry.checkForUpdates;
+            if (checkForUpdates == null) {
+              if (!mounted) return;
+              AppToast.error(context, 'Update check is unavailable right now.');
+              return;
+            }
+            await checkForUpdates();
           },
         ),
       ),
     );
-    themeController.dispose();
+    if (sharedThemeController == null) {
+      themeController.dispose();
+    }
   }
 
   Future<void> _loginAsUser(ProfileSummary profile) async {

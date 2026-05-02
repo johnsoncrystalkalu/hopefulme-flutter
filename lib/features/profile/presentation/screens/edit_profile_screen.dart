@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/services/app_actions_registry.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
@@ -329,10 +330,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    final themeController = ThemeController();
-    await themeController.restore();
+    final sharedThemeController = AppActionsRegistry.themeController;
+    final themeController = sharedThemeController ?? ThemeController();
+    if (sharedThemeController == null) {
+      await themeController.restore();
+    }
     if (!mounted) {
-      themeController.dispose();
+      if (sharedThemeController == null) {
+        themeController.dispose();
+      }
       return;
     }
 
@@ -350,13 +356,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             return true;
           },
           onCheckForUpdates: () async {
-            if (!mounted) return;
-            AppToast.info(context, 'Update check is available from Home.');
+            final checkForUpdates = AppActionsRegistry.checkForUpdates;
+            if (checkForUpdates == null) {
+              if (!mounted) return;
+              AppToast.error(context, 'Update check is unavailable right now.');
+              return;
+            }
+            await checkForUpdates();
           },
         ),
       ),
     );
-    themeController.dispose();
+    if (sharedThemeController == null) {
+      themeController.dispose();
+    }
   }
 
   @override

@@ -83,6 +83,10 @@ class AppDeepLinkNavigator {
       return true;
     }
 
+    // Deep links should always start from the root route to avoid stack buildup
+    // and transition jitter when opening from notifications/external intents.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+
     if (segments.length == 1 && _looksLikeProfileSegment(segments.first)) {
       await openUserProfile(
         context,

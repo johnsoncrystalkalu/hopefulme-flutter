@@ -12,6 +12,7 @@ import 'package:hopefulme_flutter/core/navigation/app_route_observer.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/presentation/screens/web_page_screen.dart';
 import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
+import 'package:hopefulme_flutter/core/services/app_actions_registry.dart';
 import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:hopefulme_flutter/core/storage/token_storage.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
@@ -25,6 +26,7 @@ import 'package:hopefulme_flutter/features/auth/presentation/screens/verify_emai
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/main_shell_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/messages_screen.dart';
@@ -46,6 +48,8 @@ import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+enum _NotificationOpenState { coldStart, background, foreground }
 
 class HopefulMeApp extends StatefulWidget {
   const HopefulMeApp({super.key});
@@ -106,6 +110,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     WidgetsBinding.instance.addObserver(this);
 
     _themeController = ThemeController()..restore();
+    AppActionsRegistry.themeController = _themeController;
+    AppActionsRegistry.checkForUpdates = () => _checkAppVersion(force: true);
     _config = AppConfig.fromEnvironment();
 
     final tokenStorage = TokenStorage();
@@ -632,6 +638,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
   @override
   void dispose() {
+    AppActionsRegistry.themeController = null;
+    AppActionsRegistry.checkForUpdates = null;
     WidgetsBinding.instance.removeObserver(this);
     _authController.removeListener(_syncPresenceTracking);
     _authController.removeListener(_drainPendingDeepLink);
@@ -648,6 +656,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       _syncOneSignalPlayerId();
       unawaited(_checkAppVersion(force: true));
       unawaited(_trackRatingLaunchIfNeeded());
+      unawaited(_drainPendingNotificationOpen());
     } else {
       _hasTrackedRatingLaunchThisSession = false;
       OneSignalService.instance.removeExternalUserId();
@@ -661,6 +670,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
 
     if (state == AppLifecycleState.resumed) {
       unawaited(_checkAppVersion());
+      unawaited(_drainPendingNotificationOpen());
     }
   }
 
@@ -719,10 +729,19 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     final context = _navigatorKey.currentContext;
     if (context == null || !_authController.isAuthenticated) {
       _isHandlingNotificationOpen = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_drainPendingNotificationOpen());
+      });
       return;
     }
 
     try {
+      final openState = _notificationOpenState();
+      if (openState != _NotificationOpenState.foreground) {
+        // Give the navigator one frame after app restore/cold start so route
+        // transitions happen on a stable tree.
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+      }
       final type = data['type']?.toString().trim().toLowerCase() ?? '';
       final senderUsername =
           data['sender_username']?.toString().trim().replaceFirst('@', '') ??
@@ -850,6 +869,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     if (context == null) {
       return Future<void>.value();
     }
+    Navigator.of(context).popUntil((route) => route.isFirst);
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => NotificationsScreen(
@@ -912,6 +932,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       ),
     );
 
+    if (appRouteObserver.currentRouteName == routeName) {
+      return;
+    }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
     if (_isNotificationRoute(
       appRouteObserver.currentRouteName,
       prefix: '/notification/message/',
@@ -940,6 +965,11 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       ),
     );
 
+    if (appRouteObserver.currentRouteName == routeName) {
+      return;
+    }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
     if (_isNotificationRoute(
       appRouteObserver.currentRouteName,
       prefix: '/notification/update/',
@@ -1105,9 +1135,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   Future<void> _openDeepLink(BuildContext context, Uri uri) async {
     final normalized = _normalizeSupportedDeepLinkUri(uri);
     if (normalized != null && _isVerifyEmailUri(normalized)) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
       await _openVerifyEmailScreen(context, normalized);
       return;
     }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
 
     final navigator = AppDeepLinkNavigator(
       feedRepository: _feedRepository,
@@ -1142,13 +1175,29 @@ class _HopefulMeAppState extends State<HopefulMeApp>
     }
 
     if (_isResetPasswordUri(normalized)) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
       await _openResetPasswordScreen(context, normalized);
       return;
     }
 
     if (_isVerifyEmailUri(normalized)) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
       await _openVerifyEmailScreen(context, normalized);
     }
+  }
+
+  Future<void> _drainPendingNotificationOpen() {
+    return OneSignalService.instance.drainPendingNotificationOpen();
+  }
+
+  _NotificationOpenState _notificationOpenState() {
+    if (_lifecycleState == null) {
+      return _NotificationOpenState.coldStart;
+    }
+    if (_lifecycleState == AppLifecycleState.resumed) {
+      return _NotificationOpenState.foreground;
+    }
+    return _NotificationOpenState.background;
   }
 
   Uri? _normalizeSupportedDeepLinkUri(Uri uri) {
@@ -1241,8 +1290,8 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   // listed once. Previously HomeScreen was constructed in two places (routes
   // map + home property), meaning two instances were created on every
   // MaterialApp rebuild and any new dependency had to be added in two spots.
-  HomeScreen _buildHomeScreen() {
-    return HomeScreen(
+  Widget _buildHomeScreen() {
+    return MainShellScreen(
       authController: _authController,
       themeController: _themeController,
       feedRepository: _feedRepository,
@@ -1333,7 +1382,7 @@ class _AppRouter extends StatelessWidget {
   });
 
   final AuthController authController;
-  final HomeScreen Function() buildHomeScreen;
+  final Widget Function() buildHomeScreen;
   final Widget Function() buildWelcomeScreen;
 
   @override

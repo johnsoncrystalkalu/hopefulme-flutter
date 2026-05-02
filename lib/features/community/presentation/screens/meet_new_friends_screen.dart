@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
-import 'package:hopefulme_flutter/core/widgets/app_screen_app_bar.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
+import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/community/presentation/widgets/most_active_users_card.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
+import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/profile_navigation.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
@@ -20,6 +21,9 @@ class MeetNewFriendsScreen extends StatefulWidget {
     required this.messageRepository,
     required this.updateRepository,
     required this.currentUser,
+    this.showMajorBottomNav = false,
+    this.bottomNavIndex = 4,
+    this.onMajorTabSelected,
     super.key,
   });
 
@@ -28,6 +32,9 @@ class MeetNewFriendsScreen extends StatefulWidget {
   final MessageRepository messageRepository;
   final UpdateRepository updateRepository;
   final User? currentUser;
+  final bool showMajorBottomNav;
+  final int bottomNavIndex;
+  final Future<void> Function(int index)? onMajorTabSelected;
 
   @override
   State<MeetNewFriendsScreen> createState() => _MeetNewFriendsScreenState();
@@ -38,6 +45,7 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
   final List<FeedUser> _items = <FeedUser>[];
   List<FeedUser> _onlineUsers = const <FeedUser>[];
   List<FeedUser> _newMembers = const <FeedUser>[];
+  List<FeedUser> _todayBirthdays = const <FeedUser>[];
   FeedUser? _friendOfTheDay;
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -72,14 +80,17 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
       final results = await Future.wait<Object>([
         widget.feedRepository.fetchMeetNewFriends(page: 1),
         widget.feedRepository.fetchFriendOfTheDay(),
+        widget.feedRepository.fetchTodayBirthdays(page: 1),
       ]);
       final page = results[0] as FeedUserPage;
       final dailyFriendResponse = results[1] as FriendOfTheDayResponse;
+      final birthdaysPage = results[2] as FeedUserPage;
       if (!mounted) return;
       setState(() {
         _items.addAll(page.items);
         _onlineUsers = page.onlineUsers;
         _newMembers = page.newMembers;
+        _todayBirthdays = birthdaysPage.items;
         _friendOfTheDay = dailyFriendResponse.friend;
         _hasMore = page.hasMore;
       });
@@ -142,6 +153,21 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
     );
   }
 
+  Future<void> _openChat(FeedUser user) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => MessageThreadScreen(
+          repository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
+          username: user.username,
+          title: user.displayName,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -159,10 +185,26 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
               .toList(growable: false);
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: buildAppScreenAppBar(
-        context,
-        title: 'Meet New Friends',
-        subtitle: 'COMMUNITY',
+      bottomNavigationBar: widget.showMajorBottomNav
+          ? MajorBottomNav(
+              selectedIndex: widget.bottomNavIndex,
+              onSelected: (index) async {
+                if (index == widget.bottomNavIndex) {
+                  return;
+                }
+                if (widget.onMajorTabSelected != null) {
+                  await widget.onMajorTabSelected!(index);
+                  return;
+                }
+                if (!context.mounted) return;
+                Navigator.of(context).pop(index);
+              },
+            )
+          : null,
+      appBar: AppBar(
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
+        title: const Text('Connect'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -180,95 +222,189 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                 children: [
                   _MeetHeader(newMembers: _newMembers, onTap: _openProfile),
                   const SizedBox(height: 24),
-                  if (showRail)
-                    Column(
-                      children: [
-                        if (featured != null) ...[
-                          _FriendOfDayCard(
-                            user: featured,
-                            onProfileTap: () => _openProfile(featured.username),
-                            onHelloTap: () => _openProfile(featured.username),
-                          ),
-                          const SizedBox(height: 22),
-                        ],
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_onlineUsers.isNotEmpty)
-                              Expanded(
-                                child: _OnlinePanel(
-                                  users: _onlineUsers,
-                                  onTap: _openProfile,
-                                ),
-                              ),
-                            if (_onlineUsers.isNotEmpty &&
-                                _newMembers.isNotEmpty)
-                              const SizedBox(width: 18),
-                            if (_newMembers.isNotEmpty)
-                              Expanded(
-                                child: _NewestHeartsPanel(
-                                  users: _newMembers,
-                                  onTap: _openProfile,
-                                ),
-                              ),
-                          ],
+                  Column(
+                    children: [
+                      if (featured != null) ...[
+                        _FriendOfDayCard(
+                          user: featured,
+                          onProfileTap: () => _openProfile(featured.username),
+                          onHelloTap: () => showRail
+                              ? _openProfile(featured.username)
+                              : _openChat(featured),
                         ),
-                        const SizedBox(height: 22),
-                        MostActiveUsersCard(
-                          feedRepository: widget.feedRepository,
-                          onOpenProfile: _openProfile,
-                        ),
-                        const SizedBox(height: 22),
-                        _MeetMainColumn(
-                          featured: featured,
-                          items: suggestedItems,
-                          isLoadingMore: _isLoadingMore,
-                          onProfileTap: _openProfile,
-                          onHelloTap: (user) => _openProfile(user.username),
-                        ),
+                        SizedBox(height: showRail ? 22 : 18),
                       ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        if (featured != null) ...[
-                          _FriendOfDayCard(
-                            user: featured,
-                            onProfileTap: () => _openProfile(featured.username),
-                            onHelloTap: () => _openProfile(featured.username),
-                          ),
-                          const SizedBox(height: 18),
-                        ],
-                        if (_onlineUsers.isNotEmpty)
-                          _OnlinePanel(
-                            users: _onlineUsers,
-                            onTap: _openProfile,
-                          ),
-                        if (_onlineUsers.isNotEmpty && _newMembers.isNotEmpty)
-                          const SizedBox(height: 18),
-                        if (_newMembers.isNotEmpty)
-                          _NewestHeartsPanel(
-                            users: _newMembers,
-                            onTap: _openProfile,
-                          ),
-                        const SizedBox(height: 20),
-                        MostActiveUsersCard(
-                          feedRepository: widget.feedRepository,
-                          onOpenProfile: _openProfile,
-                        ),
-                        const SizedBox(height: 20),
-                        _MeetMainColumn(
-                          featured: featured,
-                          items: suggestedItems,
-                          isLoadingMore: _isLoadingMore,
-                          onProfileTap: _openProfile,
-                          onHelloTap: (user) => _openProfile(user.username),
-                        ),
+                      MostActiveUsersCard(
+                        feedRepository: widget.feedRepository,
+                        onOpenProfile: _openProfile,
+                      ),
+                      SizedBox(height: showRail ? 22 : 20),
+                      if (_newMembers.isNotEmpty) ...[
+                        _NewestHeartsPanel(users: _newMembers, onTap: _openProfile),
+                        SizedBox(height: showRail ? 22 : 18),
                       ],
+                      if (_onlineUsers.isNotEmpty) ...[
+                        _OnlinePanel(users: _onlineUsers, onTap: _openProfile),
+                        SizedBox(height: showRail ? 22 : 18),
+                      ],
+                      if (_todayBirthdays.isNotEmpty) ...[
+                        _BirthdaysPanel(users: _todayBirthdays, onTap: _openProfile),
+                        SizedBox(height: showRail ? 22 : 18),
+                      ],
+                      _MeetMainColumn(
+                        featured: featured,
+                        items: suggestedItems,
+                        isLoadingMore: _isLoadingMore,
+                        onProfileTap: _openProfile,
+                        onHelloTap: (user) => _openProfile(user.username),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _BirthdaysPanel extends StatelessWidget {
+  const _BirthdaysPanel({required this.users, required this.onTap});
+
+  final List<FeedUser> users;
+  final Future<void> Function(String username) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final previewUsers = users.take(10).toList(growable: false);
+    final leadName = users.first.displayName;
+    final othersCount = users.length - 1;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.borderStrong),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🎈', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text(
+                  "Today's Birthdays",
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: Stack(
+                children: [
+                  for (var index = 0; index < previewUsers.length; index++)
+                    Positioned(
+                      left: index * 32,
+                      child: InkWell(
+                        onTap: () => onTap(previewUsers[index].username),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colors.surface, width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.shadow.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            color: colors.surfaceMuted,
+                          ),
+                          child: ClipOval(
+                            child: CircleAvatar(
+                              radius: 22,
+                              backgroundImage: previewUsers[index]
+                                      .photoUrl
+                                      .isNotEmpty
+                                  ? NetworkImage(
+                                      ImageUrlResolver.avatar(
+                                        previewUsers[index].photoUrl,
+                                        size: 66,
+                                      ),
+                                    )
+                                  : null,
+                              child: previewUsers[index].photoUrl.isEmpty
+                                  ? const Icon(Icons.person, size: 16)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (users.length >= 5)
+                    Positioned(
+                      left: previewUsers.length * 32,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colors.surface, width: 4),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '+',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+                children: [
+                  const TextSpan(text: "It's "),
+                  TextSpan(
+                    text: leadName,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (othersCount > 0)
+                    TextSpan(text: ' and $othersCount others'),
+                  const TextSpan(text: "' birthday! 🎉"),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -353,7 +489,8 @@ class _MeetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Text(
-      'Expand your circle and find people who inspire you.',
+     // 'Expand your circle and find people who inspire you.',
+     'A safe space to connect, grow, and find people who inspire you.',
       style: TextStyle(
         color: colors.textSecondary,
         fontSize: 14,
@@ -401,11 +538,12 @@ class _FriendOfDayCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
-                  end: Alignment.topRight,
+                  end: Alignment.bottomRight,
+                  stops: const [0.0, 0.52, 1.0],
                   colors: [
-                    colors.brand.withValues(alpha: 0.12),
-                    colors.surface,
-                    colors.accent.withValues(alpha: 0.10),
+                    const Color(0xFFD5E6FF),
+                    const Color(0xFFF3F8FF),
+                    const Color(0xFFFFE8D2),
                   ],
                 ),
               ),
@@ -898,7 +1036,7 @@ class _NewestHeartsPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Newest Hearts',
+                'Recently Joined',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -907,7 +1045,7 @@ class _NewestHeartsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'JOINED RECENTLY',
+                'NEW MEMBERS',
                 style: TextStyle(
                   color: Color.fromRGBO(255, 255, 255, 0.62),
                   fontSize: 11,
