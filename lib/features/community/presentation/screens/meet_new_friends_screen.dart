@@ -518,6 +518,7 @@ class _FriendOfDayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final friendImageUrl = user.mainPhotoUrl.isNotEmpty
         ? user.mainPhotoUrl
         : user.photoUrl;
@@ -544,11 +545,17 @@ class _FriendOfDayCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   stops: const [0.0, 0.52, 1.0],
-                  colors: [
-                    const Color(0xFFD5E6FF),
-                    const Color(0xFFF3F8FF),
-                    const Color(0xFFFFE8D2),
-                  ],
+                  colors: isDark
+                      ? <Color>[
+                          colors.surfaceRaised.withValues(alpha: 0.95),
+                          colors.surface.withValues(alpha: 0.97),
+                          colors.surfaceMuted.withValues(alpha: 0.93),
+                        ]
+                      : <Color>[
+                          const Color(0xFFD5E6FF),
+                          const Color(0xFFF3F8FF),
+                          const Color(0xFFFFE8D2),
+                        ],
                 ),
               ),
             ),
@@ -600,7 +607,9 @@ class _FriendOfDayCard extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: colors.surface,
+                        color: isDark
+                            ? colors.surfaceMuted
+                            : colors.surface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: colors.border),
                       ),
@@ -615,7 +624,9 @@ class _FriendOfDayCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: colors.surfaceMuted,
+                    color: isDark
+                        ? colors.surfaceRaised.withValues(alpha: 0.82)
+                        : colors.surfaceMuted,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: colors.border.withValues(alpha: 0.8),
@@ -883,123 +894,187 @@ class _OnlinePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final previewUsers = users.take(10).toList(growable: false);
+    final remaining = users.length - previewUsers.length;
+
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: colors.borderStrong),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         children: [
+          // ── Header ──────────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
                     color: colors.success,
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'Recently Active',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-          const SizedBox(height: 10),
-                // Text(
-                //   'See All',
-                //   style: TextStyle(
-                //     color: colors.brand,
-                //     fontSize: 13,
-                //     fontWeight: FontWeight.w800,
-                //   ),
-                // ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: colors.border),
-          ...users
-              .take(10)
-              .map(
-                (user) => InkWell(
-                  onTap: () => onTap(user.username),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                    child: Row(
-                      children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundImage: user.photoUrl.isNotEmpty
-                                  ? NetworkImage(
-                                      ImageUrlResolver.avatar(
-                                        user.photoUrl,
-                                        size: 72,
-                                      ),
-                                    )
-                                  : null,
-                              child: user.photoUrl.isEmpty
-                                  ? const Icon(Icons.person)
-                                  : null,
-                            ),
-                            // Positioned(
-                            //   right: 1,
-                            //   bottom: 1,
-                            //   child: Container(
-                            //     width: 12,
-                            //     height: 12,
-                            //     decoration: BoxDecoration(
-                            //       color: colors.success,
-                            //       shape: BoxShape.circle,
-                            //       border: Border.all(
-                            //         color: Colors.white,
-                            //         width: 2,
-                            //       ),
-                            //     ),
-                            //   ),
-                            // ),
-                          ],
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              VerifiedNameText(
-                                name: user.displayName,
-                                verified: user.isVerified,
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                user.lastSeen.isEmpty
-                                    ? 'Active recently'
-                                    : user.lastSeen,
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                Expanded(
+                  child: Text(
+                    'Recently active',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
+               
+              ],
+            ),
+          ),
+
+          Divider(height: 1, thickness: 0.5, color: colors.border),
+
+          // ── Two-column grid ─────────────────────────────────────────────────
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: previewUsers.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 2.8,
+            ),
+            itemBuilder: (context, index) {
+              final user = previewUsers[index];
+              final isRightColumn = index.isOdd;
+              final isLastRow =
+                  index >= previewUsers.length - (previewUsers.length.isOdd ? 1 : 2);
+
+              return GestureDetector(
+                onTap: () => onTap(user.username),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: isRightColumn
+                          ? BorderSide.none
+                          : BorderSide(
+                              color: colors.border,
+                              width: 0.5,
+                            ),
+                      bottom: isLastRow
+                          ? BorderSide.none
+                          : BorderSide(
+                              color: colors.border,
+                              width: 0.5,
+                            ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      // Avatar + online dot
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 19,
+                            backgroundColor: colors.avatarPlaceholder,
+                            backgroundImage: user.photoUrl.isNotEmpty
+                                ? NetworkImage(
+                                    ImageUrlResolver.avatar(
+                                      user.photoUrl,
+                                      size: 56,
+                                    ),
+                                  )
+                                : null,
+                            child: user.photoUrl.isEmpty
+                                ? Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 16,
+                                    color: colors.brand,
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: user.isOnline
+                                    ? colors.success
+                                    : colors.borderStrong,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colors.surface,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      // Name + last seen
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              user.displayName.split(' ').first,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user.lastSeen.isEmpty
+                                  ? 'Active recently'
+                                  : user.lastSeen,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // ── "View more" footer ──────────────────────────────────────────────
+          if (remaining > 0) ...[
+            Divider(height: 1, thickness: 0.5, color: colors.border),
+            GestureDetector(
+              onTap: () => onTap(users.first.username),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'View $remaining more',
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
+            ),
+          ],
         ],
       ),
     );

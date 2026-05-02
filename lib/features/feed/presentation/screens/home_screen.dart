@@ -56,9 +56,9 @@ import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
 import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
+import 'package:hopefulme_flutter/features/updates/presentation/screens/update_compose_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/updates_feed_screen.dart';
-import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
 import 'package:hopefulme_flutter/features/library/data/library_repository.dart';
 import 'package:hopefulme_flutter/features/library/presentation/screens/library_screen.dart';
@@ -1189,10 +1189,15 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openCreateUpdate() async {
-    final createdUpdate = await UpdateSubmissionModal.show(
-      context,
-      updateRepository: widget.updateRepository,
-      currentUser: widget.authController.currentUser,
+    final createdUpdate = await Navigator.of(context).push<UpdateDetail>(
+      MaterialPageRoute<UpdateDetail>(
+        builder: (context) => UpdateComposeScreen(
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+          contentRepository: widget.contentRepository,
+          currentUsername: widget.authController.currentUser?.username,
+        ),
+      ),
     );
 
     if (createdUpdate is UpdateDetail) {
@@ -1417,7 +1422,7 @@ class _HomeScreenState extends State<HomeScreen>
       drawer: isDesktop
           ? null
           : Drawer(
-              width: min(336, MediaQuery.of(context).size.width * 0.88),
+              width: min(320, MediaQuery.of(context).size.width * 0.84),
               child: sidebar,
             ),
       body: Row(
@@ -1827,7 +1832,7 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                     color: Color(0xFFF59E0B),
+                     color: colors.accent,
                       //color: colors.brand,
                       fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w800,
@@ -2396,6 +2401,17 @@ class _HomeSidebar extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                    child: Text(
+                      'Menu',
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                   _SidebarSection(
                     title: 'Community',
                     items: [
@@ -2526,19 +2542,18 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Settings',
                         onTap: onSettingsTap,
                       ),
-                      // Temporarily hidden:
-                      // _SidebarItemData(
-                      //   HeroIcons.moon,
-                      //   themeController.effectiveIsDark(
-                      //         Theme.of(context).brightness,
-                      //       )
-                      //       ? 'Switch to Light Mode'
-                      //       : 'Switch to Dark Mode',
-                      //   false,
-                      //   onTap: () async {
-                      //     await themeController.cycleThemeMode();
-                      //   },
-                      // ),
+                      _SidebarItemData(
+                        HeroIcons.moon,
+                        themeController.effectiveIsDark(
+                              Theme.of(context).brightness,
+                            )
+                            ? 'Switch to Light Mode'
+                            : 'Switch to Dark Mode',
+                        false,
+                        onTap: () async {
+                          await themeController.cycleThemeMode();
+                        },
+                      ),
                     ],
                   ),
 
@@ -3056,7 +3071,7 @@ class _HomeContent extends StatelessWidget {
           onCreateUpdate: onCreateUpdate,
           onOpenProfile: onOpenProfile,
         ),
-        const SizedBox(height: 14),
+       const SizedBox(height: 14),
         if (data.todayBirthdays.isNotEmpty) ...[
           _BirthdayCelebrationStrip(
             users: data.todayBirthdays,
@@ -3523,49 +3538,65 @@ class _ComposerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return _SurfaceCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Top Row: Avatar and Text Input Field
+            // ── Avatar + prompt input ───────────────────────────────────────
             Row(
-              crossAxisAlignment: CrossAxisAlignment
-                  .center, // Centered for better vertical alignment
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                InkWell(
+                GestureDetector(
                   onTap: () {
                     final username = user?.username.trim() ?? '';
-                    if (username.isNotEmpty) {
-                      onOpenProfile(username);
-                    }
+                    if (username.isNotEmpty) onOpenProfile(username);
                   },
-                  borderRadius: BorderRadius.circular(999),
-                  child: _Avatar(
-                    imageUrl: user?.photoUrl ?? '',
-                    label: user?.displayName ?? 'U',
-                    backgroundColor: context.appColors.avatarPlaceholder,
+                  child: Stack(
+                    children: [
+                      _Avatar(
+                        imageUrl: user?.photoUrl ?? '',
+                        label: user?.displayName ?? 'U',
+                        backgroundColor: colors.avatarPlaceholder,
+                      ),
+                      // Online dot
+                      Positioned(
+                        bottom: 1,
+                        right: 1,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: colors.success,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colors.surface, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: InkWell(
-                    onTap: () => onCreateUpdate(),
-                    borderRadius: BorderRadius.circular(18),
+                  child: GestureDetector(
+                    onTap: onCreateUpdate,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 14,
+                        vertical: 13,
                       ),
                       decoration: BoxDecoration(
-                        color: context.appColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(18),
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: colors.border),
                       ),
                       child: Text(
                         "Share your thoughts...",
                         style: TextStyle(
-                          color: context.appColors.textMuted,
-                          fontSize: 14, // Slightly increased for readability
+                          color: colors.textMuted,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -3574,59 +3605,45 @@ class _ComposerCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 16), // Increased spacing for a cleaner look
-            // Bottom Row: Chips and Publish Button
+            const SizedBox(height: 4),
+
+            // ── Divider ─────────────────────────────────────────────────────
+            Divider(color: colors.border, thickness: 0.5, height: 20),
+
+            // ── Action row ──────────────────────────────────────────────────
             Row(
               children: [
-                // --- Photo Trigger ---
-                InkWell(
-                  onTap: () => onCreateUpdate(),
-                  borderRadius: BorderRadius.circular(12),
-                  child: _ComposerChip(
-                    icon: Icons.image_outlined,
-                    label: 'Photo',
-                    background: context.appColors.accentSoft.withValues(
-                      alpha: 0.5,
-                    ),
-                    color: context.appColors.accentSoftText,
-                  ),
+                // Photo chip — blue
+                _ComposerChip(
+                  icon: Icons.image_outlined,
+                  label: 'Photo',
+                  background: colors.accentSoft,
+                  color: colors.brand,
+                  onTap: onCreateUpdate,
                 ),
 
                 const SizedBox(width: 8),
 
-                // --- Feeling Trigger ---
-                InkWell(
-                  onTap: () => onCreateUpdate(),
-                  borderRadius: BorderRadius.circular(12),
-                  child: _ComposerChip(
-                    icon: Icons.sentiment_satisfied_alt_outlined,
-                    label: 'Feeling',
-                    background: context.appColors.warningSoft.withValues(
-                      alpha: 0.5,
-                    ),
-                    color: context.appColors.warningText,
-                  ),
+                // Feeling chip — orange (not warning yellow)
+                _ComposerChip(
+                  icon: Icons.sentiment_satisfied_alt_outlined,
+                  label: 'Feeling',
+                  background: colors.accent.withValues(alpha: 0.12),
+                  color: colors.accent,
+                  onTap: onCreateUpdate,
                 ),
 
                 const Spacer(),
 
-                // --- The "Publish" Button ---
+                // Post button — blue, fully enabled
                 SizedBox(
-                  height: 28,
+                  height: 36,
                   child: FilledButton(
-                    onPressed: null,
+                    onPressed: onCreateUpdate,
                     style: FilledButton.styleFrom(
-                      backgroundColor: context.appColors.brand,
-                      disabledBackgroundColor: context.appColors.brand
-                          .withValues(alpha: 0.55),
+                      backgroundColor: colors.brand,
                       foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white.withValues(
-                        alpha: 0.92,
-                      ),
                       elevation: 0,
-                      side: BorderSide(
-                        color: context.appColors.brand.withValues(alpha: 0.2),
-                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3638,8 +3655,8 @@ class _ComposerCard extends StatelessWidget {
                         Text(
                           'Post',
                           style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         SizedBox(width: 6),
@@ -3657,45 +3674,51 @@ class _ComposerCard extends StatelessWidget {
   }
 }
 
+
 class _ComposerChip extends StatelessWidget {
   const _ComposerChip({
     required this.icon,
     required this.label,
     required this.background,
     required this.color,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final Color background;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
 class _QuoteGrid extends StatelessWidget {
   const _QuoteGrid({required this.quotes, required this.onOpenQuote});
 
@@ -4000,142 +4023,168 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final previewUsers = users.take(10).toList();
+    final previewUsers = users.take(5).toList();
     final leadName = users.first.displayName;
     final othersCount = users.length - 1;
 
     return _SurfaceCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header strip (brand blue) ─────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              color: colors.brand,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
               children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('🎂', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('🎈', style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 8),
-                      Text(
+                      const Text(
                         "Today's Birthdays",
                         style: TextStyle(
-                          color: colors.textMuted,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                      Text(
+                        '${users.length} person${users.length == 1 ? '' : 's'} celebrating today',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.70),
                           fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                InkWell(
-                  onTap: () => onViewAll(),
-                  borderRadius: BorderRadius.circular(999),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Text(
-                      'View All',
+                // View all pill
+                GestureDetector(
+                  onTap: onViewAll,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'View all',
                       style: TextStyle(
-                        color: Color(0xFF3D5AFE),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 48,
-              child: Stack(
-                children: [
-                  for (var index = 0; index < previewUsers.length; index++)
-                    Positioned(
-                      left: index * 32,
-                      child: InkWell(
-                        onTap: () =>
-                            onOpenProfile(previewUsers[index].username),
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: colors.surface, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.shadow.withValues(alpha: 0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
+          ),
+
+          // ── Body ─────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar stack + name
+                Row(
+                  children: [
+                    // Overlapping avatar stack
+                    SizedBox(
+                      height: 40,
+                      width: (previewUsers.length * 28.0) + 16,
+                      child: Stack(
+                        children: [
+                          for (var i = 0; i < previewUsers.length; i++)
+                            Positioned(
+                              left: i * 28.0,
+                              child: GestureDetector(
+                                onTap: () => onOpenProfile(
+                                  previewUsers[i].username,
+                                ),
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colors.surface,
+                                      width: 2.5,
+                                    ),
+                                    color: colors.avatarPlaceholder,
+                                  ),
+                                  child: ClipOval(
+                                    child: _Avatar(
+                                      imageUrl: previewUsers[i].photoUrl,
+                                      label: previewUsers[i].displayName,
+                                      radius: 20,
+                                      backgroundColor: colors.avatarPlaceholder,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ],
-                            color: colors.surfaceMuted,
-                          ),
-                          child: ClipOval(
-                            child: _Avatar(
-                              imageUrl: previewUsers[index].photoUrl,
-                              label: previewUsers[index].displayName,
-                              radius: 22,
-                              backgroundColor: colors.surfaceMuted,
                             ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
                           ),
+                          children: [
+                            TextSpan(
+                              text: leadName,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (othersCount > 0)
+                              TextSpan(
+                                text: '\nand $othersCount other${othersCount == 1 ? '' : 's'}.',
+                              )
+                            else
+                              const TextSpan(text: '\nis celebrating today.'),
+                          ],
                         ),
                       ),
                     ),
-                  if (users.length >= 5)
-                    Positioned(
-                      left: previewUsers.length * 32,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: colors.surfaceMuted,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colors.surface, width: 4),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '+',
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
+                  ],
                 ),
-                children: [
-                  const TextSpan(text: "It's "),
-                  TextSpan(
-                    text: leadName,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (othersCount > 0)
-                    TextSpan(text: ' and $othersCount others'),
-                  const TextSpan(text: "' birthday! 🎉"),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -4310,7 +4359,7 @@ class _PostFeedCard extends StatelessWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3D5AFE),
+                      color: colors.brand,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(

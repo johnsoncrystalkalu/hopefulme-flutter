@@ -45,7 +45,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Join our physical\nevents and hangouts.',
       description:
-          'Attend exciting meetups, life-changing programs, and city tours. HopefulMe organizes several events and conferences across multiple locations.',
+          'Attend exciting meetups, life-changing programs, and city tours. This is a safe place to connect and grow.',
       icon: Icons.event_available_rounded,
       accent: Color(0xFF059669), // Emerald Accent
     ),

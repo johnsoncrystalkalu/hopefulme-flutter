@@ -42,6 +42,7 @@ class AppStatusState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final useWebStyleOffline = isOffline;
     final accentColor = isOffline
         ? const Color(0xFF2563EB)
         : isTimeout
@@ -59,49 +60,73 @@ class AppStatusState extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: useWebStyleOffline
+                ? const EdgeInsets.fromLTRB(24, 26, 24, 24)
+                : const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: colors.borderStrong),
+              border: Border.all(
+                color: useWebStyleOffline ? colors.border : colors.borderStrong,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.10),
-                  blurRadius: 24,
-                  offset: const Offset(0, 14),
+                  color: colors.shadow.withValues(
+                    alpha: useWebStyleOffline ? 0.08 : 0.10,
+                  ),
+                  blurRadius: useWebStyleOffline ? 28 : 24,
+                  offset: useWebStyleOffline
+                      ? const Offset(0, 12)
+                      : const Offset(0, 14),
+                  spreadRadius: useWebStyleOffline ? -18 : 0,
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accentSurface,
-                        accentSurface.withValues(alpha: 0.82),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                if (useWebStyleOffline)
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      gradient: colors.brandGradient,
+                      shape: BoxShape.circle,
                     ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withValues(alpha: 0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                    child: const Icon(
+                      Icons.wifi_off_rounded,
+                      color: Colors.white,
+                      size: 34,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          accentSurface,
+                          accentSurface.withValues(alpha: 0.82),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      icon ?? Icons.info_outline_rounded,
+                      color: accentColor,
+                      size: 34,
+                    ),
                   ),
-                  child: Icon(
-                    icon ?? Icons.info_outline_rounded,
-                    color: accentColor,
-                    size: 34,
-                  ),
-                ),
                 const SizedBox(height: 18),
                 Text(
                   title,

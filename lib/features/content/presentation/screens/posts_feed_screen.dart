@@ -579,7 +579,7 @@ class _FeedStylePostCard extends StatelessWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3D5AFE),
+                      color: colors.brand,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(

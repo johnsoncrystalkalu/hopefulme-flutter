@@ -123,10 +123,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                     letterSpacing: -1.2,
                                   ),
                                 ),
-                                const TextSpan(
+                                TextSpan(
                                   text: 'Me',
                                   style: TextStyle(
-                                    color: Color(0xFFF59E0B),
+                                    color: colors.accent,
                                     fontSize: 30,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: -1.2,

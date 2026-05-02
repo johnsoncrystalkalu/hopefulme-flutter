@@ -50,22 +50,31 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+Widget build(BuildContext context) {
     final colors = context.appColors;
+
     return FutureBuilder<List<FeedUser>>(
       future: _future,
       builder: (context, snapshot) {
+        // ── Loading ──────────────────────────────────────────────────────────
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: colors.borderStrong),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colors.border),
             ),
-            child: const Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: colors.brand,
+                strokeWidth: 2,
+              ),
+            ),
           );
         }
+
+        // ── Error ────────────────────────────────────────────────────────────
         if (snapshot.hasError) {
           return AppStatusState.fromError(
             error: snapshot.error.toString(),
@@ -77,52 +86,58 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
         final users = snapshot.data ?? const <FeedUser>[];
         if (users.isEmpty) return const SizedBox.shrink();
 
+        // ── Content ──────────────────────────────────────────────────────────
         return Container(
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: colors.borderStrong),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── Header ──────────────────────────────────────────
+              // ── Header strip ───────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 5, 8, 5),
+                padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
                 child: Row(
                   children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: colors.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                     Expanded(
                       child: Text(
-                        'MOST ACTIVE THIS MONTH',
+                        'Most active this month',
                         style: TextStyle(
                           color: colors.textPrimary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: _openFullList,
-                      style: TextButton.styleFrom(
+                    GestureDetector(
+                      onTap: _openFullList,
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+                          horizontal: 10,
+                          vertical: 5,
                         ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor:
-                            colors.brand.withValues(alpha: 0.08),
-                        shape: RoundedRectangleBorder(
+                        decoration: BoxDecoration(
+                          color: colors.accentSoft,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                      ),
-                      child: Text(
-                        'Full List',
-                        style: TextStyle(
-                          color: colors.brand,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
+                        child: Text(
+                          'See all',
+                          style: TextStyle(
+                            color: colors.brand,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -130,11 +145,11 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                 ),
               ),
 
-              Divider(height: 1, color: colors.border),
+              Divider(height: 1, thickness: 0.5, color: colors.border),
 
-              // ── User Grid ────────────────────────────────────────
+              // ── User row ───────────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(8, 14, 8, 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(users.length, (index) {
@@ -145,23 +160,22 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ── Avatar + online dot ──────────────
+                            // ── Avatar ──────────────────────────────────────
                             Stack(
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
+                                  padding: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: colors.brand
-                                          .withValues(alpha: 0.25),
-                                      width: 2,
+                                      color: colors.brand.withValues(alpha: 0.30),
+                                      width: 1.5,
                                     ),
                                   ),
                                   child: CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor:
-                                        colors.brand.withValues(alpha: 0.08),
+                                    radius: 22,
+                                    backgroundColor: colors.avatarPlaceholder,
                                     backgroundImage: user.photoUrl.isNotEmpty
                                         ? NetworkImage(
                                             ImageUrlResolver.thumbnail(
@@ -172,26 +186,27 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                                         : null,
                                     child: user.photoUrl.isEmpty
                                         ? Icon(
-                                            Icons.person_outline,
-                                            size: 20,
+                                            Icons.person_outline_rounded,
+                                            size: 18,
                                             color: colors.brand,
                                           )
                                         : null,
                                   ),
                                 ),
+                                // Online dot
                                 if (user.isOnline)
                                   Positioned(
-                                    right: 1,
-                                    bottom: 1,
+                                    right: 0,
+                                    bottom: 0,
                                     child: Container(
-                                      width: 11,
-                                      height: 11,
+                                      width: 10,
+                                      height: 10,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF22C55E),
+                                        color: colors.success,
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: colors.surface,
-                                          width: 2,
+                                          width: 1.5,
                                         ),
                                       ),
                                     ),
@@ -199,9 +214,9 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                               ],
                             ),
 
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
 
-                            // ── Name ─────────────────────────────
+                            // ── First name ──────────────────────────────────
                             Text(
                               user.displayName.split(' ').first,
                               maxLines: 1,
@@ -209,29 +224,29 @@ class _MostActiveUsersCardState extends State<MostActiveUsersCard> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: colors.textPrimary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                height: 1.1,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
                               ),
                             ),
 
                             const SizedBox(height: 2),
 
-                            // ── Location / username ───────────────
+                            // ── Location / username ─────────────────────────
                             Text(
                               user.city.trim().isNotEmpty
                                   ? user.city.trim()
-                                  : (user.state.trim().isNotEmpty
+                                  : user.state.trim().isNotEmpty
                                       ? user.state.trim()
-                                      : '@${user.username}'),
+                                      : '@${user.username}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: colors.textMuted,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w600,
-                                height: 1.1,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                height: 1.2,
                               ),
                             ),
                           ],

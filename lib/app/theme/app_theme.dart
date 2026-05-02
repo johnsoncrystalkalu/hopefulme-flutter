@@ -26,7 +26,7 @@ class AppColors {
   // Brand — your electric blue
   static const brand = Color(0xFF3252E6);
   static const brandDark = Color(0xFF2846CC);
-  static const accent = Color(0xFF7C3AED);
+  static const accent = Color(0xFFF59E0B);
 
   // Semantic
   static const danger = Color(0xFFef4444);
@@ -170,7 +170,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     brandStrong: AppColors.brandDark,
     heroStart: Color(0xFF1A3580),
     heroEnd: Color(0xFF3D5AFE),
-    accent: Color(0xFFA78BFA),
+    accent: AppColors.accent,
 
     scaffold: Color(0xFF0A111D), // Slightly deeper base
     surface: Color(0xFF0F1826), // Darker card layer

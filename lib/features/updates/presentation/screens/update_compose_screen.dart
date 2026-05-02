@@ -20,39 +20,80 @@ class UpdateComposeScreen extends StatelessWidget {
   final String? currentUsername;
   final User? currentUser;
 
+  void _openArticleEditor(BuildContext context) {
+    final repository = contentRepository;
+    if (repository == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Article editor unavailable right now.'),
+          backgroundColor: context.appColors.surface,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => BlogEditorScreen.create(
+          repository: repository,
+          currentUsername: currentUsername,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Scaffold(
-      backgroundColor: context.appColors.scaffold,
+      backgroundColor: colors.scaffold,
       appBar: AppBar(
-        backgroundColor: context.appColors.surface,
-        surfaceTintColor: context.appColors.surface,
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
         titleSpacing: 0,
         title: const Text('Create Post'),
         actions: [
-          TextButton(
-            onPressed: () {
-              final repository = contentRepository;
-              if (repository == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Article editor unavailable right now.'),
-                  ),
-                );
-                return;
-              }
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => BlogEditorScreen.create(
-                    repository: repository,
-                    currentUsername: currentUsername,
+          // "Write Article" as a contained pill — visually distinct from
+          // a plain TextButton but not as heavy as a FilledButton
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () => _openArticleEditor(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.accentSoft,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colors.brand.withValues(alpha: 0.20),
                   ),
                 ),
-              );
-            },
-            child: const Text('Write Article'),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.edit_note_rounded,
+                      size: 16,
+                      color: colors.brand,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Write Article',
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
         ],
       ),
       body: UpdateSubmissionModal(
