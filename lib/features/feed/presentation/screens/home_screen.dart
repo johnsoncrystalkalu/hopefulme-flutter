@@ -1347,6 +1347,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: _HomeSidebar(
         user: user,
         activeItemLabel: _activeSidebarItemLabel,
+        themeController: widget.themeController,
         onSearchTap: _openSearch,
         onHomeTap: _goHome,
         onProfileTap: _openProfile,
@@ -1413,7 +1414,12 @@ class _HomeScreenState extends State<HomeScreen>
               },
             )
           : null,
-      drawer: isDesktop ? null : Drawer(width: 248, child: sidebar),
+      drawer: isDesktop
+          ? null
+          : Drawer(
+              width: min(336, MediaQuery.of(context).size.width * 0.88),
+              child: sidebar,
+            ),
       body: Row(
         children: [
           if (isDesktop) sidebar,
@@ -2326,6 +2332,7 @@ class _HomeSidebar extends StatelessWidget {
   const _HomeSidebar({
     required this.user,
     required this.activeItemLabel,
+    required this.themeController,
     required this.onSearchTap,
     required this.onHomeTap,
     required this.onProfileTap,
@@ -2351,6 +2358,7 @@ class _HomeSidebar extends StatelessWidget {
 
   final User? user;
   final String activeItemLabel;
+  final ThemeController themeController;
   final Future<void> Function() onSearchTap;
   final Future<void> Function() onHomeTap;
   final Future<void> Function() onProfileTap;
@@ -2379,27 +2387,15 @@ class _HomeSidebar extends StatelessWidget {
     final showAdminPanel = user?.rank.trim().isNotEmpty ?? false;
     return Container(
       width: 248,
-      decoration: BoxDecoration(color: colors.sidebar),
+      decoration: BoxDecoration(color: colors.surface),
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
-                    child: Text(
-                      'Menu',
-                      style: TextStyle(
-                        color: colors.sidebarText,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ),
                   _SidebarSection(
                     title: 'Community',
                     items: [
@@ -2530,6 +2526,19 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Settings',
                         onTap: onSettingsTap,
                       ),
+                      // Temporarily hidden:
+                      // _SidebarItemData(
+                      //   HeroIcons.moon,
+                      //   themeController.effectiveIsDark(
+                      //         Theme.of(context).brightness,
+                      //       )
+                      //       ? 'Switch to Light Mode'
+                      //       : 'Switch to Dark Mode',
+                      //   false,
+                      //   onTap: () async {
+                      //     await themeController.cycleThemeMode();
+                      //   },
+                      // ),
                     ],
                   ),
 
@@ -2551,7 +2560,6 @@ class _HomeSidebar extends StatelessWidget {
             _SidebarFooter(
               user: user,
               onProfileTap: onProfileTap,
-              onLogoutTap: onLogoutTap,
             ),
           ],
         ),
@@ -2568,20 +2576,21 @@ class _SidebarSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+      padding: const EdgeInsets.only(top: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
               title,
-              style: const TextStyle(
-                color: Color(0xFF7A8FA8),
-                fontSize: 8.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.1,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
               ),
             ),
           ),
@@ -2609,45 +2618,27 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    const activeColor = Color(0xFF3D5AFE);
-    const inactiveColor = Color(0xFF90A3BD);
-    final textColor = colors.sidebarText.withValues(alpha: 0.9);
-
     final isActive = item.active;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: Colors.transparent,
+        color: isActive
+            ? colors.brand.withValues(alpha: 0.14)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(999),
           onTap: item.onTap == null ? null : () => item.onTap!(),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? activeColor.withValues(alpha: 0.14)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Row(
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  width: 3,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: isActive ? activeColor : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 HeroIcon(
                   item.icon,
+                  size: 19,
+                  color: isActive ? colors.brand : colors.icon,
                   style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
-                  color: isActive ? activeColor : inactiveColor,
-                  size: 16,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2657,18 +2648,88 @@ class _SidebarItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
                     style: TextStyle(
-                      color: isActive ? Colors.white : textColor,
-                      fontSize: 12.5,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                      color: isActive ? colors.brand : colors.textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                if (isActive)
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 10,
-                    color: Colors.white.withValues(alpha: 0.8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarProfileCard extends StatelessWidget {
+  const _SidebarProfileCard({required this.user, required this.onProfileTap});
+
+  final User? user;
+  final Future<void> Function() onProfileTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final displayName = user?.displayName.trim().isNotEmpty == true
+        ? user!.displayName
+        : 'HopefulMe User';
+    final username = user?.username.trim().isNotEmpty == true
+        ? '@${user!.username}'
+        : '@hopefulme';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Material(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => onProfileTap(),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.borderStrong),
+            ),
+            child: Row(
+              children: [
+                AppAvatar(
+                  imageUrl: user?.photoUrl ?? '',
+                  label: displayName,
+                  radius: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: colors.icon),
               ],
             ),
           ),
@@ -2682,12 +2743,10 @@ class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter({
     required this.user,
     required this.onProfileTap,
-    required this.onLogoutTap,
   });
 
   final User? user;
   final Future<void> Function() onProfileTap;
-  final Future<bool> Function() onLogoutTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2698,99 +2757,113 @@ class _SidebarFooter extends StatelessWidget {
     final username = user?.username.trim().isNotEmpty == true
         ? '@${user!.username}'
         : '@hopefulme';
-
+    final role1 = user?.role1.trim() ?? '';
+    final isVerified = user?.isVerified ?? false;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       decoration: BoxDecoration(
-        color: colors.sidebar,
+        color: colors.surface,
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          top: BorderSide(color: colors.borderStrong),
         ),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.045),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onProfileTap(),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      children: [
-                        _Avatar(
-                          imageUrl: user?.photoUrl ?? '',
-                          label: displayName,
-                          radius: 18,
-                          backgroundColor: colors.avatarPlaceholder,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        children: [
+          Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: () => onProfileTap(),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.borderStrong),
+                ),
+                child: Row(
+                  children: [
+                    AppAvatar(
+                      imageUrl: user?.photoUrl ?? '',
+                      label: displayName,
+                      radius: 17,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                displayName,
+                              Flexible(
+                                child: Text(
+                                  displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              if (isVerified) ...[
+                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.verified_rounded,
+                                  size: 14,
+                                  color: colors.brand,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (role1.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.accentSoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                role1,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: colors.sidebarText,
-                                  fontSize: 13,
+                                  color: colors.accentSoftText,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                username,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.sidebarMuted,
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
+                    Icon(Icons.chevron_right_rounded, color: colors.icon, size: 18),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onLogoutTap(),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colors.sidebar,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: HeroIcon(
-                    HeroIcons.arrowRightOnRectangle,
-                    size: 18,
-                    color: colors.sidebarText,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

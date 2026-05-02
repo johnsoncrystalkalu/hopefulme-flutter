@@ -247,10 +247,14 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                         _OnlinePanel(users: _onlineUsers, onTap: _openProfile),
                         SizedBox(height: showRail ? 22 : 18),
                       ],
-                      if (_todayBirthdays.isNotEmpty) ...[
-                        _BirthdaysPanel(users: _todayBirthdays, onTap: _openProfile),
-                        SizedBox(height: showRail ? 22 : 18),
-                      ],
+                      // Temporarily hidden for future redesign:
+                      // if (_todayBirthdays.isNotEmpty) ...[
+                      //   _BirthdaysPanel(
+                      //     users: _todayBirthdays,
+                      //     onTap: _openProfile,
+                      //   ),
+                      //   SizedBox(height: showRail ? 22 : 18),
+                      // ],
                       _MeetMainColumn(
                         featured: featured,
                         items: suggestedItems,
