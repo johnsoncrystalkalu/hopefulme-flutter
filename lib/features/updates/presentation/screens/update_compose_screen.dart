@@ -58,39 +58,7 @@ class UpdateComposeScreen extends StatelessWidget {
         surfaceTintColor: colors.surface,
         titleSpacing: 0,
         title: const Text('Create Post'),
-        actions: [
-          // "Write Article" as a contained pill — visually distinct from
-          // a plain TextButton but not as heavy as a FilledButton
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => _openArticleEditor(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.accentSoft,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: colors.brand.withValues(alpha: 0.20),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.edit_note_rounded,
-                      size: 16,
-                      color: colors.brand,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        
       ),
       body: UpdateSubmissionModal(
         updateRepository: updateRepository,

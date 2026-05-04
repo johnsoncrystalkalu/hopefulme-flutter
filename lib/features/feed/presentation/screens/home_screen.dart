@@ -40,8 +40,6 @@ import 'package:hopefulme_flutter/features/feed/presentation/screens/monthly_bir
 import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
-import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
-import 'package:hopefulme_flutter/features/groups/presentation/screens/group_thread_screen.dart';
 import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_screen.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
@@ -139,12 +137,12 @@ class _HomeScreenState extends State<HomeScreen>
     const _TopBarSnapshot(),
   );
   late Future<FeedDashboard> _dashboardFuture;
-  late Future<List<AppGroup>> _homeGroupsPreviewFuture;
   late final String _webBaseUrl;
   Timer? _pollingTimer;
   int _selectedBottomNav = 0;
   bool _inAppNotificationsEnabled = true;
   List<FeedEntry> _homeUpdates = <FeedEntry>[];
+  List<FeedUser> _homeSuggestedUsers = <FeedUser>[];
   bool _isLoadingMoreHomeUpdates = false;
   bool _hasLoadMoreHomeUpdatesError = false;
   bool _hasMoreHomeUpdates = true;
@@ -163,7 +161,6 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _homeScrollController.addListener(_handleHomeScroll);
     _dashboardFuture = _createDashboardFuture();
-    _homeGroupsPreviewFuture = _createHomeGroupsPreviewFuture();
     _webBaseUrl = AppConfig.fromEnvironment().webBaseUrl;
     _loadShellPreferences();
     _refreshTopbarData();
@@ -321,15 +318,6 @@ class _HomeScreenState extends State<HomeScreen>
     return future;
   }
 
-  Future<List<AppGroup>> _createHomeGroupsPreviewFuture() async {
-    try {
-      final page = await widget.groupRepository.fetchGroups(page: 1);
-      return _buildHomeGroupsPreview(page.items);
-    } catch (_) {
-      return const <AppGroup>[];
-    }
-  }
-
   Future<void> _refreshDashboard() async {
     setState(() {
       _homeUpdatesPage = 1;
@@ -349,6 +337,7 @@ class _HomeScreenState extends State<HomeScreen>
         .toList(growable: true);
     if (!mounted) {
       _homeUpdates = updates;
+      _homeSuggestedUsers = dashboard.suggested.take(3).toList(growable: false);
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
       _hasLoadMoreHomeUpdatesError = false;
@@ -357,6 +346,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     setState(() {
       _homeUpdates = updates;
+      _homeSuggestedUsers = dashboard.suggested.take(3).toList(growable: false);
       _homeUpdatesPage = 1;
       _hasMoreHomeUpdates = true;
       _isLoadingMoreHomeUpdates = false;
@@ -400,7 +390,10 @@ class _HomeScreenState extends State<HomeScreen>
 
       nextHomeUpdatesPage = page.currentPage;
       nextHasMoreHomeUpdates = page.hasMore;
-      nextHomeUpdates = _mergeFeedEntries(_homeUpdates, page.items);
+      final filteredItems = page.items
+          .where((entry) => entry.type == 'update' || entry.type == 'advert')
+          .toList(growable: false);
+      nextHomeUpdates = _mergeFeedEntries(_homeUpdates, filteredItems);
     } catch (_) {
       nextHasLoadMoreError = true;
     } finally {
@@ -677,7 +670,6 @@ class _HomeScreenState extends State<HomeScreen>
       _hasLoadMoreHomeUpdatesError = false;
       _isLoadingMoreHomeUpdates = false;
       _dashboardFuture = _createDashboardFuture();
-      _homeGroupsPreviewFuture = _createHomeGroupsPreviewFuture();
     });
   }
 
@@ -749,25 +741,6 @@ class _HomeScreenState extends State<HomeScreen>
         _selectedBottomNav = 0;
       }
     });
-  }
-
-  Future<void> _openGroupPreview(AppGroup group) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => GroupThreadScreen(
-          groupId: group.id,
-          currentUser: widget.authController.currentUser,
-          repository: widget.groupRepository,
-          profileRepository: widget.profileRepository,
-          messageRepository: widget.messageRepository,
-          updateRepository: widget.updateRepository,
-        ),
-      ),
-    );
-
-    if (changed ?? false) {
-      await _refreshUnreadGroups(silent: true);
-    }
   }
 
   Future<void> _openConversation(ConversationListItem item) async {
@@ -1422,6 +1395,7 @@ class _HomeScreenState extends State<HomeScreen>
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1180;
     final showBottomNav = width < 960 && !widget.embedInMajorShell;
+    const bottomNavHeight = 76.0;
     final sidebar = RepaintBoundary(
       child: _HomeSidebar(
         user: user,
@@ -1454,86 +1428,51 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: colors.scaffold,
-      bottomNavigationBar: showBottomNav
-          ? MajorBottomNav(
-              selectedIndex: _selectedBottomNav,
-              unreadGroupsCount: _topBarSnapshot.value.unreadGroups,
-              onSelected: (index) async {
-                switch (index) {
-                  case 2:
-                    await _openCreateUpdate();
-                    return;
-                  case 0:
-                    setState(() {
-                      _selectedBottomNav = 0;
-                    });
-                    _goHome();
-                    return;
-                  case 1:
-                    setState(() {
-                      _selectedBottomNav = 1;
-                    });
-                    _openSearch();
-                    return;
-                  case 3:
-                    setState(() {
-                      _selectedBottomNav = 3;
-                    });
-                    _openGroups();
-                    return;
-                  case 4:
-                    setState(() {
-                      _selectedBottomNav = 4;
-                    });
-                    _openMeetNewFriends();
-                    return;
-                  default:
-                    return;
-                }
-              },
-            )
-          : null,
       drawer: isDesktop
           ? null
           : Drawer(
               width: min(320, MediaQuery.of(context).size.width * 0.84),
               child: sidebar,
             ),
-      body: Row(
+      body: Stack(
         children: [
-          if (isDesktop) sidebar,
-          Expanded(
-            child: Column(
+          Padding(
+            padding: EdgeInsets.only(bottom: showBottomNav ? bottomNavHeight : 0),
+            child: Row(
               children: [
-                RepaintBoundary(
-                  child: ValueListenableBuilder<_TopBarSnapshot>(
-                    valueListenable: _topBarSnapshot,
-                    builder: (context, topBar, _) => _HomeTopBar(
-                      user: user,
-                      unreadNotifications: topBar.unreadNotifications,
-                      unreadMessages: topBar.unreadMessages,
-                      onMessageCenterTap: _openMessages,
-                      onNotificationCenterTap: _openNotifications,
-                      onProfileTap: _openProfile,
-                      onSettingsTap: _openSettings,
-                      onMenuTap: isDesktop
-                          ? null
-                          : () {
-                              final state = _scaffoldKey.currentState;
-                              if (state == null) {
-                                return;
-                              }
-                              if (state.isDrawerOpen) {
-                                Navigator.of(context).pop();
-                              } else {
-                                state.openDrawer();
-                              }
-                            },
-                    ),
-                  ),
-                ),
+                if (isDesktop) sidebar,
                 Expanded(
-                  child: FutureBuilder<FeedDashboard>(
+                  child: Column(
+                    children: [
+                      RepaintBoundary(
+                        child: ValueListenableBuilder<_TopBarSnapshot>(
+                          valueListenable: _topBarSnapshot,
+                          builder: (context, topBar, _) => _HomeTopBar(
+                            user: user,
+                            unreadNotifications: topBar.unreadNotifications,
+                            unreadMessages: topBar.unreadMessages,
+                            onMessageCenterTap: _openMessages,
+                            onNotificationCenterTap: _openNotifications,
+                            onProfileTap: _openProfile,
+                            onSettingsTap: _openSettings,
+                            onMenuTap: isDesktop
+                                ? null
+                                : () {
+                                    final state = _scaffoldKey.currentState;
+                                    if (state == null) {
+                                      return;
+                                    }
+                                    if (state.isDrawerOpen) {
+                                      Navigator.of(context).pop();
+                                    } else {
+                                      state.openDrawer();
+                                    }
+                                  },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: FutureBuilder<FeedDashboard>(
                     future: _dashboardFuture,
                     builder: (context, snapshot) {
                       final dashboard = snapshot.data;
@@ -1565,8 +1504,6 @@ class _HomeScreenState extends State<HomeScreen>
                                             dashboard: dashboard,
                                             feedRepository:
                                                 widget.feedRepository,
-                                            homeGroupsPreviewFuture:
-                                                _homeGroupsPreviewFuture,
                                             highlightedUpdateId:
                                                 _highlightedUpdateId,
                                             onOpenEditMedia: _openEditMedia,
@@ -1592,9 +1529,6 @@ class _HomeScreenState extends State<HomeScreen>
                                                 _openMonthlyBirthdays,
                                             onOpenTodayBirthdays:
                                                 _openTodayBirthdays,
-                                            onOpenGroups: _openGroups,
-                                            onOpenGroupPreview:
-                                                _openGroupPreview,
                                             updateRepository:
                                                 widget.updateRepository,
                                             isLoading:
@@ -1614,8 +1548,6 @@ class _HomeScreenState extends State<HomeScreen>
                                           user: user,
                                           dashboard: dashboard,
                                           feedRepository: widget.feedRepository,
-                                          homeGroupsPreviewFuture:
-                                              _homeGroupsPreviewFuture,
                                           highlightedUpdateId:
                                               _highlightedUpdateId,
                                           onOpenEditMedia: _openEditMedia,
@@ -1641,8 +1573,6 @@ class _HomeScreenState extends State<HomeScreen>
                                               _openMonthlyBirthdays,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
-                                          onOpenGroups: _openGroups,
-                                          onOpenGroupPreview: _openGroupPreview,
                                           updateRepository:
                                               widget.updateRepository,
                                           isLoading:
@@ -1683,7 +1613,25 @@ class _HomeScreenState extends State<HomeScreen>
                                     context,
                                     index,
                                   ) {
-                                    final entry = _homeUpdates[index];
+                                    final showSuggestionsCard =
+                                        _homeSuggestedUsers.isNotEmpty &&
+                                        _homeUpdates.length > 5;
+                                    if (showSuggestionsCard && index == 5) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: _HomeSuggestedFriendsCard(
+                                          users: _homeSuggestedUsers,
+                                          onOpenProfile: _openUserProfile,
+                                        ),
+                                      );
+                                    }
+                                    final entryIndex =
+                                        showSuggestionsCard && index > 5
+                                        ? index - 1
+                                        : index;
+                                    final entry = _homeUpdates[entryIndex];
                                     final isHighlighted =
                                         entry.type == 'update' &&
                                         entry.id == _highlightedUpdateId;
@@ -1717,7 +1665,11 @@ class _HomeScreenState extends State<HomeScreen>
                                         ),
                                       ),
                                     );
-                                  }, childCount: _homeUpdates.length),
+                                  }, childCount: _homeUpdates.length +
+                                        ((_homeSuggestedUsers.isNotEmpty &&
+                                                _homeUpdates.length > 5)
+                                            ? 1
+                                            : 0)),
                                 ),
                               ),
                             if (_isLoadingMoreHomeUpdates ||
@@ -1766,11 +1718,57 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       );
                     },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+          if (showBottomNav)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: MajorBottomNav(
+                selectedIndex: _selectedBottomNav,
+                unreadGroupsCount: _topBarSnapshot.value.unreadGroups,
+                onSelected: (index) async {
+                  switch (index) {
+                    case 2:
+                      await _openCreateUpdate();
+                      return;
+                    case 0:
+                      setState(() {
+                        _selectedBottomNav = 0;
+                      });
+                      _goHome();
+                      return;
+                    case 1:
+                      setState(() {
+                        _selectedBottomNav = 1;
+                      });
+                      _openSearch();
+                      return;
+                    case 3:
+                      setState(() {
+                        _selectedBottomNav = 3;
+                      });
+                      _openGroups();
+                      return;
+                    case 4:
+                      setState(() {
+                        _selectedBottomNav = 4;
+                      });
+                      _openMeetNewFriends();
+                      return;
+                    default:
+                      return;
+                  }
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -2140,7 +2138,7 @@ class _DropdownShell extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3D5AFE),
+                        color: const Color(0xFF3252E6),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
@@ -2261,7 +2259,7 @@ class _NotificationDropdownRow extends StatelessWidget {
                 padding: EdgeInsets.only(left: 8, top: 4),
                 child: CircleAvatar(
                   radius: 4,
-                  backgroundColor: Color(0xFF3D5AFE),
+                  backgroundColor: Color(0xFF3252E6),
                 ),
               ),
           ],
@@ -2372,7 +2370,7 @@ class _MessageDropdownRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3D5AFE),
+                  color: const Color(0xFF3252E6),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -2516,6 +2514,13 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Activities',
                         onTap: onActivitiesTap,
                       ),
+                        _SidebarItemData(
+                        HeroIcons.users,
+                        'Group Chats',
+                        activeItemLabel == 'Group Chats',
+                        onTap: onGroupsTap,
+                      ),
+
                       _SidebarItemData(
                         HeroIcons.pencilSquare,
                         'Blog & Articles',
@@ -2530,12 +2535,7 @@ class _HomeSidebar extends StatelessWidget {
                         onTap: onInspirationsTap,
                       ),
 
-                      // _SidebarItemData(
-                      //   HeroIcons.users,
-                      //   'Group Chats',
-                      //   activeItemLabel == 'Group Chats',
-                      //   onTap: onGroupsTap,
-                      // ),
+                    
                       // _SidebarItemData(
                       //   HeroIcons.userPlus,
                       //   'Meet New Friends',
@@ -2713,7 +2713,7 @@ class _SidebarItem extends StatelessWidget {
     final isActive = item.active;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 3),
       child: Material(
         color: isActive
             ? colors.brand.withValues(alpha: 0.14)
@@ -2723,12 +2723,12 @@ class _SidebarItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: item.onTap == null ? null : () => item.onTap!(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             child: Row(
               children: [
                 HeroIcon(
                   item.icon,
-                  size: 19,
+                  size: 18,
                   color: isActive ? colors.brand : colors.icon,
                   style: isActive ? HeroIconStyle.solid : HeroIconStyle.outline,
                 ),
@@ -2741,7 +2741,7 @@ class _SidebarItem extends StatelessWidget {
                     softWrap: false,
                     style: TextStyle(
                       color: isActive ? colors.brand : colors.textPrimary,
-                      fontSize: 13.5,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2968,7 +2968,6 @@ class _HomeContent extends StatelessWidget {
     required this.user,
     required this.dashboard,
     required this.feedRepository,
-    required this.homeGroupsPreviewFuture,
     required this.highlightedUpdateId,
     required this.onOpenEditMedia,
     required this.onCreateUpdate,
@@ -2985,8 +2984,6 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenFlyerTemplates,
     required this.onOpenMonthlyBirthdays,
     required this.onOpenTodayBirthdays,
-    required this.onOpenGroups,
-    required this.onOpenGroupPreview,
     required this.updateRepository,
     required this.isLoading,
     required this.error,
@@ -2995,7 +2992,6 @@ class _HomeContent extends StatelessWidget {
   final User? user;
   final FeedDashboard? dashboard;
   final FeedRepository feedRepository;
-  final Future<List<AppGroup>> homeGroupsPreviewFuture;
   final int? highlightedUpdateId;
   final Future<void> Function() onOpenEditMedia;
   final Future<void> Function() onCreateUpdate;
@@ -3012,8 +3008,6 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onOpenFlyerTemplates;
   final Future<void> Function() onOpenMonthlyBirthdays;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
-  final Future<void> Function() onOpenGroups;
-  final Future<void> Function(AppGroup group) onOpenGroupPreview;
   final UpdateRepository updateRepository;
   final bool isLoading;
   final String? error;
@@ -3021,12 +3015,7 @@ class _HomeContent extends StatelessWidget {
   List<Widget> _buildFeedSections(BuildContext context, FeedDashboard data) {
     final widgets = <Widget>[];
     final postsBlock = data.feed
-        .where(
-          (entry) =>
-              entry.type != 'update' &&
-              entry.type != 'blog' &&
-              entry.type != 'advert',
-        )
+        .where((entry) => entry.type == 'post')
         .toList(growable: false);
 
     if (postsBlock.isNotEmpty) {
@@ -3079,35 +3068,30 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
       );
-      widgets.add(
-        FutureBuilder<List<AppGroup>>(
-          future: homeGroupsPreviewFuture,
-          builder: (context, snapshot) {
-            final groups = snapshot.data ?? const <AppGroup>[];
-            if (groups.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8, top: 12),
-              child: _HomeGroupsPreviewCard(
-                groups: groups,
-                onOpenGroups: onOpenGroups,
-                onOpenGroup: onOpenGroupPreview,
-              ),
-            );
-          },
-        ),
-      );
+      if (data.todayBirthdays.isNotEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: _BirthdayCelebrationStrip(
+              users: data.todayBirthdays,
+              onOpenProfile: onOpenProfile,
+              onViewAll: onOpenMonthlyBirthdays,
+              onSendWishes: () => onOpenTodayBirthdays(data.todayBirthdays),
+              onDesignCard: onOpenFlyerTemplates,
+            ),
+          ),
+        );
+      }
       widgets.add(
         Padding(
-          padding: const EdgeInsets.only(bottom: 8, top: 12),
+          padding: const EdgeInsets.only(top: 2, bottom: 8),
           child: MostActiveUsersCard(
             feedRepository: feedRepository,
             onOpenProfile: onOpenProfile,
           ),
         ),
       );
-      widgets.add(const SizedBox(height: 8));
+      widgets.add(const SizedBox(height: 2));
     }
 
     return widgets;
@@ -3154,17 +3138,6 @@ class _HomeContent extends StatelessWidget {
           onOpenProfile: onOpenProfile,
         ),
         const SizedBox(height: 14),
-        if (data.todayBirthdays.isNotEmpty) ...[
-          _BirthdayCelebrationStrip(
-            users: data.todayBirthdays,
-            onOpenProfile: onOpenProfile,
-            onViewAll: onOpenMonthlyBirthdays,
-            onSendWishes: () => onOpenTodayBirthdays(data.todayBirthdays),
-            onDesignCard: onOpenFlyerTemplates,
-          ),
-
-          const SizedBox(height: 8),
-        ],
         if (shouldPromptForPhoto) ...[
           _ProfilePhotoReminderCard(user: currentUser, onTap: onOpenEditMedia),
           const SizedBox(height: 12),
@@ -3200,42 +3173,6 @@ class _HomeContent extends StatelessWidget {
       ],
     );
   }
-}
-
-List<AppGroup> _buildHomeGroupsPreview(List<AppGroup> groups) {
-  final activeGroups = groups
-      .where((group) => group.status == 'active')
-      .toList(growable: false);
-  if (activeGroups.isEmpty) {
-    return const <AppGroup>[];
-  }
-
-  AppGroup? communityGroup;
-  for (final group in activeGroups) {
-    if (group.id == 1) {
-      communityGroup = group;
-      break;
-    }
-  }
-  final otherGroups = activeGroups
-      .where((group) => group.id != 1)
-      .toList(growable: true);
-
-  final preview = <AppGroup>[];
-  if (communityGroup != null) {
-    preview.add(communityGroup);
-  }
-  if (otherGroups.isNotEmpty) {
-    otherGroups.shuffle(Random());
-    preview.add(otherGroups.first);
-  }
-
-  if (preview.isEmpty) {
-    otherGroups.shuffle(Random());
-    return otherGroups.take(2).toList(growable: false);
-  }
-
-  return preview.take(2).toList(growable: false);
 }
 
 class _HomeLoadingSkeleton extends StatelessWidget {
@@ -3551,7 +3488,7 @@ class _StoriesRow extends StatelessWidget {
                       radius: 30,
                       child: Icon(
                         Icons.arrow_outward,
-                        color: Color(0xFF3D5AFE),
+                        color: Color(0xFF3252E6),
                         size: 18,
                       ),
                     ),
@@ -3559,7 +3496,7 @@ class _StoriesRow extends StatelessWidget {
                     Text(
                       'Connect',
                       style: TextStyle(
-                        color: Color(0xFF3D5AFE),
+                        color: Color(0xFF3252E6),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -3582,7 +3519,7 @@ class _StoriesRow extends StatelessWidget {
                     padding: const EdgeInsets.all(2.5),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF3D5AFE),
+                      color: Color(0xFF3252E6),
                     ),
                     child: _Avatar(
                       imageUrl: user.photoUrl,
@@ -3627,10 +3564,9 @@ class _ComposerCard extends StatelessWidget {
 
     return _SurfaceCard(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           children: [
-            // ── Avatar + prompt input ───────────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -3672,17 +3608,16 @@ class _ComposerCard extends StatelessWidget {
                     onTap: onCreateUpdate,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 13,
+                        horizontal: 14,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
                         color: colors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: colors.border),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        "Share your thoughts...",
-                        style: TextStyle(color: colors.textMuted, fontSize: 14),
+                        "Share something...",
+                        style: TextStyle(color: colors.textMuted, fontSize: 13),
                       ),
                     ),
                   ),
@@ -3690,15 +3625,9 @@ class _ComposerCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 4),
-
-            // ── Divider ─────────────────────────────────────────────────────
-            Divider(color: colors.border, thickness: 0.5, height: 20),
-
-            // ── Action row ──────────────────────────────────────────────────
+            const SizedBox(height: 10),
             Row(
               children: [
-                // Photo chip — blue
                 _ComposerChip(
                   icon: Icons.image_outlined,
                   label: 'Photo',
@@ -3709,7 +3638,6 @@ class _ComposerCard extends StatelessWidget {
 
                 const SizedBox(width: 8),
 
-                // Feeling chip — orange (not warning yellow)
                 _ComposerChip(
                   icon: Icons.sentiment_satisfied_alt_outlined,
                   label: 'Feeling',
@@ -3720,9 +3648,8 @@ class _ComposerCard extends StatelessWidget {
 
                 const Spacer(),
 
-                // Post button — blue, fully enabled
                 SizedBox(
-                  height: 36,
+                  height: 34,
                   child: FilledButton(
                     onPressed: onCreateUpdate,
                     style: FilledButton.styleFrom(
@@ -3730,9 +3657,9 @@ class _ComposerCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -3740,12 +3667,10 @@ class _ComposerCard extends StatelessWidget {
                         Text(
                           'Post',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(width: 6),
-                        Icon(Icons.arrow_forward_rounded, size: 14),
                       ],
                     ),
                   ),
@@ -3779,21 +3704,21 @@ class _ComposerChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 6),
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -3847,7 +3772,7 @@ class _QuoteGrid extends StatelessWidget {
                       // placeholderLabel: quote.title,
                     )
                   else
-                    Container(color: const Color(0xFF3D5AFE)),
+                    Container(color: const Color(0xFF3252E6)),
                   Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -3912,7 +3837,7 @@ class _QuoteFullscreenViewer extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF273469), Color(0xFF3D5AFE)],
+                    colors: [Color(0xFF273469), Color(0xFF3252E6)],
                   ),
                 ),
               ),
@@ -3996,87 +3921,19 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final previewUsers = users.take(5).toList();
-    final leadName = users.first.displayName;
+    final leadNameWords = users.first.displayName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .take(2)
+        .toList();
+    final leadName = leadNameWords.isEmpty ? users.first.displayName : leadNameWords.join(' ');
     final othersCount = users.length - 1;
 
     return _SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header strip (brand blue) ─────────────────────────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surfaceMuted,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('🎂', style: TextStyle(fontSize: 16)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Today's Birthdays",
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                      Text(
-                        '${users.length} friend${users.length == 1 ? '' : 's'} celebrating today',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // View all pill
-                GestureDetector(
-                  onTap: onViewAll,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Text(
-                      'View all',
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           // ── Body ─────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -4129,25 +3986,21 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         text: TextSpan(
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                           children: [
                             TextSpan(
-                              text: leadName,
+                              text: "It's $leadName",
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (othersCount > 0)
-                              TextSpan(
-                                text:
-                                    '\nand $othersCount other${othersCount == 1 ? '' : 's'} are celebrating',
-                              )
-                            else
-                              const TextSpan(text: '\nis celebrating today'),
+                            TextSpan(
+                              text: ' and $othersCount others birthday 🎂',
+                            ),
                           ],
                         ),
                       ),
@@ -4167,7 +4020,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: colors.accent,
                           foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(40),
+                          minimumSize: const Size.fromHeight(36),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -4175,12 +4028,12 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         ),
                         icon: const Icon(
                           Icons.chat_bubble_outline_rounded,
-                          size: 15,
+                          size: 14,
                         ),
                         label: const Text(
                           'Send wishes',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -4189,22 +4042,27 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                     const SizedBox(width: 10),
                     // View profiles — ghost button
                     Expanded(
-                      child: OutlinedButton(
+                      child: FilledButton.icon(
                         onPressed: onDesignCard,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.textPrimary,
-                          minimumSize: const Size.fromHeight(40),
-                          side: BorderSide(color: colors.borderStrong),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colors.brand,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          minimumSize: const Size.fromHeight(36),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           padding: EdgeInsets.zero,
                         ),
-                        child: const Text(
+                        icon: const Icon(
+                          Icons.brush_outlined,
+                          size: 14,
+                        ),
+                        label: const Text(
                           'Design a card',
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -4251,7 +4109,11 @@ class _FeedEntryCard extends StatelessWidget {
       return FeedAdvertCard(entry: entry);
     }
 
-    if (entry.type == 'post' || entry.type == 'blog') {
+    if (entry.type == 'blog') {
+      return const SizedBox.shrink();
+    }
+
+    if (entry.type == 'post') {
       return _PostFeedCard(
         entry: entry,
         onOpenPost: onOpenPost,
@@ -4524,7 +4386,7 @@ class _BlogFeedCard extends StatelessWidget {
                         child: const Text(
                           'BLOG',
                           style: TextStyle(
-                            color: Color(0xFF3D5AFE),
+                            color: Color(0xFF3252E6),
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                           ),
@@ -4748,148 +4610,185 @@ class _FeedExploreChip extends StatelessWidget {
   }
 }
 
-class _HomeGroupsPreviewCard extends StatelessWidget {
-  const _HomeGroupsPreviewCard({
-    required this.groups,
-    required this.onOpenGroups,
-    required this.onOpenGroup,
+class _HomeSuggestedFriendsCard extends StatelessWidget {
+  const _HomeSuggestedFriendsCard({
+    required this.users,
+    required this.onOpenProfile,
   });
 
-  final List<AppGroup> groups;
-  final Future<void> Function() onOpenGroups;
-  final Future<void> Function(AppGroup group) onOpenGroup;
+  final List<FeedUser> users;
+  final Future<void> Function(String username) onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return _SurfaceCard(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Group Chats',
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
+    final visibleUsers = users.take(2).toList(growable: false);
+    if (visibleUsers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'SUGGESTED FOR YOU',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.0,
                 ),
-                const Spacer(),
-                InkWell(
-                  onTap: () => onOpenGroups(),
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      'See All',
-                      style: TextStyle(
-                        color: colors.brand,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Divider(
+                  color: colors.border,
+                  thickness: 1,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: visibleUsers
+                    .map(
+                      (user) => SizedBox(
+                        width: cardWidth,
+                        child: _HomeFriendSuggestionCard(
+                          user: user,
+                          onProfileTap: () => onOpenProfile(user.username),
+                          onHelloTap: () => onOpenProfile(user.username),
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeFriendSuggestionCard extends StatelessWidget {
+  const _HomeFriendSuggestionCard({
+    required this.user,
+    required this.onProfileTap,
+    required this.onHelloTap,
+  });
+
+  final FeedUser user;
+  final VoidCallback onProfileTap;
+  final VoidCallback onHelloTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final suggestionImageUrl = user.mainPhotoUrl.isNotEmpty
+        ? user.mainPhotoUrl
+        : user.photoUrl;
+
+    return InkWell(
+      onTap: onProfileTap,
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: colors.borderStrong),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.surface, width: 3),
+                    image: suggestionImageUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(suggestionImageUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                    color: colors.avatarPlaceholder,
+                  ),
+                  child: suggestionImageUrl.isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 36,
+                          color: colors.accentSoftText,
+                        )
+                      : null,
+                ),
+                if (user.isOnline)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: colors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            ...groups.map(
-              (group) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: InkWell(
-                  onTap: () => onOpenGroup(group),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      children: [
-                        if (group.photoUrl.isNotEmpty)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(11),
-                            child: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: AppNetworkImage(
-                                imageUrl: group.photoUrl,
-                                fit: BoxFit.cover,
-                                placeholderLabel: group.name,
-                              ),
-                            ),
-                          )
-                        else
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: colors.brandGradient,
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            child: const Icon(
-                              Icons.groups_2_outlined,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                group.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                group.info.trim().isNotEmpty
-                                    ? group.info
-                                    : 'Join the conversation',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.textMuted,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.accentSoft,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            group.isMember ? 'Open' : 'Join',
-                            style: TextStyle(
-                              color: colors.brand,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+            const SizedBox(height: 10),
+            VerifiedNameText(
+              name: user.displayName,
+              verified: user.isVerified,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              user.cityState.isEmpty ? '@${user.username}' : user.cityState,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onHelloTap,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(34),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                ),
+                child: const Text(
+                  'Connect',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ),
             ),

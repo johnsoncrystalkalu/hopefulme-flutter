@@ -344,7 +344,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   ],
                   if (community != null) ...[
                     const SizedBox(height: 20),
-                    _SectionTitle(title: 'Community', trailing: 'Official'),
+                    _SectionTitle(title: 'Community', trailing: 'General'),
                     const SizedBox(height: 12),
                     _CommunityCard(
                       group: community,
@@ -354,7 +354,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   if (joinedGroups.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _SectionTitle(
-                      title: 'Joined Groups',
+                      title: 'My Groups',
                       trailing: '${joinedGroups.length}',
                     ),
                     const SizedBox(height: 12),
@@ -370,7 +370,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   ],
                   const SizedBox(height: 24),
                   _SectionTitle(
-                    title: 'Open Groups',
+                    title: 'Explore',
                     trailing: '${unjoinedGroups.length}',
                   ),
                   const SizedBox(height: 12),

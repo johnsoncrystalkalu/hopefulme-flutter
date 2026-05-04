@@ -244,7 +244,7 @@ class _FlyerTemplatesScreenState extends State<FlyerTemplatesScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Create flyers, cards, and posters. Share and invite friends.',
+                            'Create flyers, cards, and posters. Share your designs and invite friends.',
                             style: TextStyle(
                               color: colors.textSecondary,
                               fontSize: 12,

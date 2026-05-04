@@ -936,18 +936,18 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                 ),
                 title: RichText(
                   text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'HopefulMe',
-                        style: TextStyle(
-                          color: context.appColors.icon,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
+                    // children: [
+                    //   TextSpan(
+                    //     text: 'HopefulMe',
+                    //     style: TextStyle(
+                    //       color: context.appColors.icon,
+                    //       fontSize: 16,
+                    //       fontWeight: FontWeight.w400,
+                    //       letterSpacing: -0.5,
+                    //     ),
+                    //   ),
                      
-                    ],
+                    // ],
                   ),
                 ),
                 actions: [
@@ -1059,14 +1059,43 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            VerifiedNameText(
-                                              name: detail.user.displayName,
-                                              verified: detail.user.isVerified,
-                                              style: TextStyle(
-                                                color: colors.textPrimary,
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: VerifiedNameText(
+                                                    name: detail.user.displayName,
+                                                    verified: detail.user.isVerified,
+                                                    style: TextStyle(
+                                                      color: colors.textPrimary,
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: colors.accentSoft,
+                                                    borderRadius: BorderRadius.circular(999),
+                                                    border: Border.all(
+                                                      color: colors.borderStrong,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'HopefulMe',
+                                                    style: TextStyle(
+                                                      color: colors.accentSoftText,
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w800,
+                                                      letterSpacing: 0.2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                             const SizedBox(height: 2),
                                             Text(

@@ -51,18 +51,14 @@ class SettingsScreen extends StatelessWidget {
       await Share.share(_inviteMessage, subject: 'Join me on HopefulMe');
     } catch (_) {
       await Clipboard.setData(const ClipboardData(text: _inviteMessage));
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       AppToast.info(context, 'Sharing unavailable. Invite message copied.');
     }
   }
 
   Future<void> _copyOfficialWebsiteLink(BuildContext context) async {
     await Clipboard.setData(const ClipboardData(text: _officialWebsiteUrl));
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
     AppToast.success(context, 'Official website link copied.');
   }
 
@@ -77,26 +73,19 @@ class SettingsScreen extends StatelessWidget {
     if (useSignedSession) {
       try {
         final bridged = await authRepository.createWebSessionUrl(rawUrl);
-        if (bridged.trim().isNotEmpty) {
-          targetUrl = bridged.trim();
-        }
-      } catch (_) {
-        // Fall back to direct URL if signing fails.
-      }
+        if (bridged.trim().isNotEmpty) targetUrl = bridged.trim();
+      } catch (_) {}
     }
 
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => WebPageScreen(
           title: title,
           url: targetUrl,
-          onInternalLinkTap: enableInternalLinkRouting
-              ? onInternalLinkTap
-              : null,
+          onInternalLinkTap:
+              enableInternalLinkRouting ? onInternalLinkTap : null,
         ),
       ),
     );
@@ -112,12 +101,22 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.scaffold,
       appBar: AppBar(
-        backgroundColor: colors.surface,
-        surfaceTintColor: colors.surface,
-        title: const Text('Settings'),
+        backgroundColor: colors.scaffold,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
+          ),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
         children: [
           _SettingsHeader(
             username: safeUsername,
@@ -125,14 +124,14 @@ class SettingsScreen extends StatelessWidget {
             photoUrl: currentUser?.photoUrl ?? '',
             isVerified: isVerified,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 28),
           _SettingsGroup(
             title: 'Account',
             children: [
               _SettingsTile(
                 icon: Icons.person_outline_rounded,
                 title: 'Edit Profile',
-                subtitle: 'Update your profile information.',
+                subtitle: 'Update your profile information',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => EditProfileScreen(
@@ -145,7 +144,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.photo_camera_outlined,
                 title: 'Change Photo',
-                subtitle: 'Update your profile and cover photo.',
+                subtitle: 'Update your profile and cover photo',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => EditProfileMediaScreen(
@@ -158,7 +157,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.lock_outline_rounded,
                 title: 'Account Settings',
-                subtitle: 'Change password and preferences.',
+                subtitle: 'Change password and preferences',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => AccountSettingsScreen(
@@ -171,12 +170,10 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.logout_rounded,
                 title: 'Log Out',
-                subtitle: 'Sign out of your HopefulMe account.',
+                subtitle: 'Sign out of your HopefulMe account',
                 onTap: () async {
                   final didLogout = await onLogout();
-                  if (!context.mounted) {
-                    return;
-                  }
+                  if (!context.mounted) return;
                   if (!didLogout) {
                     AppToast.error(context, 'Unable to log out right now.');
                     return;
@@ -189,7 +186,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           _SettingsGroup(
             title: 'Appearance',
             children: [
@@ -204,14 +201,14 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           _SettingsGroup(
             title: 'Community',
             children: [
               _SettingsTile(
                 icon: Icons.ios_share_outlined,
                 title: 'Invite Friends',
-                subtitle: 'Share HopefulMe with friends and loved ones.',
+                subtitle: 'Share HopefulMe with friends and loved ones',
                 onTap: () => _shareInviteLink(context),
               ),
               _SettingsTile(
@@ -222,14 +219,14 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           _SettingsGroup(
             title: 'Support',
             children: [
               _SettingsTile(
                 icon: Icons.system_update_alt_rounded,
                 title: 'Check for Updates',
-                subtitle: 'Check if a new app version is available.',
+                subtitle: 'Check if a new app version is available',
                 onTap: () async {
                   AppToast.success(context, 'Checking for updates...');
                   await onCheckForUpdates();
@@ -238,7 +235,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.info_outline_rounded,
                 title: 'About',
-                subtitle: 'Learn more about HopefulMe.',
+                subtitle: 'Learn more about HopefulMe',
                 onTap: () => _openSignedWebPage(
                   context,
                   title: 'About',
@@ -248,7 +245,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.mail_outline_rounded,
                 title: 'Contact',
-                subtitle: 'Reach the HopefulMe team.',
+                subtitle: 'Reach the HopefulMe team',
                 onTap: () => _openSignedWebPage(
                   context,
                   title: 'Contact',
@@ -258,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsTile(
                 icon: Icons.help_outline_rounded,
                 title: 'How It Works',
-                subtitle: 'Learn how HopefulMe App works.',
+                subtitle: 'Learn how HopefulMe App works',
                 onTap: () => _openSignedWebPage(
                   context,
                   title: 'How It Works',
@@ -267,14 +264,14 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           _SettingsGroup(
             title: 'Legal',
             children: [
               _SettingsTile(
                 icon: Icons.description_outlined,
-                title: 'Terms',
-                subtitle: 'Read the terms of service.',
+                title: 'Terms of Service',
+                subtitle: 'Read the terms of service',
                 onTap: () => _openSignedWebPage(
                   context,
                   title: 'Terms',
@@ -283,8 +280,8 @@ class SettingsScreen extends StatelessWidget {
               ),
               _SettingsTile(
                 icon: Icons.verified_user_outlined,
-                title: 'Privacy',
-                subtitle: 'Read the privacy policy.',
+                title: 'Privacy Policy',
+                subtitle: 'Read the privacy policy',
                 onTap: () => _openSignedWebPage(
                   context,
                   title: 'Privacy Policy',
@@ -293,13 +290,17 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 36),
           const _SettingsFooter(),
         ],
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Header
+// ─────────────────────────────────────────────
 
 class _SettingsHeader extends StatelessWidget {
   const _SettingsHeader({
@@ -318,21 +319,38 @@ class _SettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final handle = username.trim().isEmpty ? 'hopefulme' : username;
-    final resolvedName = displayName.trim().isEmpty
-        ? handle
-        : displayName.trim();
+    final resolvedName =
+        displayName.trim().isEmpty ? handle : displayName.trim();
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.borderStrong),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.borderStrong, width: 1),
       ),
       child: Row(
         children: [
-          AppAvatar(imageUrl: photoUrl, label: resolvedName, radius: 19),
-          const SizedBox(width: 12),
+          // Avatar with subtle ring
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colors.brand.withValues(alpha: 0.25),
+                width: 2.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: AppAvatar(
+                imageUrl: photoUrl,
+                label: resolvedName,
+                radius: 22,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,27 +362,38 @@ class _SettingsHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   '@$handle',
                   style: TextStyle(
                     color: colors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
+          ),
+          // Subtle "view profile" caret
+          Icon(
+            Icons.chevron_right_rounded,
+            color: colors.textMuted.withValues(alpha: 0.5),
+            size: 20,
           ),
         ],
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Section group
+// ─────────────────────────────────────────────
 
 class _SettingsGroup extends StatelessWidget {
   const _SettingsGroup({required this.title, required this.children});
@@ -375,34 +404,39 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final visibleChildren = children.whereType<Widget>().toList(
-      growable: false,
-    );
+    final visibleChildren =
+        children.whereType<Widget>().toList(growable: false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSectionTitle(title),
-        Container(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colors.borderStrong),
-          ),
-          child: Column(
-            children: List.generate(visibleChildren.length, (index) {
-              final isLast = index == visibleChildren.length - 1;
-              return Column(
-                children: [
-                  visibleChildren[index],
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: colors.border.withValues(alpha: 0.65),
-                    ),
-                ],
-              );
-            }),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colors.borderStrong, width: 1),
+            ),
+            child: Column(
+              children: List.generate(visibleChildren.length, (index) {
+                final isLast = index == visibleChildren.length - 1;
+                return Column(
+                  children: [
+                    visibleChildren[index],
+                    if (!isLast)
+                      Divider(
+                        height: 1,
+                        thickness: 0.75,
+                        indent: 68,
+                        color: colors.border.withValues(alpha: 0.5),
+                      ),
+                  ],
+                );
+              }),
+            ),
           ),
         ),
       ],
@@ -419,19 +453,23 @@ class _SettingsSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsets.only(left: 6),
       child: Text(
-        title,
+        title.toUpperCase(),
         style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.8,
+          color: colors.textMuted.withValues(alpha: 0.75),
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
         ),
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Tile
+// ─────────────────────────────────────────────
 
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
@@ -451,44 +489,79 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final actionColor =
+        emphasizeDanger ? colors.dangerText : colors.brand;
+    final iconBg =
+        emphasizeDanger ? colors.dangerSoft : colors.accentSoft;
 
-    final actionColor = emphasizeDanger ? colors.dangerText : colors.brand;
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: emphasizeDanger ? colors.dangerSoft : colors.accentSoft,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Icon(icon, color: actionColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: emphasizeDanger ? colors.dangerText : colors.textPrimary,
-          fontSize: 14.2,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: Text(
-          subtitle,
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 12.1,
-            fontWeight: FontWeight.w500,
-            height: 1.35,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(0),
+        splashColor: actionColor.withValues(alpha: 0.06),
+        highlightColor: actionColor.withValues(alpha: 0.03),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              // Icon container — slightly rounded square
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: actionColor, size: 19),
+              ),
+              const SizedBox(width: 14),
+              // Text block
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: emphasizeDanger
+                            ? colors.dangerText
+                            : colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colors.textMuted.withValues(alpha: 0.45),
+                size: 18,
+              ),
+            ],
           ),
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded, color: colors.textMuted),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Theme tile
+// ─────────────────────────────────────────────
 
 class _ThemeModeTile extends StatelessWidget {
   const _ThemeModeTile({
@@ -502,66 +575,74 @@ class _ThemeModeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+
     final icon = switch (mode) {
       ThemeMode.dark => Icons.dark_mode_outlined,
       ThemeMode.light => Icons.light_mode_outlined,
       ThemeMode.system => Icons.brightness_auto_outlined,
     };
-    final subtitle = switch (mode) {
-      ThemeMode.dark => 'Dark mode',
-      ThemeMode.light => 'Light mode',
-      ThemeMode.system => 'System default',
-    };
 
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: colors.accentSoft,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Icon(
-          icon,
-          color: colors.brand,
-          size: 20,
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: colors.accentSoft,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: colors.brand, size: 19),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Theme',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<ThemeMode>(
+              value: mode,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              icon: Icon(
+                Icons.expand_more_rounded,
+                color: colors.textMuted.withValues(alpha: 0.6),
+                size: 18,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              onChanged: (value) {
+                if (value != null) onChanged(value);
+              },
+              items: const [
+                DropdownMenuItem(
+                    value: ThemeMode.system, child: Text('System')),
+                DropdownMenuItem(
+                    value: ThemeMode.light, child: Text('Light')),
+                DropdownMenuItem(
+                    value: ThemeMode.dark, child: Text('Dark')),
+              ],
+            ),
+          ),
+        ],
       ),
-      title: Text(
-        'Theme',
-        style: TextStyle(
-          color: colors.textPrimary,
-          fontSize: 14.2,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 12.1,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: DropdownButtonHideUnderline(
-        child: DropdownButton<ThemeMode>(
-          value: mode,
-          onChanged: (value) {
-            if (value != null) {
-              onChanged(value);
-            }
-          },
-          items: const [
-            DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
-            DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
-            DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
-          ],
-        ),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Footer
+// ─────────────────────────────────────────────
 
 class _SettingsFooter extends StatelessWidget {
   const _SettingsFooter();
@@ -573,18 +654,35 @@ class _SettingsFooter extends StatelessWidget {
     return FutureBuilder<PackageInfo>(
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
-        final version = snapshot.data == null
-            ? ''
-            : 'v${snapshot.data!.version}';
+        final version =
+            snapshot.data == null ? '' : 'v${snapshot.data!.version}';
 
         return Column(
           children: [
+            // Small logo mark
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colors.brand.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: Image.asset(
+                  'assets/images/app-icon.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             Text(
               AppConfig.appName,
               style: TextStyle(
                 color: colors.textPrimary,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
+                letterSpacing: 0.1,
               ),
             ),
             const SizedBox(height: 4),
@@ -592,9 +690,9 @@ class _SettingsFooter extends StatelessWidget {
               Text(
                 version,
                 style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  color: colors.textMuted.withValues(alpha: 0.6),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
           ],
