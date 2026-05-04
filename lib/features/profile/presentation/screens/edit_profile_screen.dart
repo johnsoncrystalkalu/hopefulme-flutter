@@ -382,13 +382,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         title: Text(
           widget.showOnboardingIntro ? 'Complete Profile' : 'Edit Profile',
         ),
-        actions: [
-          TextButton(
-            onPressed: _openSettings,
-            child: const Text('Settings'),
-          ),
-          const SizedBox(width: 4),
-        ],
+        actions: widget.showOnboardingIntro
+            ? null
+            : [
+                TextButton(
+                  onPressed: _openSettings,
+                  child: const Text('Settings'),
+                ),
+                const SizedBox(width: 4),
+              ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -411,41 +413,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(22),
                           decoration: BoxDecoration(
-                           
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: colors.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.shadow.withValues(alpha: 0.08),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            border: Border.all(color: colors.borderStrong),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.surface.withValues(alpha: 0.92),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  'Step 2 of 3',
-                                  style: TextStyle(
-                                    color: colors.brand,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: colors.accentSoft,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Icon(
+                                      Icons.badge_outlined,
+                                      color: colors.accentSoftText,
+                                      size: 22,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Step 2 of 3',
+                                          style: TextStyle(
+                                            color: colors.brand,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          child: LinearProgressIndicator(
+                                            minHeight: 6,
+                                            value: 2 / 3,
+                                            backgroundColor: colors.surfaceMuted,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  colors.brand,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Let\'s finish setting up your profile',
+                                'Let\'s finish your details',
                                 style: TextStyle(
                                   color: colors.textPrimary,
                                   fontSize: 24,
@@ -466,7 +493,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 18),
                       ],
                       if (widget.showOnboardingIntro &&
                           _showLegacyOnboardingNote) ...[
@@ -615,7 +642,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 8),
                             if (widget.showOnboardingIntro)
                               _LabeledField(
                                 label:

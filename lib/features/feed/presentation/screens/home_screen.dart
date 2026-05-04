@@ -36,6 +36,7 @@ import 'package:hopefulme_flutter/features/content/presentation/screens/posts_fe
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/widgets/feed_special_cards.dart';
+import 'package:hopefulme_flutter/features/feed/presentation/screens/monthly_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
@@ -98,6 +99,7 @@ class HomeScreen extends StatefulWidget {
     this.embedInMajorShell = false,
     this.onMajorTabSelected,
     this.pendingCreatedUpdateNotifier,
+    this.homeRetapNotifier,
     super.key,
   });
 
@@ -119,6 +121,7 @@ class HomeScreen extends StatefulWidget {
   final bool embedInMajorShell;
   final Future<void> Function(int index)? onMajorTabSelected;
   final ValueNotifier<UpdateDetail?>? pendingCreatedUpdateNotifier;
+  final ValueNotifier<int>? homeRetapNotifier;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -131,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen>
   static const _maxHomeUpdatesRetained = 30;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _homeScrollController = ScrollController();
+  final GlobalKey _homeUpdatesAnchorKey = GlobalKey();
   final ValueNotifier<_TopBarSnapshot> _topBarSnapshot = ValueNotifier(
     const _TopBarSnapshot(),
   );
@@ -164,7 +168,10 @@ class _HomeScreenState extends State<HomeScreen>
     _loadShellPreferences();
     _refreshTopbarData();
     _refreshUnreadGroups();
-    widget.pendingCreatedUpdateNotifier?.addListener(_handlePendingCreatedUpdate);
+    widget.pendingCreatedUpdateNotifier?.addListener(
+      _handlePendingCreatedUpdate,
+    );
+    widget.homeRetapNotifier?.addListener(_handleHomeRetap);
   }
 
   @override
@@ -190,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen>
     widget.pendingCreatedUpdateNotifier?.removeListener(
       _handlePendingCreatedUpdate,
     );
+    widget.homeRetapNotifier?.removeListener(_handleHomeRetap);
     WidgetsBinding.instance.removeObserver(this);
     if (_subscribedRoute is PageRoute<dynamic>) {
       appRouteObserver.unsubscribe(this);
@@ -214,6 +222,27 @@ class _HomeScreenState extends State<HomeScreen>
         _handlePendingCreatedUpdate,
       );
     }
+    if (oldWidget.homeRetapNotifier != widget.homeRetapNotifier) {
+      oldWidget.homeRetapNotifier?.removeListener(_handleHomeRetap);
+      widget.homeRetapNotifier?.addListener(_handleHomeRetap);
+    }
+  }
+
+  void _handleHomeRetap() {
+    if (!_homeScrollController.hasClients) {
+      return;
+    }
+    final offset = _homeScrollController.offset;
+    if (offset <= 24) {
+      return;
+    }
+    unawaited(
+      _homeScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   @override
@@ -459,7 +488,10 @@ class _HomeScreenState extends State<HomeScreen>
     _handleDetailReturn(result, updateId: updateId);
   }
 
-  void _handleDetailReturn(UpdateDetailResult? result, {required int updateId}) {
+  void _handleDetailReturn(
+    UpdateDetailResult? result, {
+    required int updateId,
+  }) {
     if (result == null || !mounted) {
       return;
     }
@@ -479,9 +511,7 @@ class _HomeScreenState extends State<HomeScreen>
     List<FeedEntry> next,
   ) {
     final merged = List<FeedEntry>.of(existing, growable: true);
-    final seenIds = merged
-        .map((entry) => '${entry.type}:${entry.id}')
-        .toSet();
+    final seenIds = merged.map((entry) => '${entry.type}:${entry.id}').toSet();
     for (final entry in next) {
       if (seenIds.add('${entry.type}:${entry.id}')) {
         merged.add(entry);
@@ -816,6 +846,14 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+    if (!mounted) {
+      return;
+    }
+    await widget.authController.refreshCurrentUser();
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _handleLinkTap(String url) async {
@@ -1188,9 +1226,23 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _openMonthlyBirthdays() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => MonthlyBirthdaysScreen(
+          feedRepository: widget.feedRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openCreateUpdate() async {
-    final createdUpdate = await Navigator.of(context).push<UpdateDetail>(
-      MaterialPageRoute<UpdateDetail>(
+    final createdUpdate = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         builder: (context) => UpdateComposeScreen(
           updateRepository: widget.updateRepository,
           currentUser: widget.authController.currentUser,
@@ -1202,6 +1254,11 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (createdUpdate is UpdateDetail) {
       _applyCreatedUpdate(createdUpdate);
+      return;
+    }
+
+    if (createdUpdate == UpdateComposeScreen.openBlogsFeedSignal) {
+      await _openBlogsFeed();
     }
   }
 
@@ -1246,15 +1303,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
     });
     _highlightPostedUpdate(createdUpdate.id);
-    if (_homeScrollController.hasClients) {
-      unawaited(
-        _homeScrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOut,
-        ),
-      );
-    }
+    _scrollToHomeUpdates();
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
@@ -1271,6 +1320,31 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+  }
+
+  void _scrollToHomeUpdates() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final anchorContext = _homeUpdatesAnchorKey.currentContext;
+      if (anchorContext != null) {
+        Scrollable.ensureVisible(
+          anchorContext,
+          alignment: 0.02,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOut,
+        );
+        return;
+      }
+      if (_homeScrollController.hasClients) {
+        _homeScrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   String _friendlyComposerError(Object error) {
@@ -1473,12 +1547,7 @@ class _HomeScreenState extends State<HomeScreen>
                           cacheExtent: 700,
                           slivers: [
                             SliverPadding(
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                8,
-                                16,
-                                4,
-                              ),
+                              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                               sliver: SliverToBoxAdapter(
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
@@ -1501,8 +1570,7 @@ class _HomeScreenState extends State<HomeScreen>
                                             highlightedUpdateId:
                                                 _highlightedUpdateId,
                                             onOpenEditMedia: _openEditMedia,
-                                            onCreateUpdate:
-                                                _openCreateUpdate,
+                                            onCreateUpdate: _openCreateUpdate,
                                             onMeetNewFriendsTap:
                                                 _openMeetNewFriends,
                                             onOpenProfile: _openUserProfile,
@@ -1518,6 +1586,10 @@ class _HomeScreenState extends State<HomeScreen>
                                             onOpenPostsFeed: _openPostsFeed,
                                             onOpenHashtag: _openSearchQuery,
                                             onOpenLink: _handleLinkTap,
+                                            onOpenFlyerTemplates:
+                                                _openFlyerTemplates,
+                                            onOpenMonthlyBirthdays:
+                                                _openMonthlyBirthdays,
                                             onOpenTodayBirthdays:
                                                 _openTodayBirthdays,
                                             onOpenGroups: _openGroups,
@@ -1563,6 +1635,10 @@ class _HomeScreenState extends State<HomeScreen>
                                           onOpenPostsFeed: _openPostsFeed,
                                           onOpenHashtag: _openSearchQuery,
                                           onOpenLink: _handleLinkTap,
+                                          onOpenFlyerTemplates:
+                                              _openFlyerTemplates,
+                                          onOpenMonthlyBirthdays:
+                                              _openMonthlyBirthdays,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
                                           onOpenGroups: _openGroups,
@@ -1589,6 +1665,11 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                               ),
                             ),
+                            if (_homeUpdates.isNotEmpty)
+                              SliverToBoxAdapter(
+                                key: _homeUpdatesAnchorKey,
+                                child: const SizedBox.shrink(),
+                              ),
                             if (_homeUpdates.isNotEmpty)
                               SliverPadding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -1694,7 +1775,6 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
-
 }
 
 class _TopbarFetchResult {
@@ -1822,8 +1902,8 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Hopeful',
                     style: TextStyle(
-                     color: colors.brand,
-                     // color: Color(0xFFF59E0B),
+                      color: colors.brand,
+                      // color: Color(0xFFF59E0B),
                       fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -1.1,
@@ -1832,7 +1912,7 @@ class _HomeTopBar extends StatelessWidget {
                   TextSpan(
                     text: 'Me',
                     style: TextStyle(
-                     color: colors.accent,
+                      color: colors.accent,
                       //color: colors.brand,
                       fontSize: isCompactTopBar ? 23 : 26,
                       fontWeight: FontWeight.w800,
@@ -1943,10 +2023,11 @@ class _BadgeTopBarIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final resolvedIconColor = iconColor ??
+    final resolvedIconColor =
+        iconColor ??
         (Theme.of(context).brightness == Brightness.dark
-        ? colors.textPrimary
-        : colors.textPrimary.withValues(alpha: 0.9));
+            ? colors.textPrimary
+            : colors.textPrimary.withValues(alpha: 0.9));
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -2466,7 +2547,6 @@ class _HomeSidebar extends StatelessWidget {
                   _SidebarSection(
                     title: 'Resources',
                     items: [
-                    
                       _SidebarItemData(
                         HeroIcons.bookOpen,
                         'Library',
@@ -2572,10 +2652,7 @@ class _HomeSidebar extends StatelessWidget {
                 ],
               ),
             ),
-            _SidebarFooter(
-              user: user,
-              onProfileTap: onProfileTap,
-            ),
+            _SidebarFooter(user: user, onProfileTap: onProfileTap),
           ],
         ),
       ),
@@ -2755,10 +2832,7 @@ class _SidebarProfileCard extends StatelessWidget {
 }
 
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter({
-    required this.user,
-    required this.onProfileTap,
-  });
+  const _SidebarFooter({required this.user, required this.onProfileTap});
 
   final User? user;
   final Future<void> Function() onProfileTap;
@@ -2778,9 +2852,7 @@ class _SidebarFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border(
-          top: BorderSide(color: colors.borderStrong),
-        ),
+        border: Border(top: BorderSide(color: colors.borderStrong)),
       ),
       child: Column(
         children: [
@@ -2792,7 +2864,10 @@ class _SidebarFooter extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: colors.borderStrong),
@@ -2872,7 +2947,11 @@ class _SidebarFooter extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded, color: colors.icon, size: 18),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colors.icon,
+                      size: 18,
+                    ),
                   ],
                 ),
               ),
@@ -2903,6 +2982,8 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenPostsFeed,
     required this.onOpenHashtag,
     required this.onOpenLink,
+    required this.onOpenFlyerTemplates,
+    required this.onOpenMonthlyBirthdays,
     required this.onOpenTodayBirthdays,
     required this.onOpenGroups,
     required this.onOpenGroupPreview,
@@ -2928,6 +3009,8 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function({String initialCategory}) onOpenPostsFeed;
   final Future<void> Function(String hashtag) onOpenHashtag;
   final Future<void> Function(String url) onOpenLink;
+  final Future<void> Function() onOpenFlyerTemplates;
+  final Future<void> Function() onOpenMonthlyBirthdays;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final Future<void> Function() onOpenGroups;
   final Future<void> Function(AppGroup group) onOpenGroupPreview;
@@ -3049,8 +3132,7 @@ class _HomeContent extends StatelessWidget {
     }
     final currentUser = user;
     final shouldPromptForPhoto =
-        currentUser != null &&
-        _looksLikeDefaultProfilePhoto(currentUser.photoUrl);
+        currentUser != null && currentUser.photoUrl.trim().isEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3071,13 +3153,16 @@ class _HomeContent extends StatelessWidget {
           onCreateUpdate: onCreateUpdate,
           onOpenProfile: onOpenProfile,
         ),
-       const SizedBox(height: 14),
+        const SizedBox(height: 14),
         if (data.todayBirthdays.isNotEmpty) ...[
           _BirthdayCelebrationStrip(
             users: data.todayBirthdays,
             onOpenProfile: onOpenProfile,
-            onViewAll: () => onOpenTodayBirthdays(data.todayBirthdays),
+            onViewAll: onOpenMonthlyBirthdays,
+            onSendWishes: () => onOpenTodayBirthdays(data.todayBirthdays),
+            onDesignCard: onOpenFlyerTemplates,
           ),
+
           const SizedBox(height: 8),
         ],
         if (shouldPromptForPhoto) ...[
@@ -3571,7 +3656,10 @@ class _ComposerCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: colors.success,
                             shape: BoxShape.circle,
-                            border: Border.all(color: colors.surface, width: 1.5),
+                            border: Border.all(
+                              color: colors.surface,
+                              width: 1.5,
+                            ),
                           ),
                         ),
                       ),
@@ -3594,10 +3682,7 @@ class _ComposerCard extends StatelessWidget {
                       ),
                       child: Text(
                         "Share your thoughts...",
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: colors.textMuted, fontSize: 14),
                       ),
                     ),
                   ),
@@ -3674,7 +3759,6 @@ class _ComposerCard extends StatelessWidget {
   }
 }
 
-
 class _ComposerChip extends StatelessWidget {
   const _ComposerChip({
     required this.icon,
@@ -3719,6 +3803,7 @@ class _ComposerChip extends StatelessWidget {
     );
   }
 }
+
 class _QuoteGrid extends StatelessWidget {
   const _QuoteGrid({required this.quotes, required this.onOpenQuote});
 
@@ -3801,10 +3886,7 @@ class _QuoteGrid extends StatelessWidget {
 }
 
 class _QuoteFullscreenViewer extends StatelessWidget {
-  const _QuoteFullscreenViewer({
-    required this.quote,
-    required this.onViewPost,
-  });
+  const _QuoteFullscreenViewer({required this.quote, required this.onViewPost});
 
   final QuoteCard quote;
   final Future<void> Function() onViewPost;
@@ -3891,121 +3973,7 @@ class _BirthdayCelebrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final previewUsers = users.take(5).toList();
-    return _SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header remains consistent with your padding
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: _SectionHeader(
-              title: 'Today\'s Birthdays',
-              accent: '🎂',
-              action: 'View all',
-              onActionTap: () => onViewAll(),
-            ),
-          ),
-
-          // Community Text - Slightly tighter padding
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              users.length == 1
-                  ? 'Someone in the HopefulMe community is celebrating today.'
-                  : '${users.length} people are celebrating their big day!',
-              style: TextStyle(
-                color: colors.textSecondary.withValues(alpha: 0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Horizontal Scroll for a "Story" feel
-          SizedBox(
-            height: 130, // Fixed height for the scroll area
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: previewUsers.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final user = previewUsers[index];
-                return InkWell(
-                  onTap: () => onOpenProfile(user.username),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    children: [
-                      // Avatar with a "Celebration Ring"
-                      Container(
-                        padding: const EdgeInsets.all(
-                          2.5,
-                        ), // The "Ring" thickness
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFFFF4D6D), // Your Like Red
-                              context.appColors.brand, // Your Brand Blue
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: _Avatar(
-                            imageUrl: user.photoUrl,
-                            label: user.displayName,
-                            radius: 28,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Name - Using your established w800 weight
-                      VerifiedNameText(
-                        name: user.displayName.split(
-                          ' ',
-                        )[0], // Only first name for space
-                        verified: user.isVerified,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-
-                      // Subtext
-                      Text(
-                        user.cityState.isNotEmpty
-                            ? user.cityState
-                            : '@${user.username}',
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: colors.textMuted.withValues(alpha: 0.8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 
@@ -4014,11 +3982,15 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
     required this.users,
     required this.onOpenProfile,
     required this.onViewAll,
+    required this.onSendWishes,
+    required this.onDesignCard,
   });
 
   final List<FeedUser> users;
   final Future<void> Function(String username) onOpenProfile;
   final Future<void> Function() onViewAll;
+  final Future<void> Function() onSendWishes;
+  final Future<void> Function() onDesignCard;
 
   @override
   Widget build(BuildContext context) {
@@ -4034,7 +4006,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
           // ── Header strip (brand blue) ─────────────────────────────────────
           Container(
             decoration: BoxDecoration(
-              color: colors.brand,
+              color: colors.surfaceMuted,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
@@ -4046,7 +4018,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: colors.surface,
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
@@ -4061,16 +4033,16 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                       const Text(
                         "Today's Birthdays",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.black87,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
                       ),
                       Text(
-                        '${users.length} person${users.length == 1 ? '' : 's'} celebrating today',
+                        '${users.length} friend${users.length == 1 ? '' : 's'} celebrating today',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.70),
+                          color: Colors.black54,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -4087,13 +4059,14 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
+                      color: colors.surface,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colors.border),
                     ),
-                    child: const Text(
+                    child: Text(
                       'View all',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -4123,9 +4096,8 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             Positioned(
                               left: i * 28.0,
                               child: GestureDetector(
-                                onTap: () => onOpenProfile(
-                                  previewUsers[i].username,
-                                ),
+                                onTap: () =>
+                                    onOpenProfile(previewUsers[i].username),
                                 child: Container(
                                   width: 40,
                                   height: 40,
@@ -4171,11 +4143,69 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             ),
                             if (othersCount > 0)
                               TextSpan(
-                                text: '\nand $othersCount other${othersCount == 1 ? '' : 's'}.',
+                                text:
+                                    '\nand $othersCount other${othersCount == 1 ? '' : 's'} are celebrating',
                               )
                             else
-                              const TextSpan(text: '\nis celebrating today.'),
+                              const TextSpan(text: '\nis celebrating today'),
                           ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // CTA row
+                Row(
+                  children: [
+                    // Send wishes — orange accent
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onSendWishes,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colors.accent,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(40),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 15,
+                        ),
+                        label: const Text(
+                          'Send wishes',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // View profiles — ghost button
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onDesignCard,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.textPrimary,
+                          minimumSize: const Size.fromHeight(40),
+                          side: BorderSide(color: colors.borderStrong),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                        child: const Text(
+                          'Design a card',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

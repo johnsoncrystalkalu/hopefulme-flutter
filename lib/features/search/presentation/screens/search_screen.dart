@@ -100,7 +100,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _runSearch({required bool immediate}) async {
     if (immediate) {
       setState(() {
-        _isLoading = true;
+        _isLoading = _result == null;
         _error = null;
       });
     }
@@ -371,9 +371,9 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
+            child: _isLoading && result == null
                 ? const Center(child: CircularProgressIndicator())
-                : _error != null
+                : _error != null && result == null
                 ? AppStatusState.fromError(
                     error: _error!,
                     actionLabel: 'Try again',
@@ -385,6 +385,43 @@ class _SearchScreenState extends State<SearchScreen> {
                       controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       children: [
+                        if (_error != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: colors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.wifi_off_rounded,
+                                  size: 16,
+                                  color: colors.textMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Showing last results. Pull to refresh.',
+                                    style: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => _runSearch(immediate: true),
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
                         if ((result?.query ?? '').isEmpty)
                           _SearchHero(
                             isSuggestion: result?.isSuggestion ?? false,

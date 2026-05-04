@@ -43,7 +43,10 @@ class AppGroup {
     required this.photoUrl,
     required this.isMember,
     required this.isOwner,
+    required this.isAdminMember,
+    required this.notificationsEnabled,
     required this.membersCount,
+    required this.messagesCount,
     required this.unreadCount,
     required this.updatedAt,
     required this.typingUserId,
@@ -63,7 +66,10 @@ class AppGroup {
   final String photoUrl;
   final bool isMember;
   final bool isOwner;
+  final bool isAdminMember;
+  final bool notificationsEnabled;
   final int membersCount;
+  final int messagesCount;
   final int unreadCount;
   final String updatedAt;
   final int? typingUserId;
@@ -87,7 +93,10 @@ class AppGroup {
     String? photoUrl,
     bool? isMember,
     bool? isOwner,
+    bool? isAdminMember,
+    bool? notificationsEnabled,
     int? membersCount,
+    int? messagesCount,
     int? unreadCount,
     String? updatedAt,
     int? typingUserId,
@@ -111,7 +120,10 @@ class AppGroup {
       photoUrl: photoUrl ?? this.photoUrl,
       isMember: isMember ?? this.isMember,
       isOwner: isOwner ?? this.isOwner,
+      isAdminMember: isAdminMember ?? this.isAdminMember,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       membersCount: membersCount ?? this.membersCount,
+      messagesCount: messagesCount ?? this.messagesCount,
       unreadCount: unreadCount ?? this.unreadCount,
       updatedAt: updatedAt ?? this.updatedAt,
       typingUserId: clearTypingUserId
@@ -140,7 +152,10 @@ class AppGroup {
       photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
       isMember: parseBool(json['is_member']),
       isOwner: parseBool(json['is_owner']),
+      isAdminMember: parseBool(json['is_admin_member']),
+      notificationsEnabled: parseBool(json['notifications_enabled'], fallback: true),
       membersCount: parseInt(json['members_count']),
+      messagesCount: parseInt(json['messages_count']),
       unreadCount: parseInt(json['unread_count']),
       updatedAt: json['updated_at']?.toString() ?? '',
       typingUserId: json['typing_user_id'] == null
@@ -155,6 +170,70 @@ class AppGroup {
       latestMessage: (json['latest_message'] as Map<String, dynamic>?)?.let(
         GroupMessage.fromJson,
       ),
+    );
+  }
+}
+
+class GroupMemberInfo {
+  const GroupMemberInfo({
+    required this.id,
+    required this.username,
+    required this.fullname,
+    required this.photoUrl,
+    required this.isOwner,
+    required this.isAdmin,
+  });
+
+  final int id;
+  final String username;
+  final String fullname;
+  final String photoUrl;
+  final bool isOwner;
+  final bool isAdmin;
+
+  String get displayName {
+    final trimmedFullname = fullname.trim();
+    if (trimmedFullname.isNotEmpty) return trimmedFullname;
+    final trimmedUsername = username.trim();
+    if (trimmedUsername.isNotEmpty) return trimmedUsername;
+    return 'Member';
+  }
+
+  factory GroupMemberInfo.fromJson(Map<String, dynamic> json) {
+    return GroupMemberInfo(
+      id: parseInt(json['id']),
+      username: json['username']?.toString() ?? '',
+      fullname: json['fullname']?.toString() ?? '',
+      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      isOwner: parseBool(json['is_owner']),
+      isAdmin: parseBool(json['is_admin']),
+    );
+  }
+}
+
+class GroupMemberPage {
+  const GroupMemberPage({
+    required this.items,
+    required this.currentPage,
+    required this.lastPage,
+  });
+
+  final List<GroupMemberInfo> items;
+  final int currentPage;
+  final int lastPage;
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory GroupMemberPage.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as List<dynamic>? ?? <dynamic>[];
+    final meta = json['meta'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    return GroupMemberPage(
+      items: data
+          .whereType<Map<String, dynamic>>()
+          .map(GroupMemberInfo.fromJson)
+          .toList(),
+      currentPage: parseInt(meta['current_page'], fallback: 1),
+      lastPage: parseInt(meta['last_page'], fallback: 1),
     );
   }
 }

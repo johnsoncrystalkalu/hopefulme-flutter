@@ -7,6 +7,8 @@ import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/update_submission_modal.dart';
 
 class UpdateComposeScreen extends StatelessWidget {
+  static const String openBlogsFeedSignal = 'open_blogs_feed';
+
   const UpdateComposeScreen({
     required this.updateRepository,
     required this.currentUser,
@@ -20,7 +22,7 @@ class UpdateComposeScreen extends StatelessWidget {
   final String? currentUsername;
   final User? currentUser;
 
-  void _openArticleEditor(BuildContext context) {
+  Future<void> _openArticleEditor(BuildContext context) async {
     final repository = contentRepository;
     if (repository == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,14 +34,17 @@ class UpdateComposeScreen extends StatelessWidget {
       );
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         builder: (context) => BlogEditorScreen.create(
           repository: repository,
           currentUsername: currentUsername,
         ),
       ),
     );
+    if (result != null && context.mounted) {
+      Navigator.of(context).pop(openBlogsFeedSignal);
+    }
   }
 
   @override
@@ -79,15 +84,6 @@ class UpdateComposeScreen extends StatelessWidget {
                       Icons.edit_note_rounded,
                       size: 16,
                       color: colors.brand,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Write Article',
-                      style: TextStyle(
-                        color: colors.brand,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
                     ),
                   ],
                 ),

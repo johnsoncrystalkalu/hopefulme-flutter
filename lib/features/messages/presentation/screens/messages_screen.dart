@@ -317,6 +317,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
               actionLabel: 'Try again',
               onAction: _loadInitial,
             )
+          : _items.isEmpty && _activeTodayItems.isEmpty
+          ? const AppStatusState(
+              title: 'No conversations yet',
+              message:
+                  'Your inbox is empty for now. Start a conversation to see messages here.',
+              icon: Icons.chat_bubble_outline_rounded,
+            )
           : RefreshIndicator(
               onRefresh: _loadInitial,
               child: ListView.builder(

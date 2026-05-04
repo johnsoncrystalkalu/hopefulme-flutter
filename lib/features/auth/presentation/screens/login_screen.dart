@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/screens/auth_welcome_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/widgets/auth_page_footer.dart';
@@ -85,6 +86,15 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _handleBackTap() async {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      await navigator.maybePop();
+      return;
+    }
+    navigator.pushReplacementNamed(AuthWelcomeScreen.routeName);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -114,31 +124,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: RichText(
                             text: TextSpan(
                               children: [
-                                TextSpan(
-                                  text: 'Hopeful',
-                                  style: TextStyle(
-                                    color: colors.brand,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -1.2,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: 'Me',
-                                  style: TextStyle(
-                                    color: colors.accent,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.2,
-                                  ),
-                                ),
+                                // TextSpan(
+                                //   text: 'Hopeful',
+                                //   style: TextStyle(
+                                //     color: colors.brand,
+                                //     fontSize: 30,
+                                //     fontWeight: FontWeight.w900,
+                                //     letterSpacing: -1.2,
+                                //   ),
+                                // ),
+                                // TextSpan(
+                                //   text: 'Me',
+                                //   style: TextStyle(
+                                //     color: colors.accent,
+                                //     fontSize: 30,
+                                //     fontWeight: FontWeight.w800,
+                                //     letterSpacing: -1.2,
+                                //   ),
+                                // ),
                               ],
                             ),
                           ),
                         ),
                       ),
                       InkWell(
-                        onTap: () => Navigator.of(context).pop(),
+                        onTap: _handleBackTap,
                         borderRadius: BorderRadius.circular(999),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -348,15 +358,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     decoration: BoxDecoration(
                                       gradient: colors.brandGradient,
                                       borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: colors.brand.withValues(
-                                            alpha: 0.28,
-                                          ),
-                                          blurRadius: 30,
-                                          offset: const Offset(0, 10),
-                                        ),
-                                      ],
                                     ),
                                     child: ElevatedButton(
                                       onPressed:

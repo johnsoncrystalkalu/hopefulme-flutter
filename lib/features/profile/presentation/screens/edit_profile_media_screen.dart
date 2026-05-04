@@ -7,6 +7,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/models/profile_dashboard.dart';
@@ -38,6 +39,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
   bool _isUploadingCover = false;
   bool _isRemovingPhoto = false;
   bool _isRemovingCover = false;
+  bool _uploadedProfilePhotoDuringSession = false;
   Object? _error;
 
   @override
@@ -104,11 +106,21 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
       await widget.repository.updateProfilePhoto(
         ApiMultipartFile(field: 'photo', filename: file.filename, bytes: bytes),
       );
+      final authController = AuthController.instance;
+      if (authController != null) {
+        await authController.refreshCurrentUser();
+      }
       await _load();
       if (!mounted) {
         return;
       }
       AppToast.success(context, 'Profile photo updated.');
+      setState(() {
+        _uploadedProfilePhotoDuringSession = true;
+      });
+      if (widget.showOnboardingActions) {
+        AppToast.info(context, 'Great. Tap Continue to enter Home.');
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -158,6 +170,10 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
           bytes: bytes,
         ),
       );
+      final authController = AuthController.instance;
+      if (authController != null) {
+        await authController.refreshCurrentUser();
+      }
       await _load();
       if (!mounted) {
         return;
@@ -270,6 +286,10 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
 
     try {
       await widget.repository.removeProfilePhoto();
+      final authController = AuthController.instance;
+      if (authController != null) {
+        await authController.refreshCurrentUser();
+      }
       await _load();
       if (!mounted) {
         return;
@@ -303,6 +323,10 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
 
     try {
       await widget.repository.removeCoverPhoto();
+      final authController = AuthController.instance;
+      if (authController != null) {
+        await authController.refreshCurrentUser();
+      }
       await _load();
       if (!mounted) {
         return;
@@ -337,6 +361,8 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final profile = _profile;
+    final hasProfilePhoto = (profile?.mainPhotoUrl.trim().isNotEmpty ?? false) ||
+        _uploadedProfilePhotoDuringSession;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -381,28 +407,30 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                               : _removePhoto,
                         ),
                         const SizedBox(height: 16),
-                        _MediaCard(
-                          title: 'Cover Photo',
-                          subtitle: 'Used at the top of your profile page (optional).',
-                          preview: _MediaPreview.cover(
-                            imageUrl: profile?.coverUrl ?? '',
-                            fallbackImageUrl: profile?.mainPhotoUrl ?? '',
-                            bytes: _pendingCoverBytes,
+                        if (!widget.showOnboardingActions)
+                          _MediaCard(
+                            title: 'Cover Photo',
+                            subtitle:
+                                'Used at the top of your profile page (optional).',
+                            preview: _MediaPreview.cover(
+                              imageUrl: profile?.coverUrl ?? '',
+                              fallbackImageUrl: profile?.mainPhotoUrl ?? '',
+                              bytes: _pendingCoverBytes,
+                            ),
+                            primaryLabel: _isUploadingCover
+                                ? 'Uploading...'
+                                : 'Change Cover',
+                            primaryIcon: Icons.landscape_outlined,
+                            onPrimaryTap: _isUploadingCover
+                                ? null
+                                : _pickAndUploadCover,
+                            secondaryLabel: _isRemovingCover
+                                ? 'Removing...'
+                                : 'Remove Cover',
+                            onSecondaryTap: _isRemovingCover
+                                ? null
+                                : _removeCover,
                           ),
-                          primaryLabel: _isUploadingCover
-                              ? 'Uploading...'
-                              : 'Change Cover',
-                          primaryIcon: Icons.landscape_outlined,
-                          onPrimaryTap: _isUploadingCover
-                              ? null
-                              : _pickAndUploadCover,
-                          secondaryLabel: _isRemovingCover
-                              ? 'Removing...'
-                              : 'Remove Cover',
-                          onSecondaryTap: _isRemovingCover
-                              ? null
-                              : _removeCover,
-                        ),
                         if (_error != null) ...[
                           const SizedBox(height: 16),
                           Text(
@@ -426,15 +454,36 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                       top: false,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed:
-                                (_isUploadingPhoto || _isUploadingCover)
-                                ? null
-                                : _goToHome,
-                            child: const Text('Skip for now & Go to Home'),
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (hasProfilePhoto)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Profile photo saved. You can edit this later in Settings.',
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed:
+                                    (_isUploadingPhoto || _isUploadingCover)
+                                    ? null
+                                    : _goToHome,
+                                child: Text(
+                                  hasProfilePhoto
+                                      ? 'Continue to Home'
+                                      : 'Skip for now & Go to Home',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

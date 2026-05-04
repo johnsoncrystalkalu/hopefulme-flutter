@@ -567,15 +567,15 @@ class _BlogsHeroHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'HopefulMe Blog',
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+          // const SizedBox(height: 16),
+          // Text(
+          //   'HopefulMe Blog',
+          //   style: TextStyle(
+          //     color: colors.textPrimary,
+          //     fontSize: 28,
+          //     fontWeight: FontWeight.w900,
+          //   ),
+          // ),
           const SizedBox(height: 10),
           Text(
             'Read thoughtful stories, encouragement, and reflections from voices across the HopefulMe community.',

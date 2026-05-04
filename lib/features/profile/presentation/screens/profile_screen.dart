@@ -346,6 +346,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _logoutFromProfileMenu() async {
+    final authController = AuthController.instance;
+    if (authController == null) {
+      AppToast.error(context, 'Unable to log out right now.');
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to sign in again to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) {
+      return;
+    }
+
+    try {
+      await authController.logout();
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(context, 'Unable to log out right now. Please try again.');
+      }
+    }
+  }
+
   Future<void> _loginAsUser(ProfileSummary profile) async {
     final authController = AuthController.instance;
     if (authController == null) {
@@ -631,8 +671,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               _ProfileHero(
                 profile: dashboard.profile,
+                canManageAccount:
+                    widget.currentUser?.username.trim().toLowerCase() ==
+                    dashboard.profile.username.trim().toLowerCase(),
                 onOpenSettingsAndPrivacy: _openSettingsAndPrivacy,
                 onOpenAccountSettings: _openAccountSettings,
+                onLogout: _logoutFromProfileMenu,
                 onCopyProfileUrl: () => _shareProfile(dashboard.profile.username),
               ),
               Transform.translate(
@@ -883,14 +927,18 @@ enum _ProfileTab { timeline, about, photos, articles }
 class _ProfileHero extends StatelessWidget {
   const _ProfileHero({
     required this.profile,
+    required this.canManageAccount,
     required this.onOpenSettingsAndPrivacy,
     required this.onOpenAccountSettings,
+    required this.onLogout,
     required this.onCopyProfileUrl,
   });
 
   final ProfileSummary profile;
+  final bool canManageAccount;
   final Future<void> Function() onOpenSettingsAndPrivacy;
   final Future<void> Function() onOpenAccountSettings;
+  final Future<void> Function() onLogout;
   final Future<void> Function() onCopyProfileUrl;
 
   @override
@@ -943,74 +991,90 @@ class _ProfileHero extends StatelessWidget {
               ),
             ),
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: PopupMenuButton<String>(
-                  tooltip: 'Profile options',
-                  onSelected: (value) {
-                    if (value == 'settings_privacy') {
-                      onOpenSettingsAndPrivacy();
-                      return;
-                    }
-                    if (value == 'account_settings') {
-                      onOpenAccountSettings();
-                      return;
-                    }
-                    if (value == 'share_profile') {
-                      onCopyProfileUrl();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem<String>(
-                      value: 'settings_privacy',
-                      child: Row(
-                        children: [
-                          Icon(Icons.settings_outlined, size: 18),
-                          SizedBox(width: 10),
-                          Text('Settings & Privacy'),
-                        ],
+          if (canManageAccount)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Profile options',
+                    onSelected: (value) {
+                      if (value == 'settings_privacy') {
+                        onOpenSettingsAndPrivacy();
+                        return;
+                      }
+                      if (value == 'account_settings') {
+                        onOpenAccountSettings();
+                        return;
+                      }
+                      if (value == 'logout') {
+                        onLogout();
+                        return;
+                      }
+                      if (value == 'share_profile') {
+                        onCopyProfileUrl();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'settings_privacy',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Settings & Privacy'),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'account_settings',
-                      child: Row(
-                        children: [
-                          Icon(Icons.manage_accounts_outlined, size: 18),
-                          SizedBox(width: 10),
-                          Text('Account Settings'),
-                        ],
+                      PopupMenuItem<String>(
+                        value: 'account_settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.manage_accounts_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Account Settings'),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'share_profile',
-                      child: Row(
-                        children: [
-                          Icon(Icons.share_outlined, size: 18),
-                          SizedBox(width: 10),
-                          Text('Share Profile'),
-                        ],
+                      PopupMenuItem<String>(
+                        value: 'share_profile',
+                        child: Row(
+                          children: [
+                            Icon(Icons.share_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Share Profile'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color.fromRGBO(255, 255, 255, 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.more_vert_rounded,
-                      color: Colors.white,
+                      PopupMenuDivider(),
+                      PopupMenuItem<String>(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Logout'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color.fromRGBO(255, 255, 255, 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.more_vert_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

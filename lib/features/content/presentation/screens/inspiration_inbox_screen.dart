@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -68,6 +69,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
         page: 1,
         sent: _activeView == _InspirationInboxView.sent,
       );
+      if (!mounted) return;
       setState(() {
         _items
           ..clear()
@@ -76,6 +78,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
         _lastPage = page.lastPage;
       });
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _error = error.toString();
       });
@@ -102,6 +105,7 @@ class _InspirationInboxScreenState extends State<InspirationInboxScreen> {
         page: _currentPage + 1,
         sent: _activeView == _InspirationInboxView.sent,
       );
+      if (!mounted) return;
       setState(() {
         _items.addAll(page.items);
         _currentPage = page.currentPage;
@@ -422,6 +426,8 @@ class _InspirationInboxTile extends StatelessWidget {
         ? item.receiver!.displayName
         : (item.receiverName.trim().isNotEmpty ? item.receiverName : 'Recipient');
     final title = isSentView ? 'To: $recipient' : sender;
+    final senderPhotoUrl = item.sender?.photoUrl ?? '';
+    final senderInitial = sender.trim().isNotEmpty ? sender.trim()[0] : 'U';
 
     return InkWell(
       onTap: isDeleting ? null : onTap,
@@ -447,19 +453,29 @@ class _InspirationInboxTile extends StatelessWidget {
                         : colors.surfaceMuted.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(9),
                   ),
-                  child: Icon(
-                    isSentView
-                        ? Icons.north_east_rounded
-                        : item.isAnonymous
-                        ? Icons.person_2_sharp
-                        : Icons.mail_outline_rounded,
-                    size: 25,
-                    color: isSentView
-                        ? sentAccent
-                        : (item.isAnonymous
-                              ? colors.warningText
-                              : colors.textSecondary),
-                  ),
+                  child: isSentView
+                      ? Icon(
+                          Icons.north_east_rounded,
+                          size: 25,
+                          color: sentAccent,
+                        )
+                      : item.isAnonymous
+                      ? Icon(
+                          Icons.person_2_sharp,
+                          size: 25,
+                          color: colors.warningText,
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(7),
+                            child: AppAvatar(
+                              imageUrl: senderPhotoUrl,
+                              label: senderInitial,
+                              radius: 14,
+                            ),
+                          ),
+                        ),
                 ),
                 const Spacer(),
                 if (isDeleting)

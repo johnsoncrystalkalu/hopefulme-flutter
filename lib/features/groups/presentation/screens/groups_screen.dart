@@ -39,7 +39,10 @@ class GroupsScreen extends StatefulWidget {
 
 class _GroupsScreenState extends State<GroupsScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   final List<AppGroup> _groups = <AppGroup>[];
+  bool _isSearching = false;
+  String _searchQuery = '';
   bool _isLoading = true;
   bool _isLoadingMore = false;
   Object? _error;
@@ -56,12 +59,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadInitial() async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _groups.isEmpty;
       _error = null;
       _page = 1;
       _lastPage = 1;
@@ -153,9 +157,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final myGroups = _groups.where((group) => group.isMember).toList();
+    final query = _searchQuery.trim().toLowerCase();
+    final openGroups = _groups.where((group) => group.type.toLowerCase() == 'open').toList();
     final community = _groups.where((group) => group.id == 1).firstOrNull;
-    final discover = _groups.where((group) => group.id != 1).toList();
+    final discoverableOpenGroups = openGroups.where((group) => group.id != 1).toList();
+    final visible = query.isEmpty
+        ? discoverableOpenGroups
+        : discoverableOpenGroups.where((group) {
+            return group.name.toLowerCase().contains(query) ||
+                group.info.toLowerCase().contains(query);
+          }).toList();
+    final popularGroups = List<AppGroup>.from(visible)
+      ..sort((a, b) => b.messagesCount.compareTo(a.messagesCount));
+    final topPopularGroups = popularGroups.take(4).toList();
+    final joinedGroups = visible.where((group) => group.isMember).toList();
+    final unjoinedGroups = visible.where((group) => !group.isMember).toList();
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -178,11 +194,51 @@ class _GroupsScreenState extends State<GroupsScreen> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
-        title: const Text('Groups'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Search open groups',
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Groups'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _isSearching = false;
+                  _searchController.clear();
+                  _searchQuery = '';
+                } else {
+                  _isSearching = true;
+                }
+              });
+            },
+            icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
+          ),
+          if (_isSearching)
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _searchQuery = _searchController.text;
+                });
+              },
+              icon: const Icon(Icons.send_rounded),
+            ),
+        ],
       ),
-      body: _isLoading
+      body: _isLoading && _groups.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _error != null && _groups.isEmpty
           ? AppStatusState.fromError(
               error: _error!,
               actionLabel: 'Try again',
@@ -192,8 +248,48 @@ class _GroupsScreenState extends State<GroupsScreen> {
               onRefresh: _loadInitial,
               child: ListView(
                 controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.wifi_off_rounded,
+                              size: 16,
+                              color: colors.textMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Showing saved groups. Pull to refresh.',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _loadInitial,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
@@ -222,11 +318,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ],
                     ),
                   ),
-                  if (myGroups.isNotEmpty) ...[
+                  if (topPopularGroups.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _SectionTitle(
-                      title: 'My Groups',
-                      trailing: '${myGroups.length} groups',
+                      title: 'Popular Groups',
+                      trailing: 'Top 4',
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -234,10 +330,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.only(right: 2),
-                        itemCount: myGroups.length,
+                        itemCount: topPopularGroups.length,
                         separatorBuilder: (_, index) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
-                          final group = myGroups[index];
+                          final group = topPopularGroups[index];
                           return _MyGroupCard(
                             group: group,
                             onTap: () => _openGroup(group),
@@ -247,7 +343,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                   ],
                   if (community != null) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     _SectionTitle(title: 'Community', trailing: 'Official'),
                     const SizedBox(height: 12),
                     _CommunityCard(
@@ -255,13 +351,30 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       onTap: () => _openGroup(community),
                     ),
                   ],
+                  if (joinedGroups.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _SectionTitle(
+                      title: 'Joined Groups',
+                      trailing: '${joinedGroups.length}',
+                    ),
+                    const SizedBox(height: 12),
+                    ...joinedGroups.map(
+                      (group) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _DiscoverGroupCard(
+                          group: group,
+                          onTap: () => _openGroup(group),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   _SectionTitle(
-                    title: 'Discover',
-                    trailing: '${_groups.length} groups',
+                    title: 'Open Groups',
+                    trailing: '${unjoinedGroups.length}',
                   ),
                   const SizedBox(height: 12),
-                  ...discover.map(
+                  ...unjoinedGroups.map(
                     (group) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _DiscoverGroupCard(
@@ -270,6 +383,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                     ),
                   ),
+                  if (visible.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      child: Center(
+                        child: Text(
+                          'No open groups found.',
+                          style: TextStyle(color: colors.textMuted),
+                        ),
+                      ),
+                    ),
                   if (_isLoadingMore)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 18),
@@ -366,6 +489,28 @@ class _MyGroupCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (group.hasUnread)
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
                     const Spacer(),
                     Text(
                       group.name,
@@ -393,88 +538,6 @@ class _MyGroupCard extends StatelessWidget {
   }
 }
 
-class _CommunityCard extends StatelessWidget {
-  const _CommunityCard({required this.group, required this.onTap});
-
-  final AppGroup group;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: colors.brand.withValues(alpha: 0.18), width: 2),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: group.photoUrl.isNotEmpty
-                  ? NetworkImage(
-                      ImageUrlResolver.avatar(group.photoUrl, size: 100),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: colors.brandGradient,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'Official',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    group.info,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _DiscoverGroupCard extends StatelessWidget {
   const _DiscoverGroupCard({required this.group, required this.onTap});
@@ -534,46 +597,55 @@ class _DiscoverGroupCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      group.info.isNotEmpty ? group.info : 'No description',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: colors.textMuted, fontSize: 12),
-                    ),
+                    if (!group.isMember) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        group.info.isNotEmpty ? group.info : 'No description',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: colors.textMuted, fontSize: 12),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Text(
-                          '${group.membersCount} members',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (group.category.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                        if (group.isMember)
+                          Expanded(
+                            child: Text(
+                              group.latestMessage != null
+                                  ? '${(group.latestMessage!.sender?.username.trim().isNotEmpty == true ? group.latestMessage!.sender!.username.trim() : 'member')}: ${group.latestMessage!.message.trim().isNotEmpty ? group.latestMessage!.message.trim() : 'sent a message'}'
+                                  : 'No messages yet',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          )
+                        else
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
+                              horizontal: 10,
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: colors.surfaceMuted,
+                              color: colors.success.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              group.category,
+                              'Join group',
                               style: TextStyle(
-                                color: colors.textMuted,
+                                color: colors.success,
                                 fontSize: 10,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
-                        ],
-                        const Spacer(),
+                        if (!group.isMember) const Spacer(),
+                        if (group.isMember && group.hasUnread)
+                          const SizedBox(width: 10),
                         if (group.hasUnread)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -602,6 +674,107 @@ class _DiscoverGroupCard extends StatelessWidget {
               Icon(Icons.chevron_right, color: colors.textMuted),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityCard extends StatelessWidget {
+  const _CommunityCard({required this.group, required this.onTap});
+
+  final AppGroup group;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: colors.brand.withValues(alpha: 0.18), width: 2),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: group.photoUrl.isNotEmpty
+                  ? NetworkImage(
+                      ImageUrlResolver.avatar(group.photoUrl, size: 100),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.name,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: colors.brandGradient,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Official',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (group.hasUnread) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    group.info,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -725,10 +725,10 @@ class _WebPageErrorState extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                TextButton.icon(
+                IconButton(
+                  tooltip: 'Open in browser',
                   onPressed: onOpenInBrowser,
                   icon: const Icon(Icons.open_in_browser_rounded),
-                  label: const Text('Open in browser'),
                 ),
               ],
             ),

@@ -47,6 +47,28 @@ class GroupRepository {
     );
   }
 
+  Future<void> leaveGroup(int groupId) async {
+    await _authRepository.post('groups/$groupId/leave');
+  }
+
+  Future<GroupMemberPage> fetchMembers(int groupId, {int page = 1}) async {
+    final response = await _authRepository.get(
+      'groups/$groupId/members',
+      queryParameters: {'page': page},
+    );
+    return GroupMemberPage.fromJson(response);
+  }
+
+  Future<AppGroup> toggleNotifications(int groupId, {required bool enabled}) async {
+    final response = await _authRepository.post(
+      'groups/$groupId/notifications',
+      body: {'enabled': enabled},
+    );
+    return AppGroup.fromJson(
+      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<GroupMessagePage> fetchMessages(
     int groupId, {
     int? beforeId,

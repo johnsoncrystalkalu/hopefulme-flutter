@@ -33,7 +33,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
       description:
           'An inspirational social network community, built just for you.',
       icon: Icons.auto_awesome_rounded,
-      accent: Color(0xFF2563EB), // Primary Brand Blue
+      accent: null,
     ),
     _OnboardingSlideData(
       title: 'Connect and meet\nnew friends.',
@@ -45,7 +45,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Join our physical\nevents and hangouts.',
       description:
-          'Attend exciting meetups, life-changing programs, and city tours. This is a safe place to connect and grow.',
+          'Attend exciting meetups, life-changing programs, and city tours. This is a safe space to connect and grow.',
       icon: Icons.event_available_rounded,
       accent: Color(0xFF059669), // Emerald Accent
     ),
@@ -164,15 +164,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                   decoration: BoxDecoration(
                                   color: colors.brand,
                                   borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.brand.withValues(
-                                        alpha: 0.28,
-                                      ),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
+                                  
                                 ),
                                 child: ElevatedButton(
                                   onPressed: isLastPage
@@ -215,15 +207,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                                   border: Border.all(
                                     color: colors.brand.withValues(alpha: 0.14),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.shadow.withValues(
-                                        alpha: 0.08,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                                  
                                 ),
                                 child: TextButton(
                                   onPressed: _openLogin,
@@ -316,6 +300,7 @@ class _RefinedSlide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final accent = data.accent ?? colors.accent;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -328,10 +313,10 @@ class _RefinedSlide extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: data.accent.withValues(alpha: 0.1),
+              color: accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(data.icon, size: 36, color: data.accent),
+            child: Icon(data.icon, size: 36, color: accent),
           ),
           const SizedBox(height: 40),
           Text(
@@ -364,7 +349,7 @@ class _OnboardingSlideData {
   final String title;
   final String description;
   final IconData icon;
-  final Color accent;
+  final Color? accent;
 
   const _OnboardingSlideData({
     required this.title,
@@ -373,3 +358,5 @@ class _OnboardingSlideData {
     required this.accent,
   });
 }
+
+//UI

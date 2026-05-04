@@ -608,15 +608,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 decoration: BoxDecoration(
                                   gradient: colors.brandGradient,
                                   borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.brand.withValues(
-                                        alpha: 0.28,
-                                      ),
-                                      blurRadius: 30,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
                                 ),
                                 child: ElevatedButton(
                                   onPressed:

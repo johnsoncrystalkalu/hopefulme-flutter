@@ -60,6 +60,7 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int _selectedIndex = 0;
   int _unreadGroupsCount = 0;
+  final ValueNotifier<int> _homeRetapNotifier = ValueNotifier<int>(0);
   final ValueNotifier<UpdateDetail?> _pendingCreatedUpdateNotifier =
       ValueNotifier<UpdateDetail?>(null);
 
@@ -71,6 +72,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   void dispose() {
+    _homeRetapNotifier.dispose();
     _pendingCreatedUpdateNotifier.dispose();
     super.dispose();
   }
@@ -123,6 +125,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
       return;
     }
     if (_selectedIndex == index) {
+      if (index == 0) {
+        _homeRetapNotifier.value = _homeRetapNotifier.value + 1;
+      }
       unawaited(_refreshUnreadGroupsCount());
       return;
     }
@@ -158,6 +163,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
             embedInMajorShell: true,
             onMajorTabSelected: _onTabSelected,
             pendingCreatedUpdateNotifier: _pendingCreatedUpdateNotifier,
+            homeRetapNotifier: _homeRetapNotifier,
           ),
           SearchScreen(
             repository: widget.searchRepository,
