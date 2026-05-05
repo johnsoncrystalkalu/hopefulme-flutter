@@ -7,6 +7,9 @@ class ConversationListItem {
   const ConversationListItem({
     required this.id,
     required this.status,
+    required this.blocked,
+    required this.blockedBy,
+    required this.canShowPresence,
     required this.typingUserId,
     required this.typingAt,
     required this.typingUserName,
@@ -18,6 +21,9 @@ class ConversationListItem {
 
   final int id;
   final String status;
+  final bool blocked;
+  final int blockedBy;
+  final bool canShowPresence;
   final int typingUserId;
   final String typingAt;
   final String typingUserName;
@@ -30,6 +36,9 @@ class ConversationListItem {
     return ConversationListItem(
       id: parseInt(json['id']),
       status: json['status']?.toString() ?? '',
+      blocked: parseBool(json['blocked']),
+      blockedBy: parseInt(json['blocked_by']),
+      canShowPresence: parseBool(json['can_show_presence']),
       typingUserId: parseInt(json['typing_user_id']),
       typingAt: json['typing_at']?.toString() ?? '',
       typingUserName: json['typing_user_name']?.toString() ?? '',

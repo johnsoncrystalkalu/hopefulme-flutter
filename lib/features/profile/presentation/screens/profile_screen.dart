@@ -691,6 +691,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         profile: dashboard.profile,
                         isFollowing: dashboard.isFollowing,
                         updatesCount: dashboard.updatesCount,
+                        canViewLastSeen: widget.currentUser?.isAdmin == true,
                         isCurrentUser:
                             widget.currentUser?.username ==
                             dashboard.profile.username,
@@ -1176,6 +1177,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.profile,
     required this.isFollowing,
     required this.updatesCount,
+    required this.canViewLastSeen,
     required this.isCurrentUser,
     required this.onEditProfile,
     required this.onEditMedia,
@@ -1195,6 +1197,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   final ProfileSummary profile;
   final bool isFollowing;
   final int updatesCount;
+  final bool canViewLastSeen;
   final bool isCurrentUser;
   final Future<void> Function() onEditProfile;
   final Future<void> Function() onEditMedia;
@@ -1342,7 +1345,11 @@ class _ProfileHeaderCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _ProfileStatusRow(profile: profile),
+        if (canViewLastSeen)
+          _ProfileStatusRow(
+            profile: profile,
+            canViewLastSeen: canViewLastSeen,
+          ),
         if (mutualFollowers.isNotEmpty) ...[
           const SizedBox(height: 10),
           _MutualFollowersRow(mutualFollowers: mutualFollowers),
@@ -1531,9 +1538,13 @@ class _ProfileHeaderCard extends StatelessWidget {
 }
 
 class _ProfileStatusRow extends StatelessWidget {
-  const _ProfileStatusRow({required this.profile});
+  const _ProfileStatusRow({
+    required this.profile,
+    required this.canViewLastSeen,
+  });
 
   final ProfileSummary profile;
+  final bool canViewLastSeen;
 
   @override
   Widget build(BuildContext context) {
@@ -1576,7 +1587,11 @@ class _ProfileStatusRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              profile.isOnline ? 'Online' : 'Last seen: ${profile.lastSeen}',
+              profile.isOnline
+                  ? 'Online'
+                  : (canViewLastSeen
+                        ? 'Last seen: ${profile.lastSeen}'
+                        : 'Active recently'),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 11,

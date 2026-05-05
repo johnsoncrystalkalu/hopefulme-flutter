@@ -2617,18 +2617,6 @@ class _HomeSidebar extends StatelessWidget {
                         activeItemLabel == 'Settings',
                         onTap: onSettingsTap,
                       ),
-                      _SidebarItemData(
-                        HeroIcons.moon,
-                        themeController.effectiveIsDark(
-                              Theme.of(context).brightness,
-                            )
-                            ? 'Switch to Light Mode'
-                            : 'Switch to Dark Mode',
-                        false,
-                        onTap: () async {
-                          await themeController.cycleThemeMode();
-                        },
-                      ),
                     ],
                   ),
 
@@ -3051,18 +3039,24 @@ class _HomeLoadingSkeleton extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: 16),
+        SizedBox(height: 9),
         _StoriesRowSkeleton(),
-        SizedBox(height: 18),
+        SizedBox(height: 12),
         _ComposerCardSkeleton(),
-        SizedBox(height: 18),
-        _BirthdayStripSkeleton(),
-        SizedBox(height: 18),
+        SizedBox(height: 14),
         _QuotesSectionSkeleton(),
-        SizedBox(height: 20),
+        SizedBox(height: 6),
+        _PostCategoryStripSkeleton(),
+        SizedBox(height: 16),
         _FeedCardSkeleton(),
         SizedBox(height: 16),
         _FeedCardSkeleton(),
+        SizedBox(height: 8),
+        _FeedExploreChipSkeleton(),
+        SizedBox(height: 12),
+        _BirthdayStripSkeleton(),
+        SizedBox(height: 8),
+        _MostActiveUsersSkeleton(),
         SizedBox(height: 16),
         _FeedCardSkeleton(),
       ],
@@ -3200,6 +3194,68 @@ class _QuotesSectionSkeleton extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PostCategoryStripSkeleton extends StatelessWidget {
+  const _PostCategoryStripSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          return const ShimmerBox(width: 88, height: 32, borderRadius: 999);
+        },
+      ),
+    );
+  }
+}
+
+class _FeedExploreChipSkeleton extends StatelessWidget {
+  const _FeedExploreChipSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ShimmerBox(width: 132, height: 28, borderRadius: 999),
+      ),
+    );
+  }
+}
+
+class _MostActiveUsersSkeleton extends StatelessWidget {
+  const _MostActiveUsersSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerBox(width: 140, height: 14),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: ShimmerBox(height: 64, borderRadius: 14)),
+              SizedBox(width: 10),
+              Expanded(child: ShimmerBox(height: 64, borderRadius: 14)),
+              SizedBox(width: 10),
+              Expanded(child: ShimmerBox(height: 64, borderRadius: 14)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3775,71 +3831,51 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header strip (brand blue) ─────────────────────────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: colors.brand,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // Header (plain style, aligned with Most Active card)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
             child: Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('🎂', style: TextStyle(fontSize: 16)),
+                  width: 24,
+                  height: 24,
+                  child: Center(
+                    child: Text(
+                      '🎂',
+                      style: TextStyle(
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Today's Birthdays",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                      Text(
-                        'We have members celebrating today',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.70),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    "Today's Birthdays",
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                // View all pill
                 GestureDetector(
                   onTap: onViewAll,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
+                      color: colors.accentSoft,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'View all',
+                    child: Text(
+                      'See all',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        color: colors.brand,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -3847,6 +3883,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
               ],
             ),
           ),
+          Divider(height: 1, thickness: 0.5, color: colors.border),
 
           // ── Body ─────────────────────────────────────────────────────────
           Padding(
@@ -3944,9 +3981,10 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                           ),
                           padding: EdgeInsets.zero,
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.chat_bubble_outline_rounded,
                           size: 15,
+                          color: colors.accent,
                         ),
                         label: const Text(
                           'Send wishes',
@@ -3971,12 +4009,13 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                           ),
                           padding: EdgeInsets.zero,
                         ),
-                        icon: const Icon(
-                          Icons.design_services_outlined,
+                        icon: Icon(
+                          Icons.photo_outlined,
                           size: 15,
+                          color: colors.brand,
                         ),
                         label: const Text(
-                          'Design card',
+                          'Create flyer',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

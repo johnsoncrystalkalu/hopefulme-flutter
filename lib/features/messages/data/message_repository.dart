@@ -176,6 +176,20 @@ class MessageRepository {
     );
   }
 
+  Future<ConversationListItem> blockConversation(String username) async {
+    final response = await _authRepository.post('messages/$username/block');
+    return ConversationListItem.fromJson(
+      response['conversation'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
+  Future<ConversationListItem> unblockConversation(String username) async {
+    final response = await _authRepository.delete('messages/$username/block');
+    return ConversationListItem.fromJson(
+      response['conversation'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    );
+  }
+
   Future<void> deleteMessage(int messageId) async {
     await _authRepository.delete('messages/item/$messageId');
   }

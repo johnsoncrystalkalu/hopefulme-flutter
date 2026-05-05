@@ -603,21 +603,7 @@ class _FriendOfDayCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? colors.surfaceMuted
-                            : colors.surface,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: IconButton(
-                        onPressed: onProfileTap,
-                        icon: Icon(Icons.sync_rounded, color: colors.textMuted),
-                      ),
-                    ),
+                   
                   ],
                 ),
                 const SizedBox(height: 16),

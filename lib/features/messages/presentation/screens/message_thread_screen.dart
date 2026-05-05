@@ -499,6 +499,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   }
 
   Future<void> _sendMessage() async {
+    if (_conversation?.blocked == true) {
+      return;
+    }
     final text = _controller.text.trim();
     final hasPhoto = _selectedPhoto != null;
     final hasAudio = _selectedAudio != null;
@@ -1345,7 +1348,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
 
   Future<void> _sendTypingStatus(bool isTyping) async {
     final conversation = _conversation;
-    if (conversation == null || !mounted) return;
+    if (conversation == null || conversation.blocked || !mounted) return;
 
     try {
       final updatedConversation = await widget.repository.setTypingStatus(
@@ -1358,6 +1361,72 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         _conversation = updatedConversation;
       });
     } catch (_) {}
+  }
+
+  Future<void> _blockConversation() async {
+    final conversation = _conversation;
+    if (conversation == null || conversation.blocked) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Block chat?'),
+        content: const Text(
+          'Chat will become unavailable until you unblock it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final updated = await widget.repository.blockConversation(widget.username);
+      if (!mounted) return;
+      setState(() {
+        _conversation = updated;
+        _typingSent = false;
+        _showEmojiPicker = false;
+        _replyingTo = null;
+        _activeBubbleActionsMessage = null;
+      });
+      _typingDebounce?.cancel();
+      _pollTimer?.cancel();
+      _hasThreadChanges = true;
+      AppToast.info(context, 'Chat blocked');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    }
+  }
+
+  Future<void> _unblockConversation() async {
+    final conversation = _conversation;
+    if (conversation == null || !conversation.blocked) return;
+    if (conversation.blockedBy != widget.currentUser?.id) {
+      AppToast.info(context, 'Only blocker can unblock this chat.');
+      return;
+    }
+    try {
+      final updated = await widget.repository.unblockConversation(widget.username);
+      if (!mounted) return;
+      setState(() {
+        _conversation = updated;
+      });
+      _hasThreadChanges = true;
+      _primeRealtimeBurst();
+      _scheduleNextPoll(immediate: true);
+      AppToast.success(context, 'Chat unblocked');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context, error);
+    }
   }
 
   Future<void> _openProfile() async {
@@ -1631,6 +1700,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final conversation = _conversation;
+    final isBlocked = conversation?.blocked == true;
+    final isBlockedByMe =
+        isBlocked && conversation?.blockedBy == widget.currentUser?.id;
     final otherUser = conversation?.otherUser;
     final firstUnreadIndex = _firstUnreadIndexFor(_messages, conversation);
     final typingUserName = conversation?.typingUserName.trim() ?? '';
@@ -1688,6 +1760,10 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                         Text(
                           otherUser == null
                               ? 'Conversation'
+                              : isBlocked
+                              ? 'Chat unavailable'
+                              : !(conversation?.canShowPresence ?? false)
+                              ? 'Available'
                               : otherUser.isOnline
                               ? 'Online now'
                               : otherUser.lastSeen.isNotEmpty
@@ -1714,13 +1790,25 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                 switch (value) {
                   case 'profile':
                     unawaited(_openProfile());
+                  case 'block':
+                    unawaited(_blockConversation());
+                  case 'unblock':
+                    unawaited(_unblockConversation());
                   case 'posts':
                     unawaited(_openUserPosts());
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'profile', child: Text('View profile')),
-                PopupMenuItem(value: 'posts', child: Text('View posts')),
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'profile', child: Text('View profile')),
+                const PopupMenuItem(value: 'posts', child: Text('View posts')),
+                if (isBlocked)
+                  PopupMenuItem(
+                    value: 'unblock',
+                    enabled: isBlockedByMe,
+                    child: const Text('Unblock chat'),
+                  )
+                else
+                  const PopupMenuItem(value: 'block', child: Text('Block chat')),
               ],
             ),
           ],
@@ -1744,6 +1832,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                   Positioned.fill(
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
+                        : isBlocked
+                        ? _BlockedConversationState(
+                            blockedByMe: isBlockedByMe,
+                            onUnblock: isBlockedByMe
+                                ? () => unawaited(_unblockConversation())
+                                : null,
+                          )
                         : _error != null
                         ? AppStatusState.fromError(
                             error: _error!,
@@ -2331,7 +2426,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                 ),
               ),
             ),
-            AnimatedSize(
+            if (!isBlocked)
+              AnimatedSize(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
               child: Column(
@@ -2368,7 +2464,8 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                 ],
               ),
             ),
-            SafeArea(
+            if (!isBlocked)
+              SafeArea(
               top: false,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
@@ -2830,6 +2927,72 @@ class _ThreadEmptyState extends StatelessWidget {
   }
 }
 
+class _BlockedConversationState extends StatelessWidget {
+  const _BlockedConversationState({
+    required this.blockedByMe,
+    required this.onUnblock,
+  });
+
+  final bool blockedByMe;
+  final VoidCallback? onUnblock;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.block_rounded,
+                color: colors.dangerText,
+                size: 28,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Chat unavailable',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                blockedByMe
+                    ? 'You blocked this chat. Unblock to resume messaging.'
+                    : 'This chat is currently blocked.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (blockedByMe && onUnblock != null) ...[
+                const SizedBox(height: 12),
+                FilledButton.tonal(
+                  onPressed: onUnblock,
+                  child: const Text('Unblock chat'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ReactionBar extends StatelessWidget {
   const _ReactionBar({required this.reactions, required this.onTapEmoji});
 
@@ -2902,6 +3065,9 @@ extension on _MessageThreadScreenState {
   ) {
     if (previous == null) return true;
     return previous.status != next.status ||
+        previous.blocked != next.blocked ||
+        previous.blockedBy != next.blockedBy ||
+        previous.canShowPresence != next.canShowPresence ||
         previous.typingUserId != next.typingUserId ||
         previous.typingAt != next.typingAt ||
         previous.typingUserName != next.typingUserName ||

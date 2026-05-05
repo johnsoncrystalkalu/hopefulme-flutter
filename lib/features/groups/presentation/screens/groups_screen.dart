@@ -158,20 +158,33 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final query = _searchQuery.trim().toLowerCase();
-    final openGroups = _groups.where((group) => group.type.toLowerCase() == 'open').toList();
+    final openGroups = _groups
+        .where((group) => group.type.toLowerCase() == 'open')
+        .toList();
+    final allJoinedGroups = _groups
+        .where((group) => group.isMember && group.id != 1)
+        .toList();
     final community = _groups.where((group) => group.id == 1).firstOrNull;
-    final discoverableOpenGroups = openGroups.where((group) => group.id != 1).toList();
-    final visible = query.isEmpty
+    final discoverableOpenGroups =
+        openGroups.where((group) => group.id != 1).toList();
+    final visibleDiscoverable = query.isEmpty
         ? discoverableOpenGroups
         : discoverableOpenGroups.where((group) {
             return group.name.toLowerCase().contains(query) ||
                 group.info.toLowerCase().contains(query);
           }).toList();
-    final popularGroups = List<AppGroup>.from(visible)
+    final popularGroups = List<AppGroup>.from(visibleDiscoverable)
       ..sort((a, b) => b.messagesCount.compareTo(a.messagesCount));
     final topPopularGroups = popularGroups.take(4).toList();
-    final joinedGroups = visible.where((group) => group.isMember).toList();
-    final unjoinedGroups = visible.where((group) => !group.isMember).toList();
+    final joinedGroups = query.isEmpty
+        ? allJoinedGroups
+        : allJoinedGroups.where((group) {
+            return group.name.toLowerCase().contains(query) ||
+                group.info.toLowerCase().contains(query);
+          }).toList();
+    final unjoinedGroups = visibleDiscoverable
+        .where((group) => !group.isMember)
+        .toList();
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -293,7 +306,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        gradient: colors.heroGradient,
+                        color: colors.brand,
                         borderRadius: BorderRadius.circular(26),
                       ),
                     child: Column(
@@ -383,12 +396,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                     ),
                   ),
-                  if (visible.isEmpty)
+                  if (joinedGroups.isEmpty && unjoinedGroups.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 28),
                       child: Center(
                         child: Text(
-                          'No open groups found.',
+                          'No groups found.',
                           style: TextStyle(color: colors.textMuted),
                         ),
                       ),
@@ -631,13 +644,13 @@ class _DiscoverGroupCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: colors.success.withValues(alpha: 0.16),
+                              color: colors.brand.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
                               'Join group',
                               style: TextStyle(
-                                color: colors.success,
+                                color: colors.brand,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                               ),

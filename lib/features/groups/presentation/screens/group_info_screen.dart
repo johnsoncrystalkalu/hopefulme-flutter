@@ -339,17 +339,31 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         ],
         if (_group.category.trim().isNotEmpty) ...[
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: Text(
-              _group.category.trim(),
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                ),
+                child: Text(
+                  _group.category.trim(),
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Group on Hopefulme',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w500,
+                  height: 1.0,
+                ),
+              ),
+            ],
           ),
         ],
       ],
