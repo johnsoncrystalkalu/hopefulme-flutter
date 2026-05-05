@@ -16,6 +16,8 @@ import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
+import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
+import 'package:hopefulme_flutter/core/services/onesignal_service.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
@@ -74,6 +76,14 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   bool _showJumpToBottom = false;
   bool _showJumpToUnread = false;
   bool _hasThreadChanges = false;
+  List<GroupMemberInfo> _mentionSuggestions = const <GroupMemberInfo>[];
+  Timer? _mentionDebounce;
+  int _mentionRequestId = 0;
+  bool _mentionLoading = false;
+  int? _activeMentionStart;
+  String _activeMentionQuery = '';
+  final Map<String, List<GroupMemberInfo>> _mentionQueryCache =
+      <String, List<GroupMemberInfo>>{};
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
   PlatformFile? _selectedAudio;
@@ -100,6 +110,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   int _optimisticId = -1;
   int _lastReadMessageId = 0;
   bool _typingSent = false;
+  bool _composerHasText = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
   bool _isKeyboardVisible = false;
@@ -170,6 +181,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ActiveGroupThread.currentGroupId = widget.groupId;
     _controller.addListener(_handleComposerChanged);
     _composerFocusNode.addListener(_handleComposerFocusChanged);
     _scrollController.addListener(_handleScroll);
@@ -214,8 +226,12 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (ActiveGroupThread.currentGroupId == widget.groupId) {
+      ActiveGroupThread.currentGroupId = null;
+    }
     _pollTimer?.cancel();
     _typingDebounce?.cancel();
+    _mentionDebounce?.cancel();
     _recordTimer?.cancel();
     _recordMeterTimer?.cancel();
     _voicePlayerStateSub?.cancel();
@@ -629,6 +645,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
               id: widget.currentUser?.id ?? 0,
               username: widget.currentUser?.username ?? '',
               fullname: widget.currentUser?.fullname ?? '',
+              role1: widget.currentUser?.role1 ?? '',
               photoUrl: widget.currentUser?.photoUrl ?? '',
               lastSeen: '',
               isOnline: true,
@@ -1344,9 +1361,16 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   }
 
   void _handleComposerChanged() {
+    _updateMentionSuggestions();
     final text = _controller.text.trim();
     unawaited(_persistDraft(_controller.text));
     if (_isRestoringDraft) return;
+    final hasText = text.isNotEmpty;
+    if (_composerHasText != hasText && mounted) {
+      setState(() {
+        _composerHasText = hasText;
+      });
+    }
     if (text.isEmpty) {
       _typingDebounce?.cancel();
       if (_typingSent) {
@@ -1374,8 +1398,193 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   void _handleComposerFocusChanged() {
     if (_composerFocusNode.hasFocus) {
       _scrollToBottom();
-    } else if (_isKeyboardVisible) {
+      return;
+    }
+    _clearMentionState();
+    if (_isKeyboardVisible) {
       _isKeyboardVisible = false;
+    }
+  }
+
+  void _clearMentionState() {
+    _mentionDebounce?.cancel();
+    _activeMentionStart = null;
+    _activeMentionQuery = '';
+    _mentionLoading = false;
+    _mentionSuggestions = const <GroupMemberInfo>[];
+  }
+
+  List<GroupMemberInfo> _localMentionSuggestions(String query) {
+    final normalized = query.trim().toLowerCase();
+    final seen = <int>{};
+    final members = <GroupMemberInfo>[];
+
+    for (final message in _messages.reversed) {
+      final sender = message.sender;
+      if (sender == null) {
+        continue;
+      }
+      if (widget.currentUser != null && sender.id == widget.currentUser!.id) {
+        continue;
+      }
+      if (!seen.add(sender.id)) {
+        continue;
+      }
+      final username = sender.username.trim();
+      final fullname = sender.fullname.trim();
+      if (username.isEmpty) {
+        continue;
+      }
+      if (normalized.isNotEmpty) {
+        final u = username.toLowerCase();
+        final f = fullname.toLowerCase();
+        if (!u.startsWith(normalized) &&
+            !f.startsWith(normalized) &&
+            !u.contains(normalized) &&
+            !f.contains(normalized)) {
+          continue;
+        }
+      }
+      members.add(
+        GroupMemberInfo(
+          id: sender.id,
+          username: username,
+          fullname: fullname,
+          photoUrl: sender.photoUrl,
+          isOwner: false,
+          isAdmin: false,
+        ),
+      );
+      if (members.length >= 3) {
+        break;
+      }
+    }
+
+    return members;
+  }
+
+  void _updateMentionSuggestions() {
+    final token = _extractActiveMentionToken(_controller.value);
+    if (token == null || !_composerFocusNode.hasFocus) {
+      if (_activeMentionStart != null ||
+          _mentionSuggestions.isNotEmpty ||
+          _mentionLoading) {
+        if (mounted) {
+          setState(_clearMentionState);
+        } else {
+          _clearMentionState();
+        }
+      }
+      return;
+    }
+
+    _activeMentionStart = token.start;
+    final query = token.query.trim();
+    if (query == _activeMentionQuery &&
+        (_mentionSuggestions.isNotEmpty || _mentionLoading)) {
+      return;
+    }
+    _activeMentionQuery = query;
+
+    final localSuggestions = _localMentionSuggestions(query);
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _mentionLoading = false;
+          _mentionSuggestions = localSuggestions;
+        });
+      }
+      return;
+    }
+
+    final cached = _mentionQueryCache[query.toLowerCase()];
+    if (cached != null) {
+      if (mounted) {
+        setState(() {
+          _mentionLoading = false;
+          _mentionSuggestions = cached;
+        });
+      }
+      return;
+    }
+
+    _mentionDebounce?.cancel();
+    _mentionDebounce = Timer(const Duration(milliseconds: 320), () async {
+      final requestId = ++_mentionRequestId;
+      if (mounted) {
+        setState(() {
+          _mentionLoading = localSuggestions.isEmpty;
+          _mentionSuggestions = localSuggestions;
+        });
+      }
+
+      try {
+        final suggestions = await widget.repository.fetchMentionMembers(
+          widget.groupId,
+          query,
+          limit: 3,
+        );
+        if (!mounted || requestId != _mentionRequestId) {
+          return;
+        }
+        _mentionQueryCache[query.toLowerCase()] = suggestions;
+        if (_mentionQueryCache.length > 32) {
+          _mentionQueryCache.remove(_mentionQueryCache.keys.first);
+        }
+        setState(() {
+          _mentionSuggestions = suggestions;
+          _mentionLoading = false;
+        });
+      } catch (_) {
+        if (!mounted || requestId != _mentionRequestId) {
+          return;
+        }
+        setState(() {
+          _mentionSuggestions = localSuggestions;
+          _mentionLoading = false;
+        });
+      }
+    });
+  }
+
+  _MentionToken? _extractActiveMentionToken(TextEditingValue value) {
+    final cursor = value.selection.baseOffset;
+    if (cursor < 0 || cursor > value.text.length) {
+      return null;
+    }
+
+    final beforeCursor = value.text.substring(0, cursor);
+    final match = RegExp(r'(^|\s)@([a-zA-Z0-9_-]*)$').firstMatch(beforeCursor);
+    if (match == null) {
+      return null;
+    }
+
+    final prefix = match.group(1) ?? '';
+    final query = match.group(2) ?? '';
+    final start = match.start + prefix.length;
+    return _MentionToken(start: start, query: query);
+  }
+
+  void _insertMention(GroupMemberInfo member) {
+    final value = _controller.value;
+    final cursor = value.selection.baseOffset;
+    final mentionStart = _activeMentionStart;
+    if (cursor < 0 || mentionStart == null || mentionStart > cursor) {
+      return;
+    }
+
+    final text = value.text;
+    final replaced =
+        '${text.substring(0, mentionStart)}@${member.username} ${text.substring(cursor)}';
+    final nextOffset = mentionStart + member.username.length + 2;
+
+    _controller.value = TextEditingValue(
+      text: replaced,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    setState(_clearMentionState);
+    if (!_composerFocusNode.hasFocus) {
+      _composerFocusNode.requestFocus();
     }
   }
 
@@ -1409,6 +1618,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
 
   Future<void> _showUserPreview(ConversationUser user) async {
     final username = user.username.trim();
+    final role1 = user.role1.trim();
     if (username.isEmpty) return;
     final colors = context.appColors;
     await showModalBottomSheet<void>(
@@ -1437,6 +1647,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                     children: [
                       Text(
                         '@$username',
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 14,
@@ -1445,12 +1656,38 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                       ),
                       if (user.fullname.trim().isNotEmpty) ...[
                         const SizedBox(height: 2),
-                        Text(
-                          user.fullname.trim(),
+                        VerifiedNameText(
+                          name: user.fullname.trim(),
+                          verified: user.isVerified,
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
+                          ),
+                          badgeSize: 14,
+                        ),
+                      ],
+                      if (role1.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.brand.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: colors.brand.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            role1,
+                            style: TextStyle(
+                              color: colors.brand,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -2096,6 +2333,18 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                   ),
                                 ),
                               ),
+                            if (!_showEmojiPicker &&
+                                !_isRecordingVoice &&
+                                _selectedAudio == null &&
+                                (_mentionLoading || _mentionSuggestions.isNotEmpty))
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _GroupMentionSuggestionsCard(
+                                  loading: _mentionLoading,
+                                  suggestions: _mentionSuggestions,
+                                  onSelect: _insertMention,
+                                ),
+                              ),
                             Row(
                               children: [
                                 if (!(_isRecordingVoice || _selectedAudio != null)) ...[
@@ -2134,6 +2383,10 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                             _showEmojiPicker = false;
                                           });
                                         }
+                                        if (_mentionSuggestions.isNotEmpty ||
+                                            _mentionLoading) {
+                                          _updateMentionSuggestions();
+                                        }
                                         _scrollToBottom();
                                       },
                                       decoration: InputDecoration(
@@ -2160,7 +2413,7 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
                                     if (_isRecordingVoice || _selectedAudio != null) {
                                       return const SizedBox.shrink();
                                     }
-                                    final hasTypedText = _controller.text.trim().isNotEmpty;
+                                    final hasTypedText = _composerHasText;
                                     final hasPhoto = _selectedPhoto != null;
                                     final hasAudio = _selectedAudio != null;
                                     final shouldShowSend = hasTypedText || hasPhoto || hasAudio || _editingMessage != null;
@@ -2610,8 +2863,7 @@ class _GroupMessageBubble extends StatelessWidget {
       fontSize: 14,
       height: 1.45,
       fontWeight: FontWeight.w700,
-      decoration: TextDecoration.underline,
-      decorationColor: color,
+      decoration: TextDecoration.none,
     );
   }
 
@@ -3422,6 +3674,115 @@ class _VoiceTickerState {
       position: position ?? this.position,
       totalDuration: totalDuration ?? this.totalDuration,
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
+    );
+  }
+}
+
+class _MentionToken {
+  const _MentionToken({
+    required this.start,
+    required this.query,
+  });
+
+  final int start;
+  final String query;
+}
+
+class _GroupMentionSuggestionsCard extends StatelessWidget {
+  const _GroupMentionSuggestionsCard({
+    required this.loading,
+    required this.suggestions,
+    required this.onSelect,
+  });
+
+  final bool loading;
+  final List<GroupMemberInfo> suggestions;
+  final void Function(GroupMemberInfo member) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.border.withValues(alpha: 0.6)),
+        ),
+        child: loading
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.brand,
+                    ),
+                  ),
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: suggestions.length,
+                separatorBuilder: (_, unused) => const SizedBox(height: 0),
+                itemBuilder: (context, index) {
+                  final member = suggestions[index];
+                  return InkWell(
+                    onTap: () => onSelect(member),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          AppAvatar(
+                            imageUrl: member.photoUrl,
+                            label: member.displayName,
+                            radius: 14,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  member.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  '@${member.username}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

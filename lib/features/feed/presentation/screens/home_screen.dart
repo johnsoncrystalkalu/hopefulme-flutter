@@ -20,6 +20,7 @@ import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/widgets/app_network_image.dart';
 import 'package:hopefulme_flutter/core/widgets/app_toast.dart';
+import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.dart';
 import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
@@ -1432,7 +1433,7 @@ class _HomeScreenState extends State<HomeScreen>
       drawer: isDesktop
           ? null
           : Drawer(
-              width: min(320, MediaQuery.of(context).size.width * 0.84),
+              width: min(300, MediaQuery.of(context).size.width * 0.80),
               child: sidebar,
             ),
       body: Stack(
@@ -2612,6 +2613,12 @@ class _HomeSidebar extends StatelessWidget {
                     title: 'Account',
                     items: [
                       _SidebarItemData(
+                        HeroIcons.userCircle,
+                        'Profile',
+                        activeItemLabel == 'Profile',
+                        onTap: onProfileTap,
+                      ),
+                      _SidebarItemData(
                         HeroIcons.cog6Tooth,
                         'Settings',
                         activeItemLabel == 'Settings',
@@ -2968,15 +2975,17 @@ class _HomeContent extends StatelessWidget {
     if (data == null) {
       return const SizedBox.shrink();
     }
-    final currentUser = user;
-    final shouldPromptForPhoto =
-        currentUser != null &&
-        currentUser.photoUrl.trim().isEmpty &&
-        error == null;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (error != null) ...[
+          _OfflineCachedBanner(
+            message: AppErrorText.isOffline(error)
+                ? 'Showing saved home feed. Pull to refresh.'
+                : 'Could not refresh now. Showing last loaded home feed.',
+          ),
+          const SizedBox(height: 10),
+        ],
         const SizedBox(height: 9),
         _StoriesRow(
           users: data.onlineUsers,
@@ -2994,10 +3003,6 @@ class _HomeContent extends StatelessWidget {
           onOpenProfile: onOpenProfile,
         ),
         const SizedBox(height: 14),
-        if (shouldPromptForPhoto) ...[
-          _ProfilePhotoReminderCard(user: currentUser, onTap: onOpenEditMedia),
-          const SizedBox(height: 12),
-        ],
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: _SectionHeader(
@@ -3060,6 +3065,54 @@ class _HomeLoadingSkeleton extends StatelessWidget {
         SizedBox(height: 16),
         _FeedCardSkeleton(),
       ],
+    );
+  }
+}
+
+class _OfflineCachedBanner extends StatelessWidget {
+  const _OfflineCachedBanner({
+    required this.message,
+    this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function()? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 16,
+            color: colors.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: () => unawaited(onRetry!()),
+              child: const Text('Retry'),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -3567,6 +3620,8 @@ class _ComposerCard extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.send_rounded, size: 14),
+                        SizedBox(width: 5),
                         Text(
                           'Post',
                           style: TextStyle(
@@ -3938,7 +3993,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         text: TextSpan(
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 13,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),

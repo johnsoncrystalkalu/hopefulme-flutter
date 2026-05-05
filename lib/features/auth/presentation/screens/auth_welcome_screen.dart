@@ -31,8 +31,9 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Welcome to\nHopefulMe.',
       description:
-          'An inspirational social network community, built just for you.',
+          'An inspirational social network community, built just for you. A space to connect and grow.',
       icon: Icons.auto_awesome_rounded,
+      imageAssetPath: 'assets/images/app-icon.png',
       accent: null,
     ),
     _OnboardingSlideData(
@@ -45,7 +46,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     _OnboardingSlideData(
       title: 'Join our physical\nevents and hangouts.',
       description:
-          'Attend exciting meetups, life-changing programs, and city tours. This is a safe space to connect and grow.',
+          'Attend exciting meetups, life-changing programs, and city tours.',
       icon: Icons.event_available_rounded,
       accent: Color(0xFF059669), // Emerald Accent
     ),
@@ -316,7 +317,15 @@ class _RefinedSlide extends StatelessWidget {
               color: accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(data.icon, size: 36, color: accent),
+            child: data.imageAssetPath != null
+                ? Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Image.asset(
+                      data.imageAssetPath!,
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : Icon(data.icon, size: 36, color: accent),
           ),
           const SizedBox(height: 40),
           Text(
@@ -349,12 +358,14 @@ class _OnboardingSlideData {
   final String title;
   final String description;
   final IconData icon;
+  final String? imageAssetPath;
   final Color? accent;
 
   const _OnboardingSlideData({
     required this.title,
     required this.description,
     required this.icon,
+    this.imageAssetPath,
     required this.accent,
   });
 }

@@ -81,6 +81,8 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
   int _commentMentionRequestId = 0;
   int? _commentMentionStart;
   String _commentMentionQuery = '';
+  final Map<String, List<MentionSuggestion>> _commentMentionQueryCache =
+      <String, List<MentionSuggestion>>{};
   bool _liked = false;
   bool _isSubmittingComment = false;
   bool _isLoadingMoreComments = false;
@@ -166,14 +168,32 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
     }
 
     _commentMentionStart = token.start;
-    if (token.query == _commentMentionQuery &&
+    final normalizedQuery = token.query.trim();
+    if (normalizedQuery == _commentMentionQuery &&
         (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty)) {
       return;
     }
-    _commentMentionQuery = token.query;
+    _commentMentionQuery = normalizedQuery;
+    if (normalizedQuery.isEmpty) {
+      if (_commentMentionLoading || _commentMentionSuggestions.isNotEmpty) {
+        setState(() {
+          _commentMentionLoading = false;
+          _commentMentionSuggestions = const <MentionSuggestion>[];
+        });
+      }
+      return;
+    }
+    final cached = _commentMentionQueryCache[normalizedQuery.toLowerCase()];
+    if (cached != null) {
+      setState(() {
+        _commentMentionLoading = false;
+        _commentMentionSuggestions = cached;
+      });
+      return;
+    }
     _commentMentionDebounce?.cancel();
     _commentMentionDebounce = Timer(
-      const Duration(milliseconds: 180),
+      const Duration(milliseconds: 320),
       () async {
         final requestId = ++_commentMentionRequestId;
         if (mounted) {
@@ -184,15 +204,22 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
 
         try {
           final suggestions = await widget.repository.fetchMentionSuggestions(
-            token.query,
-            limit: token.query.isEmpty ? 4 : 6,
+            normalizedQuery,
+            limit: 3,
           );
           final rankedSuggestions = _rankMentionSuggestions(
-            token.query,
+            normalizedQuery,
             suggestions,
           );
           if (!mounted || requestId != _commentMentionRequestId) {
             return;
+          }
+          _commentMentionQueryCache[normalizedQuery.toLowerCase()] =
+              rankedSuggestions;
+          if (_commentMentionQueryCache.length > 32) {
+            _commentMentionQueryCache.remove(
+              _commentMentionQueryCache.keys.first,
+            );
           }
           setState(() {
             _commentMentionSuggestions = rankedSuggestions;
@@ -1483,6 +1510,8 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
   int _requestId = 0;
   int? _mentionStart;
   String _mentionQuery = '';
+  final Map<String, List<MentionSuggestion>> _mentionQueryCache =
+      <String, List<MentionSuggestion>>{};
 
   @override
   void initState() {
@@ -1517,12 +1546,31 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
     }
 
     _mentionStart = token.start;
-    if (token.query == _mentionQuery && (_loading || _suggestions.isNotEmpty)) {
+    final normalizedQuery = token.query.trim();
+    if (normalizedQuery == _mentionQuery &&
+        (_loading || _suggestions.isNotEmpty)) {
       return;
     }
-    _mentionQuery = token.query;
+    _mentionQuery = normalizedQuery;
+    if (normalizedQuery.isEmpty) {
+      if (_loading || _suggestions.isNotEmpty) {
+        setState(() {
+          _loading = false;
+          _suggestions = const <MentionSuggestion>[];
+        });
+      }
+      return;
+    }
+    final cached = _mentionQueryCache[normalizedQuery.toLowerCase()];
+    if (cached != null) {
+      setState(() {
+        _loading = false;
+        _suggestions = cached;
+      });
+      return;
+    }
     _mentionDebounce?.cancel();
-    _mentionDebounce = Timer(const Duration(milliseconds: 180), () async {
+    _mentionDebounce = Timer(const Duration(milliseconds: 320), () async {
       final requestId = ++_requestId;
       if (mounted) {
         setState(() {
@@ -1532,15 +1580,19 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
 
       try {
         final suggestions = await widget.repository.fetchMentionSuggestions(
-          token.query,
-          limit: token.query.isEmpty ? 4 : 6,
+          normalizedQuery,
+          limit: 3,
         );
         final rankedSuggestions = _rankMentionSuggestions(
-          token.query,
+          normalizedQuery,
           suggestions,
         );
         if (!mounted || requestId != _requestId) {
           return;
+        }
+        _mentionQueryCache[normalizedQuery.toLowerCase()] = rankedSuggestions;
+        if (_mentionQueryCache.length > 32) {
+          _mentionQueryCache.remove(_mentionQueryCache.keys.first);
         }
         setState(() {
           _suggestions = rankedSuggestions;
@@ -1705,16 +1757,16 @@ class _MentionSuggestionList extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 160),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border.withValues(alpha: 0.6)),
       ),
       child: isLoading
           ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Center(
                 child: SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: colors.brand,
@@ -1725,10 +1777,7 @@ class _MentionSuggestionList extends StatelessWidget {
           : ListView.separated(
               shrinkWrap: true,
               itemCount: suggestions.length,
-              separatorBuilder: (_, _) => Divider(
-                height: 1,
-                color: colors.border.withValues(alpha: 0.6),
-              ),
+              separatorBuilder: (_, _) => const SizedBox(height: 0),
               itemBuilder: (context, index) {
                 final item = suggestions[index];
                 return InkWell(
@@ -1736,16 +1785,16 @@ class _MentionSuggestionList extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 9,
+                      vertical: 8,
                     ),
                     child: Row(
                       children: [
                         AppAvatar(
                           imageUrl: item.photoUrl,
                           label: item.fullname,
-                          radius: 15,
+                          radius: 14,
                         ),
-                        const SizedBox(width: 9),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1761,8 +1810,8 @@ class _MentionSuggestionList extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: colors.textPrimary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -1781,8 +1830,8 @@ class _MentionSuggestionList extends StatelessWidget {
                                 '@${item.username}',
                                 style: TextStyle(
                                   color: colors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],

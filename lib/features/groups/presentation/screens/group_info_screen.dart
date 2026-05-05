@@ -189,7 +189,11 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   String _buildGroupUrl() {
     final slug = _slugify(_group.name);
     final path = slug.isEmpty ? '/groups/${_group.id}' : '/groups/${_group.id}-$slug';
-    return 'https://ahopefulme.com$path';
+    final code = _group.joinCode.trim();
+    if (code.isEmpty) {
+      return 'https://ahopefulme.com$path';
+    }
+    return 'https://ahopefulme.com$path?code=${Uri.encodeQueryComponent(code)}';
   }
 
   Future<void> _copyGroupLink() async {
@@ -226,7 +230,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
           _buildHeroBanner(colors),
           if (_group.id != 1) ...[
             const SizedBox(height: 12),
-            _buildStatsStrip(colors),
+            _buildAboutCard(colors),
           ],
           const SizedBox(height: 12),
           _buildActionsCard(colors),
@@ -372,44 +376,40 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
 
   // ── Stats Strip ────────────────────────────────────────────────────────────
 
-  Widget _buildStatsStrip(dynamic colors) {
+  Widget _buildAboutCard(dynamic colors) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: colors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: colors.border.withOpacity(0.15)),
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              _buildStat(_formatCount(_group.membersCount), 'Members'),
-              _buildStatDivider(colors),
-         //     _buildStat(_formatCount(_group.messagesCount), 'Messages'),
-              _buildStatDivider(colors),
-              _buildStat('Active', 'Status'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStat(String value, String label) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Text(
-              value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            _buildMetaChip(
+              colors: colors,
+              label: 'Type',
+              value: _formatGroupType(_group.type),
+              icon: Icons.public_rounded,
+              accent: const Color(0xFF2563EB),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            _buildMetaChip(
+              colors: colors,
+              label: 'Status',
+              value: _formatGroupStatus(_group.status),
+              icon: Icons.circle_rounded,
+              accent: const Color(0xFF16A34A),
+            ),
+            _buildMetaChip(
+              colors: colors,
+              label: 'Category',
+              value: _formatGroupCategory(_group.category),
+              icon: Icons.sell_outlined,
+              accent: const Color(0xFFF59E0B),
             ),
           ],
         ),
@@ -417,8 +417,62 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     );
   }
 
-  Widget _buildStatDivider(dynamic colors) {
-    return Container(width: 0.5, color: colors.border.withOpacity(0.2));
+  String _formatGroupType(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return 'Unknown';
+    return normalized[0].toUpperCase() + normalized.substring(1).toLowerCase();
+  }
+
+  String _formatGroupStatus(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return 'Unknown';
+    return normalized[0].toUpperCase() + normalized.substring(1).toLowerCase();
+  }
+
+  String _formatGroupCategory(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return 'General';
+    return normalized;
+  }
+
+  Widget _buildMetaChip({
+    required dynamic colors,
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.border.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: accent),
+          const SizedBox(width: 5),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Actions Card ───────────────────────────────────────────────────────────

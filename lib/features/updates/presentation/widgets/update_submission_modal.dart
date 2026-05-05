@@ -66,6 +66,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
   bool _mentionLoading = false;
   int? _activeMentionStart;
   String _activeMentionQuery = '';
+  final Map<String, List<MentionSuggestion>> _mentionQueryCache =
+      <String, List<MentionSuggestion>>{};
   bool _hasTypedContent = false;
 
   String get _draftKey => '$_draftKeyPrefix:${widget.currentUser?.id ?? 0}';
@@ -125,15 +127,34 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     }
 
     _activeMentionStart = token.start;
-    final query = token.query;
+    final query = token.query.trim();
     if (query == _activeMentionQuery &&
         (_mentionSuggestions.isNotEmpty || _mentionLoading)) {
       return;
     }
     _activeMentionQuery = query;
 
+    if (query.isEmpty) {
+      if (_mentionSuggestions.isNotEmpty || _mentionLoading) {
+        setState(() {
+          _mentionLoading = false;
+          _mentionSuggestions = const <MentionSuggestion>[];
+        });
+      }
+      return;
+    }
+
+    final cached = _mentionQueryCache[query.toLowerCase()];
+    if (cached != null) {
+      setState(() {
+        _mentionLoading = false;
+        _mentionSuggestions = cached;
+      });
+      return;
+    }
+
     _mentionDebounce?.cancel();
-    _mentionDebounce = Timer(const Duration(milliseconds: 180), () async {
+    _mentionDebounce = Timer(const Duration(milliseconds: 320), () async {
       final requestId = ++_mentionRequestId;
       if (mounted) {
         setState(() {
@@ -143,10 +164,14 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
 
       try {
         final suggestions = await widget.updateRepository
-            .fetchMentionSuggestions(query, limit: query.isEmpty ? 4 : 6);
+            .fetchMentionSuggestions(query, limit: 3);
         final rankedSuggestions = _rankMentionSuggestions(query, suggestions);
         if (!mounted || requestId != _mentionRequestId) {
           return;
+        }
+        _mentionQueryCache[query.toLowerCase()] = rankedSuggestions;
+        if (_mentionQueryCache.length > 32) {
+          _mentionQueryCache.remove(_mentionQueryCache.keys.first);
         }
         setState(() {
           _mentionSuggestions = rankedSuggestions;
@@ -398,24 +423,24 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
     final colors = context.appColors;
     return Material(
       color: colors.surface,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: keyboardInset > 0 ? 112 : 148,
+          maxHeight: keyboardInset > 0 ? 104 : 132,
         ),
         child: Container(
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colors.borderStrong),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.border.withValues(alpha: 0.6)),
           ),
           child: _mentionLoading
               ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Center(
                     child: SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: colors.brand,
@@ -427,10 +452,7 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   shrinkWrap: true,
                   itemCount: _mentionSuggestions.length,
-                  separatorBuilder: (_, unused) => Divider(
-                    height: 1,
-                    color: colors.border.withValues(alpha: 0.55),
-                  ),
+                  separatorBuilder: (_, unused) => const SizedBox(height: 0),
                   itemBuilder: (context, index) {
                     final suggestion = _mentionSuggestions[index];
                     return InkWell(
@@ -439,17 +461,17 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                       onTap: () => _insertMention(suggestion),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                          horizontal: 10,
+                          vertical: 8,
                         ),
                         child: Row(
                           children: [
                             AppAvatar(
                               imageUrl: suggestion.photoUrl,
                               label: suggestion.fullname,
-                              radius: 16,
+                              radius: 14,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,8 +487,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             color: colors.textPrimary,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
@@ -487,8 +509,8 @@ class _UpdateSubmissionModalState extends State<UpdateSubmissionModal> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: colors.textMuted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],

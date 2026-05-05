@@ -32,6 +32,10 @@ class OneSignalService {
         event.preventDefault();
         return;
       }
+      if (ActiveGroupThread.matchesIncomingGroupMention(data)) {
+        event.preventDefault();
+        return;
+      }
 
       event.preventDefault();
       event.notification.display();
@@ -155,5 +159,27 @@ class ActiveChat {
     return activeUsername != null &&
         activeUsername.isNotEmpty &&
         incomingSender == activeUsername;
+  }
+}
+
+class ActiveGroupThread {
+  static int? currentGroupId;
+
+  static bool matchesIncomingGroupMention(Map<String, dynamic>? data) {
+    if (data == null) {
+      return false;
+    }
+
+    final type = data['type']?.toString().trim().toLowerCase() ?? '';
+    if (type != 'mention_group') {
+      return false;
+    }
+
+    final incomingGroupId = int.tryParse(data['group_id']?.toString() ?? '');
+    if (incomingGroupId == null || currentGroupId == null) {
+      return false;
+    }
+
+    return incomingGroupId == currentGroupId;
   }
 }

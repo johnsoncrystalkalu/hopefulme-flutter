@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
@@ -273,6 +274,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final unreadTotal = _unreadTotal;
+    final hasAnyItems = _items.isNotEmpty || _activeTodayItems.isNotEmpty;
+    final showOfflineBanner = _error != null && hasAnyItems;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -311,7 +314,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _error != null && !hasAnyItems
           ? AppStatusState.fromError(
               error: _error!,
               actionLabel: 'Try again',
@@ -326,13 +329,76 @@ class _MessagesScreenState extends State<MessagesScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,
-              child: ListView.builder(
+              child: ListView(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: _listItemCount,
-                itemBuilder: _buildListItem,
+                children: [
+                  if (showOfflineBanner)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _OfflineCachedBanner(
+                        message: AppErrorText.isOffline(_error)
+                            ? 'Showing saved conversations. Pull to refresh.'
+                            : 'Could not refresh now. Showing last loaded conversations.',
+                        onRetry: _loadInitial,
+                      ),
+                    ),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _listItemCount,
+                    itemBuilder: _buildListItem,
+                  ),
+                ],
               ),
             ),
+    );
+  }
+}
+
+class _OfflineCachedBanner extends StatelessWidget {
+  const _OfflineCachedBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 16,
+            color: colors.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }

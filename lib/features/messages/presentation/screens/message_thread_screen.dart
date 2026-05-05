@@ -103,6 +103,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   int _optimisticId = -1;
   bool _isRestoringDraft = false;
   bool _typingSent = false;
+  bool _composerHasText = false;
   DateTime? _lastTypingPingAt;
   Timer? _typingDebounce;
   Timer? _draftPersistDebounce;
@@ -1239,6 +1240,12 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     _scheduleDraftPersist(_controller.text);
     if (_isRestoringDraft) return;
     final text = _controller.text.trim();
+    final hasText = text.isNotEmpty;
+    if (_composerHasText != hasText && mounted) {
+      setState(() {
+        _composerHasText = hasText;
+      });
+    }
     if (text.isEmpty) {
       _typingDebounce?.cancel();
       if (_typingSent) {
@@ -2777,9 +2784,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
                             if (_isRecordingVoice || _selectedAudio != null) {
                               return const SizedBox.shrink();
                             }
-                            final hasTypedText = _controller.text
-                                .trim()
-                                .isNotEmpty;
+                            final hasTypedText = _composerHasText;
                             final hasPhoto = _selectedPhoto != null;
                             final hasAudio = _selectedAudio != null;
                             final shouldShowSend =
@@ -3050,6 +3055,7 @@ extension on User {
       id: id,
       username: username,
       fullname: fullname,
+      role1: role1,
       photoUrl: ImageUrlResolver.resolve(photoUrl),
       lastSeen: '',
       isOnline: false,

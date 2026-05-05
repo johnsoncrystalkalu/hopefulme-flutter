@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
@@ -264,7 +265,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (_error != null)
+                  if (_error != null && AppErrorText.isOffline(_error))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Container(
@@ -384,7 +385,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   const SizedBox(height: 24),
                   _SectionTitle(
                     title: 'Explore',
-                    trailing: '${unjoinedGroups.length}',
+                    trailing: '',
                   ),
                   const SizedBox(height: 12),
                   ...unjoinedGroups.map(

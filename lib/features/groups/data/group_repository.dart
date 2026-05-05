@@ -14,11 +14,21 @@ class GroupRepository {
   final PageCache _cache;
 
   Future<GroupPage> fetchGroups({int page = 1}) async {
-    final response = await _authRepository.get(
-      'groups',
-      queryParameters: {'page': page},
-    );
-    return GroupPage.fromJson(response);
+    final key = 'groups:$page';
+    try {
+      final response = await _authRepository.get(
+        'groups',
+        queryParameters: {'page': page},
+      );
+      await _cache.save(key, response);
+      return GroupPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return GroupPage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<AppGroup> fetchGroup(int groupId) async {
@@ -57,6 +67,26 @@ class GroupRepository {
       queryParameters: {'page': page},
     );
     return GroupMemberPage.fromJson(response);
+  }
+
+  Future<List<GroupMemberInfo>> fetchMentionMembers(
+    int groupId,
+    String query, {
+    int limit = 3,
+  }) async {
+    final normalizedLimit = limit.clamp(1, 3);
+    final response = await _authRepository.get(
+      'groups/$groupId/mentions',
+      queryParameters: <String, dynamic>{
+        'q': query.trim(),
+        'limit': normalizedLimit,
+      },
+    );
+
+    return (response['data'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(GroupMemberInfo.fromJson)
+        .toList();
   }
 
   Future<void> removeMember(int groupId, int memberId) async {

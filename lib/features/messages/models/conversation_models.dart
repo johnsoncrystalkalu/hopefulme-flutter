@@ -59,6 +59,7 @@ class ConversationUser {
     required this.id,
     required this.username,
     required this.fullname,
+    required this.role1,
     required this.photoUrl,
     required this.lastSeen,
     required this.isOnline,
@@ -68,6 +69,7 @@ class ConversationUser {
   final int id;
   final String username;
   final String fullname;
+  final String role1;
   final String photoUrl;
   final String lastSeen;
   final bool isOnline;
@@ -80,6 +82,10 @@ class ConversationUser {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
+      role1:
+          (json['role1'] ?? json['role'] ?? json['role_name'] ?? json['user_role'])
+              ?.toString() ??
+          '',
       photoUrl: ImageUrlResolver.resolve(
         json['photo_thumb_url']?.toString() ?? '',
       ),

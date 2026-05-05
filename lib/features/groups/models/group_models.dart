@@ -39,6 +39,7 @@ class AppGroup {
     required this.info,
     required this.category,
     required this.type,
+    required this.joinCode,
     required this.status,
     required this.photoUrl,
     required this.isMember,
@@ -62,6 +63,7 @@ class AppGroup {
   final String info;
   final String category;
   final String type;
+  final String joinCode;
   final String status;
   final String photoUrl;
   final bool isMember;
@@ -89,6 +91,7 @@ class AppGroup {
     String? info,
     String? category,
     String? type,
+    String? joinCode,
     String? status,
     String? photoUrl,
     bool? isMember,
@@ -116,6 +119,7 @@ class AppGroup {
       info: info ?? this.info,
       category: category ?? this.category,
       type: type ?? this.type,
+      joinCode: joinCode ?? this.joinCode,
       status: status ?? this.status,
       photoUrl: photoUrl ?? this.photoUrl,
       isMember: isMember ?? this.isMember,
@@ -148,6 +152,7 @@ class AppGroup {
       info: json['info']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       type: json['type']?.toString() ?? 'public',
+      joinCode: json['join_code']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       photoUrl: ImageUrlResolver.resolve(
         json['photo_thumb_url']?.toString() ?? json['photo_url']?.toString() ?? '',
