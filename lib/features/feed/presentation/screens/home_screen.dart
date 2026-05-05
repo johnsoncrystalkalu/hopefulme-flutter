@@ -661,6 +661,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) {
       return;
     }
+    final newDashboardFuture = _createDashboardFuture();
     setState(() {
       _activeSidebarItemLabel = 'Home';
       _selectedBottomNav = 0;
@@ -669,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen>
       _hasMoreHomeUpdates = true;
       _hasLoadMoreHomeUpdatesError = false;
       _isLoadingMoreHomeUpdates = false;
-      _dashboardFuture = _createDashboardFuture();
+      _dashboardFuture = newDashboardFuture;
     });
   }
 
@@ -1600,6 +1601,22 @@ class _HomeScreenState extends State<HomeScreen>
                                 key: _homeUpdatesAnchorKey,
                                 child: const SizedBox.shrink(),
                               ),
+                            if (_homeSuggestedUsers.isNotEmpty &&
+                                _homeUpdates.length > 5)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: _HomeSuggestedFriendsCard(
+                                    users: _homeSuggestedUsers,
+                                    onOpenProfile: _openUserProfile,
+                                  ),
+                                ),
+                              ),
                             if (_homeUpdates.isNotEmpty)
                               SliverPadding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -1613,25 +1630,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     context,
                                     index,
                                   ) {
-                                    final showSuggestionsCard =
-                                        _homeSuggestedUsers.isNotEmpty &&
-                                        _homeUpdates.length > 5;
-                                    if (showSuggestionsCard && index == 5) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 16,
-                                        ),
-                                        child: _HomeSuggestedFriendsCard(
-                                          users: _homeSuggestedUsers,
-                                          onOpenProfile: _openUserProfile,
-                                        ),
-                                      );
-                                    }
-                                    final entryIndex =
-                                        showSuggestionsCard && index > 5
-                                        ? index - 1
-                                        : index;
-                                    final entry = _homeUpdates[entryIndex];
+                                    final entry = _homeUpdates[index];
                                     final isHighlighted =
                                         entry.type == 'update' &&
                                         entry.id == _highlightedUpdateId;
@@ -1665,11 +1664,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         ),
                                       ),
                                     );
-                                  }, childCount: _homeUpdates.length +
-                                        ((_homeSuggestedUsers.isNotEmpty &&
-                                                _homeUpdates.length > 5)
-                                            ? 1
-                                            : 0)),
+                                  }, childCount: _homeUpdates.length),
                                 ),
                               ),
                             if (_isLoadingMoreHomeUpdates ||
@@ -2652,7 +2647,6 @@ class _HomeSidebar extends StatelessWidget {
                 ],
               ),
             ),
-            _SidebarFooter(user: user, onProfileTap: onProfileTap),
           ],
         ),
       ),
@@ -2831,138 +2825,6 @@ class _SidebarProfileCard extends StatelessWidget {
   }
 }
 
-class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter({required this.user, required this.onProfileTap});
-
-  final User? user;
-  final Future<void> Function() onProfileTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final displayName = user?.displayName.trim().isNotEmpty == true
-        ? user!.displayName
-        : 'HopefulMe User';
-    final username = user?.username.trim().isNotEmpty == true
-        ? '@${user!.username}'
-        : '@hopefulme';
-    final role1 = user?.role1.trim() ?? '';
-    final isVerified = user?.isVerified ?? false;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.borderStrong)),
-      ),
-      child: Column(
-        children: [
-          Material(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: () => onProfileTap(),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.borderStrong),
-                ),
-                child: Row(
-                  children: [
-                    AppAvatar(
-                      imageUrl: user?.photoUrl ?? '',
-                      label: displayName,
-                      radius: 17,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: colors.textPrimary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              if (isVerified) ...[
-                                const SizedBox(width: 3),
-                                Icon(
-                                  Icons.verified_rounded,
-                                  size: 14,
-                                  color: colors.brand,
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            username,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (role1.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.accentSoft,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                role1,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.accentSoftText,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: colors.icon,
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.user,
@@ -3072,12 +2934,14 @@ class _HomeContent extends StatelessWidget {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: _BirthdayCelebrationStrip(
-              users: data.todayBirthdays,
-              onOpenProfile: onOpenProfile,
-              onViewAll: onOpenMonthlyBirthdays,
-              onSendWishes: () => onOpenTodayBirthdays(data.todayBirthdays),
-              onDesignCard: onOpenFlyerTemplates,
+            child: RepaintBoundary(
+              child: _BirthdayCelebrationStrip(
+                users: data.todayBirthdays,
+                onOpenProfile: onOpenProfile,
+                onViewAll: onOpenMonthlyBirthdays,
+                onSendWishes: () => onOpenTodayBirthdays(data.todayBirthdays),
+                onDesignCard: onOpenFlyerTemplates,
+              ),
             ),
           ),
         );
@@ -3085,9 +2949,11 @@ class _HomeContent extends StatelessWidget {
       widgets.add(
         Padding(
           padding: const EdgeInsets.only(top: 2, bottom: 8),
-          child: MostActiveUsersCard(
-            feedRepository: feedRepository,
-            onOpenProfile: onOpenProfile,
+          child: RepaintBoundary(
+            child: MostActiveUsersCard(
+              feedRepository: feedRepository,
+              onOpenProfile: onOpenProfile,
+            ),
           ),
         ),
       );
@@ -3116,7 +2982,9 @@ class _HomeContent extends StatelessWidget {
     }
     final currentUser = user;
     final shouldPromptForPhoto =
-        currentUser != null && currentUser.photoUrl.trim().isEmpty;
+        currentUser != null &&
+        currentUser.photoUrl.trim().isEmpty &&
+        error == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3575,31 +3443,10 @@ class _ComposerCard extends StatelessWidget {
                     final username = user?.username.trim() ?? '';
                     if (username.isNotEmpty) onOpenProfile(username);
                   },
-                  child: Stack(
-                    children: [
-                      _Avatar(
-                        imageUrl: user?.photoUrl ?? '',
-                        label: user?.displayName ?? 'U',
-                        backgroundColor: colors.avatarPlaceholder,
-                      ),
-                      // Online dot
-                      Positioned(
-                        bottom: 1,
-                        right: 1,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: colors.success,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: colors.surface,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: _Avatar(
+                    imageUrl: user?.photoUrl ?? '',
+                    label: user?.displayName ?? 'U',
+                    backgroundColor: colors.avatarPlaceholder,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -3616,7 +3463,7 @@ class _ComposerCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        "Share something...",
+                        "Share your thoughts...",
                         style: TextStyle(color: colors.textMuted, fontSize: 13),
                       ),
                     ),
@@ -3921,19 +3768,86 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final previewUsers = users.take(5).toList();
-    final leadNameWords = users.first.displayName
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .take(2)
-        .toList();
-    final leadName = leadNameWords.isEmpty ? users.first.displayName : leadNameWords.join(' ');
+    final leadName = users.first.displayName;
     final othersCount = users.length - 1;
 
     return _SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header strip (brand blue) ─────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              color: colors.brand,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('🎂', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Today's Birthdays",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                      Text(
+                        'We have members celebrating today',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.70),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // View all pill
+                GestureDetector(
+                  onTap: onViewAll,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'View all',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // ── Body ─────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -3953,8 +3867,9 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             Positioned(
                               left: i * 28.0,
                               child: GestureDetector(
-                                onTap: () =>
-                                    onOpenProfile(previewUsers[i].username),
+                                onTap: () => onOpenProfile(
+                                  previewUsers[i].username,
+                                ),
                                 child: Container(
                                   width: 40,
                                   height: 40,
@@ -3986,21 +3901,24 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         text: TextSpan(
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                           children: [
                             TextSpan(
-                              text: "It's $leadName",
+                              text: leadName,
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            TextSpan(
-                              text: ' and $othersCount others birthday 🎂',
-                            ),
+                            if (othersCount > 0)
+                              TextSpan(
+                                text: '\nand $othersCount other${othersCount == 1 ? '' : 's'} are celebrating',
+                              )
+                            else
+                              const TextSpan(text: '\nis celebrating today'),
                           ],
                         ),
                       ),
@@ -4015,12 +3933,12 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                   children: [
                     // Send wishes — orange accent
                     Expanded(
-                      child: FilledButton.icon(
+                      child: OutlinedButton.icon(
                         onPressed: onSendWishes,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: colors.accent,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(36),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.textPrimary,
+                          minimumSize: const Size.fromHeight(40),
+                          side: BorderSide(color: colors.borderStrong),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -4028,12 +3946,12 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         ),
                         icon: const Icon(
                           Icons.chat_bubble_outline_rounded,
-                          size: 14,
+                          size: 15,
                         ),
                         label: const Text(
                           'Send wishes',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -4042,27 +3960,26 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                     const SizedBox(width: 10),
                     // View profiles — ghost button
                     Expanded(
-                      child: FilledButton.icon(
+                      child: OutlinedButton.icon(
                         onPressed: onDesignCard,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: colors.brand,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          minimumSize: const Size.fromHeight(36),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.textPrimary,
+                          minimumSize: const Size.fromHeight(40),
+                          side: BorderSide(color: colors.borderStrong),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           padding: EdgeInsets.zero,
                         ),
                         icon: const Icon(
-                          Icons.brush_outlined,
-                          size: 14,
+                          Icons.design_services_outlined,
+                          size: 15,
                         ),
                         label: const Text(
-                          'Design a card',
+                          'Design card',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

@@ -100,21 +100,7 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(
-        backgroundColor: colors.scaffold,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        title: Text(
-          'Settings',
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
         children: [
@@ -660,19 +646,12 @@ class _SettingsFooter extends StatelessWidget {
         return Column(
           children: [
             // Small logo mark
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colors.brand.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(7),
-                child: Image.asset(
-                  'assets/images/app-icon.png',
-                  fit: BoxFit.contain,
-                ),
+            SizedBox(
+              width: 42,
+              height: 42,
+              child: Image.asset(
+                'assets/images/app-icon.png',
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 10),

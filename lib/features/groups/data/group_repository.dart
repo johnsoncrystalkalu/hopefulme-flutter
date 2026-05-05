@@ -59,6 +59,10 @@ class GroupRepository {
     return GroupMemberPage.fromJson(response);
   }
 
+  Future<void> removeMember(int groupId, int memberId) async {
+    await _authRepository.delete('groups/$groupId/members/$memberId');
+  }
+
   Future<AppGroup> toggleNotifications(int groupId, {required bool enabled}) async {
     final response = await _authRepository.post(
       'groups/$groupId/notifications',

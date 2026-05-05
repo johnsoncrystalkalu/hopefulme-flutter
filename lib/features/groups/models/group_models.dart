@@ -149,7 +149,9 @@ class AppGroup {
       category: json['category']?.toString() ?? '',
       type: json['type']?.toString() ?? 'public',
       status: json['status']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? json['photo_url']?.toString() ?? '',
+      ),
       isMember: parseBool(json['is_member']),
       isOwner: parseBool(json['is_owner']),
       isAdminMember: parseBool(json['is_admin_member']),
@@ -204,7 +206,9 @@ class GroupMemberInfo {
       id: parseInt(json['id']),
       username: json['username']?.toString() ?? '',
       fullname: json['fullname']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? json['photo_url']?.toString() ?? '',
+      ),
       isOwner: parseBool(json['is_owner']),
       isAdmin: parseBool(json['is_admin']),
     );
@@ -371,7 +375,9 @@ class GroupMessage {
       groupId: parseInt(json['group_id']),
       userId: parseInt(json['user_id']),
       message: json['message']?.toString() ?? '',
-      photoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      photoUrl: ImageUrlResolver.resolve(
+        json['photo_thumb_url']?.toString() ?? json['photo_url']?.toString() ?? '',
+      ),
       audioUrl: ImageUrlResolver.resolve(json['audio_url']?.toString() ?? ''),
       audioDurationSeconds: json['audio_duration_seconds'] == null
           ? null

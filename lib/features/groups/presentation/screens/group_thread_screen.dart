@@ -19,6 +19,7 @@ import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/models/group_models.dart';
+import 'package:hopefulme_flutter/features/groups/presentation/screens/group_info_screen.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
@@ -150,19 +151,19 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
   }
 
   String _threadSubtitle(AppGroup group) {
-    if (group.id == 1) {
-      return group.communityLabel ?? 'Group chat';
+    final info = group.info.trim();
+    if (info.isNotEmpty) {
+      const max = 40;
+      return info.length > max ? '${info.substring(0, max)}...' : info;
     }
     final category = group.category.trim();
     if (category.isNotEmpty) {
       return category;
     }
-    final info = group.info.trim();
-    if (info.isEmpty) {
-      return 'Group chat';
+    if (group.id == 1) {
+      return group.communityLabel ?? 'Group chat';
     }
-    const max = 28;
-    return info.length > max ? '${info.substring(0, max)}...' : info;
+    return 'Group chat';
   }
 
   @override
@@ -463,9 +464,13 @@ class _GroupThreadScreenState extends State<GroupThreadScreen>
     }
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (context) => _GroupDetailsScreen(
+        builder: (context) => GroupInfoScreen(
           group: group,
           repository: widget.repository,
+          currentUser: widget.currentUser,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
           openMembersTab: membersTab,
         ),
       ),
@@ -2616,12 +2621,16 @@ class _GroupMessageBubble extends StatelessWidget {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final maxBubbleWidth = math.min(368.0, screenWidth * 0.76);
     final mediaBubbleImageSize = math.min(224.0, maxBubbleWidth - 30);
+    final senderFullname = message.sender?.fullname.trim() ?? '';
     final senderUsername = message.sender?.username.trim() ?? '';
-    final senderHandle = senderUsername.isNotEmpty ? '@$senderUsername' : 'member';
+    final senderName = senderFullname.isNotEmpty
+        ? senderFullname
+        : (senderUsername.isNotEmpty ? senderUsername : 'Member');
+    final replySenderFullname = message.replyTo?.sender?.fullname.trim() ?? '';
     final replySenderUsername = message.replyTo?.sender?.username.trim() ?? '';
-    final replySenderHandle = replySenderUsername.isNotEmpty
-        ? '@$replySenderUsername'
-        : 'member';
+    final replySenderName = replySenderFullname.isNotEmpty
+        ? replySenderFullname
+        : (replySenderUsername.isNotEmpty ? replySenderUsername : 'Member');
 
     return Padding(
       padding: EdgeInsets.only(bottom: compactTopSpacing ? 6 : 12),
@@ -2642,7 +2651,7 @@ class _GroupMessageBubble extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                   child: AppAvatar(
                     imageUrl: message.sender?.photoUrl ?? '',
-                    label: senderHandle,
+                    label: senderName,
                     radius: 14,
                   ),
                 ),
@@ -2664,7 +2673,7 @@ class _GroupMessageBubble extends StatelessWidget {
                       onTap: onProfileTap,
                       borderRadius: BorderRadius.circular(8),
                       child: Text(
-                        senderHandle,
+                        senderName,
                         style: TextStyle(
                           color: colors.brand,
                           fontSize: 11,
@@ -2716,7 +2725,7 @@ class _GroupMessageBubble extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    replySenderHandle,
+                                    replySenderName,
                                     style: TextStyle(
                                       color: isMine
                                           ? Colors.white
@@ -3088,296 +3097,6 @@ class _GroupSwipeReplyWrapper extends StatefulWidget {
   @override
   State<_GroupSwipeReplyWrapper> createState() =>
       _GroupSwipeReplyWrapperState();
-}
-
-class _GroupDetailsScreen extends StatefulWidget {
-  const _GroupDetailsScreen({
-    required this.group,
-    required this.repository,
-    this.openMembersTab = false,
-  });
-
-  final AppGroup group;
-  final GroupRepository repository;
-  final bool openMembersTab;
-
-  @override
-  State<_GroupDetailsScreen> createState() => _GroupDetailsScreenState();
-}
-
-class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
-  final ScrollController _scrollController = ScrollController();
-  late AppGroup _group = widget.group;
-  final List<GroupMemberInfo> _members = <GroupMemberInfo>[];
-  bool _isLoadingMembers = true;
-  bool _isLoadingMoreMembers = false;
-  bool _isUpdatingNotifications = false;
-  bool _isLeaving = false;
-  int _membersPage = 1;
-  int _membersLastPage = 1;
-  late bool _showMembersSection = widget.openMembersTab;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-    if (_group.id != 1 && widget.openMembersTab) {
-      _loadMembers();
-    } else {
-      _isLoadingMembers = false;
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 180 &&
-        !_isLoadingMoreMembers &&
-        _membersPage < _membersLastPage) {
-      _loadMembers(loadMore: true);
-    }
-  }
-
-  Future<void> _loadMembers({bool loadMore = false}) async {
-    if (loadMore && (_isLoadingMoreMembers || _membersPage >= _membersLastPage)) {
-      return;
-    }
-    if (loadMore) {
-      setState(() {
-        _isLoadingMoreMembers = true;
-      });
-    }
-    try {
-      final targetPage = loadMore ? _membersPage + 1 : 1;
-      final page = await widget.repository.fetchMembers(_group.id, page: targetPage);
-      if (!mounted) return;
-      setState(() {
-        if (loadMore) {
-          _members.addAll(page.items);
-        } else {
-          _members
-            ..clear()
-            ..addAll(page.items);
-        }
-        _membersPage = page.currentPage;
-        _membersLastPage = page.lastPage;
-      });
-    } catch (_) {
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingMembers = false;
-          _isLoadingMoreMembers = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _toggleNotifications() async {
-    if (_isUpdatingNotifications) return;
-    setState(() {
-      _isUpdatingNotifications = true;
-    });
-    try {
-      final updated = await widget.repository.toggleNotifications(
-        _group.id,
-        enabled: !_group.notificationsEnabled,
-      );
-      if (!mounted) return;
-      setState(() {
-        _group = updated;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      AppToast.error(context, error.toString());
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUpdatingNotifications = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _leaveGroup() async {
-    if (_group.isOwner || _isLeaving) return;
-    setState(() {
-      _isLeaving = true;
-    });
-    try {
-      await widget.repository.leaveGroup(_group.id);
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      AppToast.error(context, error.toString());
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLeaving = false;
-        });
-      }
-    }
-  }
-
-  String _formatMembersCount(int count) {
-    if (count < 1000) return '$count';
-    if (count < 1000000) {
-      final value = count / 1000;
-      final text = value >= 10 ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
-      return '${text.replaceAll('.0', '')}k';
-    }
-    final value = count / 1000000;
-    final text = value >= 10 ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
-    return '${text.replaceAll('.0', '')}m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Scaffold(
-      backgroundColor: colors.scaffold,
-      appBar: AppBar(title: const Text('Group Info')),
-      body: ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: _group.photoUrl.isEmpty
-                    ? null
-                    : () async {
-                        await FullscreenNetworkImageScreen.show(
-                          context,
-                          imageUrl: ImageUrlResolver.resolveOriginal(
-                            _group.photoUrl,
-                          ),
-                          authorName: _group.name,
-                        );
-                      },
-                child: CircleAvatar(
-                  radius: 28,
-                  backgroundImage: _group.photoUrl.isNotEmpty
-                      ? NetworkImage(
-                          ImageUrlResolver.avatar(_group.photoUrl, size: 100),
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_group.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(
-                      _group.info.isEmpty ? 'No group description yet.' : _group.info,
-                      style: TextStyle(color: colors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SwitchListTile.adaptive(
-            value: _group.notificationsEnabled,
-            onChanged: _isUpdatingNotifications ? null : (_) => _toggleNotifications(),
-            title: const Text('Group notifications'),
-            subtitle: const Text('Turn notifications on/off for this group'),
-          ),
-          if (!_group.isOwner && _group.id != 1)
-            ListTile(
-              enabled: !_isLeaving,
-              onTap: _leaveGroup,
-              leading: Icon(
-                Icons.exit_to_app_rounded,
-                color: colors.dangerText,
-              ),
-              title: Text(
-                'Exit group',
-                style: TextStyle(color: colors.dangerText),
-              ),
-            ),
-          if (_group.id != 1) ...[
-            const SizedBox(height: 10),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              onTap: () {
-                setState(() {
-                  _showMembersSection = !_showMembersSection;
-                });
-                if (_showMembersSection &&
-                    _members.isEmpty &&
-                    !_isLoadingMembers &&
-                    !_isLoadingMoreMembers) {
-                  _loadMembers();
-                }
-              },
-              title: Text(
-                'Group members (${_formatMembersCount(_group.membersCount)})',
-              ),
-              trailing: Icon(
-                _showMembersSection
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-              ),
-            )
-            ,
-            if (_showMembersSection) ...[
-              if (_isLoadingMembers)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ..._members.map(
-                (member) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    radius: 14,
-                    backgroundImage: member.photoUrl.isNotEmpty
-                        ? NetworkImage(ImageUrlResolver.avatar(member.photoUrl, size: 72))
-                        : null,
-                  ),
-                  title: Text(
-                    '@${member.username.trim().isEmpty ? 'member' : member.username.trim()}',
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    member.fullname.trim().isEmpty
-                        ? (member.isOwner ? 'Owner' : (member.isAdmin ? 'Admin' : 'Member'))
-                        : '${member.fullname.trim()} - ${member.isOwner ? 'Owner' : (member.isAdmin ? 'Admin' : 'Member')}',
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-              if (_isLoadingMoreMembers)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
 }
 
 class _GroupSwipeReplyWrapperState extends State<_GroupSwipeReplyWrapper> {
