@@ -15,11 +15,11 @@ class FeedRepository {
     try {
       final response = await _authRepository.get('feed');
       await _cache.save(key, response);
-      return FeedDashboard.fromJson(response);
+      return FeedDashboard.fromJson(response, isFromCache: false);
     } catch (error) {
       final cached = await _cache.read(key);
       if (cached != null) {
-        return FeedDashboard.fromJson(cached);
+        return FeedDashboard.fromJson(cached, isFromCache: true);
       }
       rethrow;
     }

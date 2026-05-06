@@ -197,8 +197,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       fontSize: 14,
       height: 1.45,
       fontWeight: FontWeight.w700,
-      decoration: TextDecoration.underline,
-      decorationColor: color,
+      decoration: TextDecoration.none,
     );
   }
 

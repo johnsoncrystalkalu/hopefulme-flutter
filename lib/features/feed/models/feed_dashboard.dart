@@ -11,6 +11,7 @@ class FeedDashboard {
     required this.todayBirthdays,
     required this.trendingQuotes,
     required this.postCategories,
+    this.isFromCache = false,
   });
 
   final List<FeedEntry> feed;
@@ -21,8 +22,12 @@ class FeedDashboard {
   final List<FeedUser> todayBirthdays;
   final List<QuoteCard> trendingQuotes;
   final List<String> postCategories;
+  final bool isFromCache;
 
-  factory FeedDashboard.fromJson(Map<String, dynamic> json) {
+  factory FeedDashboard.fromJson(
+    Map<String, dynamic> json, {
+    bool isFromCache = false,
+  }) {
     return FeedDashboard(
       feed: _mapList(json['feed'], FeedEntry.fromJson),
       feedNotice: FeedNotice.fromDynamic(json['feed_notice']),
@@ -41,6 +46,7 @@ class FeedDashboard {
           .map((item) => item.toString())
           .where((item) => item.trim().isNotEmpty)
           .toList(),
+      isFromCache: isFromCache,
     );
   }
 

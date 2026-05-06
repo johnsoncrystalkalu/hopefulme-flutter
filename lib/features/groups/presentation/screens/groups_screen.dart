@@ -821,12 +821,12 @@ class _GroupAvatarFallback extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: const Color(0xFFD1D5DB),
+      color: const Color(0xFF2563EB),
       alignment: Alignment.center,
       child: Text(
         _groupInitials(name),
         style: TextStyle(
-          color: const Color(0xFF374151),
+          color: Colors.white,
           fontWeight: FontWeight.w700,
           fontSize: size * 0.34,
         ),

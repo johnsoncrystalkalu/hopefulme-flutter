@@ -300,28 +300,13 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                   ImageUrlResolver.avatar(_group.photoUrl, size: 136),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Text(
-                        _initials(_group.name),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    return _brandFallbackInitials(
+                      _initials(_group.name),
+                      fontSize: 22,
                     );
                   },
                 )
-              : Center(
-                  child: Text(
-                    _initials(_group.name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              : _brandFallbackInitials(_initials(_group.name), fontSize: 22),
         ),
       ),
     );
@@ -748,30 +733,41 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   }
 
   Widget _buildMemberAvatar(GroupMemberInfo member) {
-    final avatarColors = _avatarColorFor(member.id);
     return Container(
       width: 38,
       height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: avatarColors.$1,
+        color: const Color(0xFF2563EB),
       ),
       child: ClipOval(
         child: member.photoUrl.isNotEmpty
             ? Image.network(
                 ImageUrlResolver.avatar(member.photoUrl, size: 76),
                 fit: BoxFit.cover,
-              )
-            : Center(
-                child: Text(
-                  _initials(member.displayName),
-                  style: TextStyle(
-                    color: avatarColors.$2,
+                errorBuilder: (context, error, stackTrace) {
+                  return _brandFallbackInitials(
+                    _initials(member.displayName),
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+                  );
+                },
+              )
+            : _brandFallbackInitials(_initials(member.displayName), fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _brandFallbackInitials(String initials, {required double fontSize}) {
+    return Container(
+      color: const Color(0xFF2563EB),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -806,19 +802,6 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         ),
       ),
     );
-  }
-
-  // Returns (background, text) colors for avatar based on member id
-  (Color, Color) _avatarColorFor(int id) {
-    final palettes = [
-      (const Color(0xFFEEEDFE), const Color(0xFF3C3489)),
-      (const Color(0xFFE1F5EE), const Color(0xFF085041)),
-      (const Color(0xFFFAECE7), const Color(0xFF712B13)),
-      (const Color(0xFFE6F1FB), const Color(0xFF0C447C)),
-      (const Color(0xFFFBEAF0), const Color(0xFF72243E)),
-      (const Color(0xFFEAF3DE), const Color(0xFF27500A)),
-    ];
-    return palettes[id % palettes.length];
   }
 
   Future<void> _confirmRemoveMember(GroupMemberInfo member) async {

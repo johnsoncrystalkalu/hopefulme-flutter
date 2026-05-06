@@ -1537,7 +1537,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                 snapshot.connectionState ==
                                                     ConnectionState.waiting &&
                                                 dashboard == null,
-                                            error: snapshot.error?.toString(),
+                                            error: snapshot.error,
                                           ),
                                         ),
                                       );
@@ -1581,7 +1581,7 @@ class _HomeScreenState extends State<HomeScreen>
                                               snapshot.connectionState ==
                                                   ConnectionState.waiting &&
                                               dashboard == null,
-                                          error: snapshot.error?.toString(),
+                                          error: snapshot.error,
                                         ),
                                         const SizedBox(height: 16),
                                         RepaintBoundary(
@@ -2867,7 +2867,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final UpdateRepository updateRepository;
   final bool isLoading;
-  final String? error;
+  final Object? error;
 
   List<Widget> _buildFeedSections(BuildContext context, FeedDashboard data) {
     final widgets = <Widget>[];
@@ -2967,7 +2967,7 @@ class _HomeContent extends StatelessWidget {
     if (error != null && dashboard == null) {
       return _SurfaceCard(
         padding: const EdgeInsets.all(20),
-        child: Text(error!),
+        child: Text(error.toString()),
       );
     }
 
@@ -2978,10 +2978,12 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (error != null) ...[
+        if (error != null || data.isFromCache) ...[
           _OfflineCachedBanner(
-            message: AppErrorText.isOffline(error)
-                ? 'Showing saved home feed. Pull to refresh.'
+            message: data.isFromCache
+                ? 'No connection. Pull to refresh when you\'re back online.'
+                : AppErrorText.isOffline(error)
+                ? 'No connection. Pull to refresh when you\'re back online.'
                 : 'Could not refresh now. Showing last loaded home feed.',
           ),
           const SizedBox(height: 10),

@@ -202,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Sign in to catch up with the community.',
+                                  'Sign in to catch up with the HopefulMe community.',
                                   style: TextStyle(
                                     color: colors.textMuted,
                                     fontSize: 15,

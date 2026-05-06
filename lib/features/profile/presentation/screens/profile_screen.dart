@@ -57,6 +57,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   ProfileDashboard? _dashboard;
+  List<ProfileContentItem> _cachedPhotos = const <ProfileContentItem>[];
   Object? _profileLoadError;
   bool _isInitialLoading = true;
   _ProfileTab _selectedTab = _ProfileTab.timeline;
@@ -98,6 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (cached != null) {
         setState(() {
           _dashboard = cached;
+          _cachedPhotos = _latestUpdatePhotos(cached);
           _isInitialLoading = false;
         });
       }
@@ -112,6 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       setState(() {
         _dashboard = fresh;
+        _cachedPhotos = _latestUpdatePhotos(fresh);
         _profileLoadError = null;
         _isInitialLoading = false;
       });
@@ -195,6 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isFollowing: result.$1,
           followersCount: result.$2,
         );
+        _cachedPhotos = _latestUpdatePhotos(_dashboard!);
       });
     } finally {
       if (mounted) {
@@ -637,6 +641,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _openUpdateComment(ProfileContentItem item) {
+    return _openUpdate(item, autofocusComment: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -677,7 +685,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onOpenSettingsAndPrivacy: _openSettingsAndPrivacy,
                 onOpenAccountSettings: _openAccountSettings,
                 onLogout: _logoutFromProfileMenu,
-                onCopyProfileUrl: () => _shareProfile(dashboard.profile.username),
+                onCopyProfileUrl: _shareProfile,
               ),
               Transform.translate(
                 offset: const Offset(0, -56),
@@ -707,9 +715,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _openConnections(ProfileConnectionsType.following),
                         onPosts: _openUpdatesFeed,
                         mutualFollowers: dashboard.mutualFollowers,
-                        onCopyProfileUrl: (username) =>
-                            _shareProfile(username),
-                        onReportUser: (username) => _reportUser(username),
+                        onCopyProfileUrl: _shareProfile,
+                        onReportUser: _reportUser,
                         menuKey: _avatarMenuKey,
                       ),
                       const SizedBox(height: 16),
@@ -740,6 +747,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileBody(
                         selectedTab: _selectedTab,
                         dashboard: dashboard,
+                        latestPhotos: _cachedPhotos,
                         currentUser: widget.currentUser,
                         isCurrentUser:
                             widget.currentUser?.username ==
@@ -758,8 +766,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         updateRepository: widget.updateRepository,
                         currentUser: widget.currentUser,
                         onOpenUpdate: _openUpdate,
-                        onOpenComment: (item) =>
-                            _openUpdate(item, autofocusComment: true),
+                        onOpenComment: _openUpdateComment,
                         onSeeAllUpdates: _openUpdatesFeed,
                       ),
                       if (widget.currentUser?.isAdmin == true) ...[
@@ -940,7 +947,7 @@ class _ProfileHero extends StatelessWidget {
   final Future<void> Function() onOpenSettingsAndPrivacy;
   final Future<void> Function() onOpenAccountSettings;
   final Future<void> Function() onLogout;
-  final Future<void> Function() onCopyProfileUrl;
+  final Future<void> Function(String username) onCopyProfileUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,7 +1021,7 @@ class _ProfileHero extends StatelessWidget {
                         return;
                       }
                       if (value == 'share_profile') {
-                        onCopyProfileUrl();
+                        onCopyProfileUrl(profile.username);
                       }
                     },
                     itemBuilder: (context) => const [
@@ -1894,6 +1901,7 @@ class _ProfileBody extends StatelessWidget {
   const _ProfileBody({
     required this.selectedTab,
     required this.dashboard,
+    required this.latestPhotos,
     required this.currentUser,
     required this.isCurrentUser,
     required this.onSeeAllPhotos,
@@ -1903,6 +1911,7 @@ class _ProfileBody extends StatelessWidget {
 
   final _ProfileTab selectedTab;
   final ProfileDashboard dashboard;
+  final List<ProfileContentItem> latestPhotos;
   final User? currentUser;
   final bool isCurrentUser;
   final Future<void> Function() onSeeAllPhotos;
@@ -1938,7 +1947,7 @@ class _ProfileBody extends StatelessWidget {
         isCurrentUser: isCurrentUser,
       ),
       _ProfileTab.photos => _PhotosPreviewTab(
-        items: _latestUpdatePhotos(dashboard),
+        items: latestPhotos,
         onViewAll: onSeeAllPhotos,
       ),
       _ProfileTab.articles => _ArticlesTab(
@@ -3201,7 +3210,7 @@ class _ActionButton extends StatelessWidget {
         (highlighted ? Colors.white : context.appColors.textPrimary);
 
     return InkWell(
-      onTap: onTap == null ? null : () => onTap!.call(),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: EdgeInsets.symmetric(
@@ -3252,7 +3261,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap == null ? null : () => onTap!.call(),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -3430,7 +3439,7 @@ class _ProfileMembershipCardPrompt extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           TextButton(
-            onPressed: () => onTap(),
+            onPressed: onTap,
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
