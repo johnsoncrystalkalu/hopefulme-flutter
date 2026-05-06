@@ -472,20 +472,15 @@ class _MyGroupCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (group.photoUrl.isNotEmpty)
-                Image(
-                  image: NetworkImage(
-                    ImageUrlResolver.thumbnail(group.photoUrl, size: 300),
-                  ),
+                Image.network(
+                  ImageUrlResolver.thumbnail(group.photoUrl, size: 300),
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _GroupImageFallback(name: group.name);
+                  },
                 )
               else
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF3D5AFE), Color(0xFF3D5AFE)],
-                    ),
-                  ),
-                ),
+                _GroupImageFallback(name: group.name),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -576,14 +571,7 @@ class _DiscoverGroupCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundImage: group.photoUrl.isNotEmpty
-                    ? NetworkImage(
-                        ImageUrlResolver.avatar(group.photoUrl, size: 84),
-                      )
-                    : null,
-              ),
+              _GroupAvatar(name: group.name, photoUrl: group.photoUrl, radius: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -715,14 +703,7 @@ class _CommunityCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: group.photoUrl.isNotEmpty
-                  ? NetworkImage(
-                      ImageUrlResolver.avatar(group.photoUrl, size: 100),
-                    )
-                  : null,
-            ),
+            _GroupAvatar(name: group.name, photoUrl: group.photoUrl, radius: 30),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -793,6 +774,105 @@ class _CommunityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GroupAvatar extends StatelessWidget {
+  const _GroupAvatar({
+    required this.name,
+    required this.photoUrl,
+    required this.radius,
+  });
+
+  final String name;
+  final String photoUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = (radius * 2).round();
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFFE5E7EB),
+      child: ClipOval(
+        child: photoUrl.isNotEmpty
+            ? Image.network(
+                ImageUrlResolver.avatar(photoUrl, size: size),
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _GroupAvatarFallback(name: name, size: radius * 2);
+                },
+              )
+            : _GroupAvatarFallback(name: name, size: radius * 2),
+      ),
+    );
+  }
+}
+
+class _GroupAvatarFallback extends StatelessWidget {
+  const _GroupAvatarFallback({required this.name, required this.size});
+
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      color: const Color(0xFFD1D5DB),
+      alignment: Alignment.center,
+      child: Text(
+        _groupInitials(name),
+        style: TextStyle(
+          color: const Color(0xFF374151),
+          fontWeight: FontWeight.w700,
+          fontSize: size * 0.34,
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupImageFallback extends StatelessWidget {
+  const _GroupImageFallback({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF1D4ED8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          _groupInitials(name),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _groupInitials(String value) {
+  final words = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (words.isEmpty) return 'G';
+  if (words.length == 1) return words.first.substring(0, 1).toUpperCase();
+  return '${words[0][0]}${words[1][0]}'.toUpperCase();
 }
 
 extension<T> on Iterable<T> {

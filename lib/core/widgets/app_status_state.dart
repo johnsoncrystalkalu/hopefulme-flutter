@@ -42,17 +42,11 @@ class AppStatusState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final useWebStyleOffline = isOffline;
     final accentColor = isOffline
         ? const Color(0xFF2563EB)
         : isTimeout
         ? const Color(0xFFF59E0B)
         : colors.brand;
-    final accentSurface = isOffline
-        ? const Color(0xFFEAF2FF)
-        : isTimeout
-        ? const Color(0xFFFFF4DB)
-        : colors.accentSoft;
 
     return Center(
       child: Padding(
@@ -60,93 +54,39 @@ class AppStatusState extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Container(
-            padding: useWebStyleOffline
-                ? const EdgeInsets.fromLTRB(24, 26, 24, 24)
-                : const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: useWebStyleOffline ? colors.border : colors.borderStrong,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(
-                    alpha: useWebStyleOffline ? 0.08 : 0.10,
-                  ),
-                  blurRadius: useWebStyleOffline ? 28 : 24,
-                  offset: useWebStyleOffline
-                      ? const Offset(0, 12)
-                      : const Offset(0, 14),
-                  spreadRadius: useWebStyleOffline ? -18 : 0,
-                ),
-              ],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.border),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (useWebStyleOffline)
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      gradient: colors.brandGradient,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.wifi_off_rounded,
-                      color: Colors.white,
-                      size: 34,
-                    ),
-                  )
-                else
-                  Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          accentSurface,
-                          accentSurface.withValues(alpha: 0.82),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withValues(alpha: 0.08),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      icon ?? Icons.info_outline_rounded,
-                      color: accentColor,
-                      size: 34,
-                    ),
-                  ),
-                const SizedBox(height: 18),
+                Icon(
+                  icon ?? Icons.info_outline_rounded,
+                  color: accentColor,
+                  size: 28,
+                ),
+                const SizedBox(height: 12),
                 Text(
                   title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   message,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textMuted,
-                    fontSize: 14,
-                    height: 1.6,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    height: 1.45,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 if (isOffline) ...[

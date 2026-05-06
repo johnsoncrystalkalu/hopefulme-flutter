@@ -299,6 +299,18 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
               ? Image.network(
                   ImageUrlResolver.avatar(_group.photoUrl, size: 136),
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Text(
+                        _initials(_group.name),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
                 )
               : Center(
                   child: Text(
