@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
+import 'package:hopefulme_flutter/core/config/app_config.dart';
 import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
 import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/ad_banner_slot.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
@@ -19,6 +21,7 @@ class GroupsScreen extends StatefulWidget {
     required this.profileRepository,
     required this.messageRepository,
     required this.updateRepository,
+    this.adsEnabled = false,
     this.showMajorBottomNav = false,
     this.bottomNavIndex = 3,
     this.onMajorTabSelected,
@@ -30,6 +33,7 @@ class GroupsScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final MessageRepository messageRepository;
   final UpdateRepository updateRepository;
+  final bool adsEnabled;
   final bool showMajorBottomNav;
   final int bottomNavIndex;
   final Future<void> Function(int index)? onMajorTabSelected;
@@ -354,6 +358,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           );
                         },
                       ),
+                    ),
+                  ],
+                  if (widget.adsEnabled) ...[
+                    const SizedBox(height: 14),
+                    const AdBannerSlot(
+                      adUnitId: AppConfig.admobBannerGroupsUnitId,
                     ),
                   ],
                   if (community != null) ...[

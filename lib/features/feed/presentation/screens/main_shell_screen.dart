@@ -36,6 +36,7 @@ class MainShellScreen extends StatefulWidget {
     required this.libraryRepository,
     required this.flyerTemplateRepository,
     required this.onCheckForUpdates,
+    required this.adsEnabled,
     super.key,
   });
 
@@ -52,6 +53,7 @@ class MainShellScreen extends StatefulWidget {
   final LibraryRepository libraryRepository;
   final FlyerTemplateRepository flyerTemplateRepository;
   final Future<void> Function() onCheckForUpdates;
+  final bool adsEnabled;
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -160,6 +162,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
             libraryRepository: widget.libraryRepository,
             flyerTemplateRepository: widget.flyerTemplateRepository,
             onCheckForUpdates: widget.onCheckForUpdates,
+            adsEnabled: widget.adsEnabled,
             embedInMajorShell: true,
             onMajorTabSelected: _onTabSelected,
             pendingCreatedUpdateNotifier: _pendingCreatedUpdateNotifier,
@@ -181,6 +184,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
             profileRepository: widget.profileRepository,
             messageRepository: widget.messageRepository,
             updateRepository: widget.updateRepository,
+            adsEnabled: widget.adsEnabled,
             showMajorBottomNav: false,
           ),
           MeetNewFriendsScreen(

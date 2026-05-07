@@ -7,6 +7,19 @@ class AppConfig {
   static const Duration requestTimeout = Duration(seconds: 35);
 
   static const String oneSignalAppId = '416d7ded-013d-47fa-8269-f876e432e460';
+  // Replace test IDs with production IDs before release.
+  static const String admobBannerHomeUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_HOME_UNIT_ID',
+    defaultValue: 'ca-app-pub-3940256099942544/6300978111',
+  );
+  static const String admobBannerHomeSecondaryUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_HOME_SECONDARY_UNIT_ID',
+    defaultValue: 'ca-app-pub-3940256099942544/6300978111',
+  );
+  static const String admobBannerGroupsUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_GROUPS_UNIT_ID',
+    defaultValue: 'ca-app-pub-3940256099942544/6300978111',
+  );
 
   final String baseUrl;
   final String iosAppStoreId;

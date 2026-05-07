@@ -34,6 +34,8 @@
 	<string>HopefulMe needs access to save images to your photo library.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HopefulMe needs access to your microphone to record voice notes.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

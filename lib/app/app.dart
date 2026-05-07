@@ -92,6 +92,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
   bool _isHandlingForcedUnauthorizedLogout = false;
   bool _hasTrackedRatingLaunchThisSession = false;
   bool _isHandlingNotificationOpen = false;
+  bool _adsEnabled = false;
   DateTime? _lastNotificationOpenAt;
   String? _lastNotificationOpenFingerprint;
 
@@ -223,6 +224,12 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       final message =
           data['message']?.toString() ??
           'A new version of Hopeful Me is available. Please update to continue.';
+      final adsEnabled = _resolveAdsEnabled(data);
+      if (mounted && _adsEnabled != adsEnabled) {
+        setState(() {
+          _adsEnabled = adsEnabled;
+        });
+      }
 
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
@@ -664,6 +671,27 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       _hasTrackedRatingLaunchThisSession = false;
       OneSignalService.instance.removeExternalUserId();
     }
+  }
+
+  bool _resolveAdsEnabled(Map<String, dynamic> data) {
+    bool parseBool(dynamic value) {
+      if (value is bool) return value;
+      final normalized = value?.toString().trim().toLowerCase();
+      return normalized == '1' || normalized == 'true' || normalized == 'yes';
+    }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosFlag = data['ads_enabled_ios'];
+      if (iosFlag != null) {
+        return parseBool(iosFlag);
+      }
+    }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final androidFlag = data['ads_enabled_android'];
+      if (androidFlag != null) {
+        return parseBool(androidFlag);
+      }
+    }
+    return parseBool(data['ads_enabled']);
   }
 
   @override
@@ -1308,6 +1336,7 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       libraryRepository: _libraryRepository,
       flyerTemplateRepository: _flyerTemplateRepository,
       onCheckForUpdates: () => _checkAppVersion(force: true),
+      adsEnabled: _adsEnabled,
     );
   }
 

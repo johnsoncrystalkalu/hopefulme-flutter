@@ -25,6 +25,7 @@ import 'package:hopefulme_flutter/core/widgets/fullscreen_network_image_screen.d
 import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/core/widgets/rich_display_text.dart';
 import 'package:hopefulme_flutter/core/widgets/shimmer_widget.dart';
+import 'package:hopefulme_flutter/core/widgets/ad_banner_slot.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/community/presentation/screens/meet_new_friends_screen.dart';
@@ -80,6 +81,15 @@ bool _looksLikeDefaultProfilePhoto(String photoUrl) {
           (normalized.contains('male') || normalized.contains('female')));
 }
 
+int _homeNativeAdSlotsCount(int updatesCount, bool adsEnabled) {
+  if (!adsEnabled || updatesCount <= 4) {
+    return 0;
+  }
+  const firstAdAfterItems = 4;
+  const entriesBetweenAds = 8;
+  return 1 + ((updatesCount - firstAdAfterItems - 1) ~/ entriesBetweenAds);
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.authController,
@@ -95,6 +105,7 @@ class HomeScreen extends StatefulWidget {
     required this.libraryRepository,
     required this.flyerTemplateRepository,
     required this.onCheckForUpdates,
+    required this.adsEnabled,
     this.embedInMajorShell = false,
     this.onMajorTabSelected,
     this.pendingCreatedUpdateNotifier,
@@ -117,6 +128,7 @@ class HomeScreen extends StatefulWidget {
   final LibraryRepository libraryRepository;
   final FlyerTemplateRepository flyerTemplateRepository;
   final Future<void> Function() onCheckForUpdates;
+  final bool adsEnabled;
   final bool embedInMajorShell;
   final Future<void> Function(int index)? onMajorTabSelected;
   final ValueNotifier<UpdateDetail?>? pendingCreatedUpdateNotifier;
@@ -725,6 +737,7 @@ class _HomeScreenState extends State<HomeScreen>
           profileRepository: widget.profileRepository,
           messageRepository: widget.messageRepository,
           updateRepository: widget.updateRepository,
+          adsEnabled: widget.adsEnabled,
           showMajorBottomNav: true,
           bottomNavIndex: 3,
         ),
@@ -1533,6 +1546,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                 _openTodayBirthdays,
                                             updateRepository:
                                                 widget.updateRepository,
+                                            adsEnabled: widget.adsEnabled,
                                             isLoading:
                                                 snapshot.connectionState ==
                                                     ConnectionState.waiting &&
@@ -1577,6 +1591,7 @@ class _HomeScreenState extends State<HomeScreen>
                                               _openTodayBirthdays,
                                           updateRepository:
                                               widget.updateRepository,
+                                          adsEnabled: widget.adsEnabled,
                                           isLoading:
                                               snapshot.connectionState ==
                                                   ConnectionState.waiting &&
@@ -1627,11 +1642,34 @@ class _HomeScreenState extends State<HomeScreen>
                                   0,
                                 ),
                                 sliver: SliverList(
-                                  delegate: SliverChildBuilderDelegate((
-                                    context,
-                                    index,
-                                  ) {
-                                    final entry = _homeUpdates[index];
+                                  delegate: SliverChildBuilderDelegate((context, index) {
+                                    const firstAdVisualIndex = 4;
+                                    const entriesBetweenAds = 8;
+                                    final canInjectAds = widget.adsEnabled;
+
+                                    int adsBeforeVisualIndex(int visualIndex) {
+                                      if (!canInjectAds || visualIndex < firstAdVisualIndex) {
+                                        return 0;
+                                      }
+                                      return 1 + ((visualIndex - firstAdVisualIndex) ~/ (entriesBetweenAds + 1));
+                                    }
+
+                                    final isAdSlot =
+                                        canInjectAds &&
+                                        index >= firstAdVisualIndex &&
+                                        (index - firstAdVisualIndex) % (entriesBetweenAds + 1) == 0;
+
+                                    if (isAdSlot) {
+                                      return const Padding(
+                                        padding: EdgeInsets.only(bottom: 16),
+                                        child: RepaintBoundary(
+                                          child: _FeedNativeAdCard(),
+                                        ),
+                                      );
+                                    }
+
+                                    final entryIndex = index - adsBeforeVisualIndex(index);
+                                    final entry = _homeUpdates[entryIndex];
                                     final isHighlighted =
                                         entry.type == 'update' &&
                                         entry.id == _highlightedUpdateId;
@@ -1665,7 +1703,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         ),
                                       ),
                                     );
-                                  }, childCount: _homeUpdates.length),
+                                  }, childCount: _homeUpdates.length + _homeNativeAdSlotsCount(_homeUpdates.length, widget.adsEnabled)),
                                 ),
                               ),
                             if (_isLoadingMoreHomeUpdates ||
@@ -2842,6 +2880,7 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenMonthlyBirthdays,
     required this.onOpenTodayBirthdays,
     required this.updateRepository,
+    required this.adsEnabled,
     required this.isLoading,
     required this.error,
   });
@@ -2866,6 +2905,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onOpenMonthlyBirthdays;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
   final UpdateRepository updateRepository;
+  final bool adsEnabled;
   final bool isLoading;
   final Object? error;
 
@@ -3113,6 +3153,44 @@ class _OfflineCachedBanner extends StatelessWidget {
               onPressed: () => unawaited(onRetry!()),
               child: const Text('Retry'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedNativeAdCard extends StatelessWidget {
+  const _FeedNativeAdCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Sponsored',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const AdBannerSlot(adUnitId: AppConfig.admobBannerHomeUnitId),
         ],
       ),
     );
