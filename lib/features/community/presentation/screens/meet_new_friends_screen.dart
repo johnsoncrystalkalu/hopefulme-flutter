@@ -907,7 +907,7 @@ class _OnlinePanel extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    'Recently active',
+                    'Recently active in your space',
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 13,

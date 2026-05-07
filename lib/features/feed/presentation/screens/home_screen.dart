@@ -1,4 +1,4 @@
-// ignore_for_file: unused_element, unused_element_parameter
+//HopefulMe Home feed
 
 import 'dart:async';
 import 'dart:math';
@@ -3734,22 +3734,12 @@ class _RecentActiveViewerScreenState extends State<_RecentActiveViewerScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Connect With',
+                          'Connect with',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.86),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        VerifiedNameText(
-                          name: '@${user.username}',
-                          verified: user.isVerified,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
                           ),
                         ),
                       ],
@@ -3766,44 +3756,61 @@ class _RecentActiveViewerScreenState extends State<_RecentActiveViewerScreen> {
               left: 16,
               right: 16,
               bottom: MediaQuery.paddingOf(context).bottom + 20,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          VerifiedNameText(
+                            name: '@${user.username}',
+                            verified: user.isVerified,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (user.fullname.trim().isNotEmpty)
+                            Text(
+                              user.fullname,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.78),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
                       onPressed: () async {
-                        await widget.onMessageUser(user);
+                        await widget.onOpenProfile(user.username);
                       },
                       style: FilledButton.styleFrom(
                         backgroundColor: colors.brand,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(44),
+                        minimumSize: const Size(0, 40),
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                      label: const Text(
-                        'Message',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await widget.onOpenProfile(user.username);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.9)),
-                        minimumSize: const Size.fromHeight(44),
-                      ),
-                      icon: const Icon(Icons.person_outline_rounded, size: 18),
+                      icon: const Icon(Icons.person_outline_rounded, size: 16),
                       label: const Text(
                         'View Profile',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

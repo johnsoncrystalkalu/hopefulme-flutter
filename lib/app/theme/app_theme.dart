@@ -3,18 +3,16 @@ import 'package:flutter/material.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // RECOMMENDED THEME — Social Premium + Brand Blue
 //
-// Concept: Twitter/X structure but with brand blue (#3D5AFE) baked into
-// the dark surface stack — so dark mode feels distinctly *yours*, not generic.
 //
 // Dark:
-//   Scaffold     → #111827  blue-tinted dark (warmer than Twitter, cooler than navy)
+//   Scaffold     → #111827  blue-tinted dark (warmer, cooler than navy)
 //   Surface      → #161F2E  brand-tinted card layer
 //   SurfaceMuted → #192338  input fills, inset areas
 //   SurfaceRaised→ #1C2840  modals, bottom sheets
 //   Sidebar      → #0C1220  deepest brand-tinted black
 //
 // Light:
-//   Scaffold     → #FFFFFF  Twitter true white — brand blue pops on white
+//   Scaffold     → #FFFFFF  true white — brand blue pops on white
 //   Surface      → #FFFFFF  same
 //   SurfaceMuted → #fbfcfd  faint brand-tinted input bg (not grey, slightly blue)
 //   Border       → #EEF0F8  brand-tinted hairline
