@@ -84,8 +84,9 @@ class SettingsScreen extends StatelessWidget {
         builder: (context) => WebPageScreen(
           title: title,
           url: targetUrl,
-          onInternalLinkTap:
-              enableInternalLinkRouting ? onInternalLinkTap : null,
+          onInternalLinkTap: enableInternalLinkRouting
+              ? onInternalLinkTap
+              : null,
         ),
       ),
     );
@@ -305,8 +306,9 @@ class _SettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final handle = username.trim().isEmpty ? 'hopefulme' : username;
-    final resolvedName =
-        displayName.trim().isEmpty ? handle : displayName.trim();
+    final resolvedName = displayName.trim().isEmpty
+        ? handle
+        : displayName.trim();
 
     return Container(
       width: double.infinity,
@@ -365,12 +367,6 @@ class _SettingsHeader extends StatelessWidget {
               ],
             ),
           ),
-          // Subtle "view profile" caret
-          Icon(
-            Icons.chevron_right_rounded,
-            color: colors.textMuted.withValues(alpha: 0.5),
-            size: 20,
-          ),
         ],
       ),
     );
@@ -390,8 +386,9 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final visibleChildren =
-        children.whereType<Widget>().toList(growable: false);
+    final visibleChildren = children.whereType<Widget>().toList(
+      growable: false,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,10 +472,8 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final actionColor =
-        emphasizeDanger ? colors.dangerText : colors.brand;
-    final iconBg =
-        emphasizeDanger ? colors.dangerSoft : colors.accentSoft;
+    final actionColor = emphasizeDanger ? colors.dangerText : colors.brand;
+    final iconBg = emphasizeDanger ? colors.dangerSoft : colors.accentSoft;
 
     return Material(
       color: Colors.transparent,
@@ -550,10 +545,7 @@ class _SettingsTile extends StatelessWidget {
 // ─────────────────────────────────────────────
 
 class _ThemeModeTile extends StatelessWidget {
-  const _ThemeModeTile({
-    required this.mode,
-    required this.onChanged,
-  });
+  const _ThemeModeTile({required this.mode, required this.onChanged});
 
   final ThemeMode mode;
   final ValueChanged<ThemeMode> onChanged;
@@ -612,11 +604,11 @@ class _ThemeModeTile extends StatelessWidget {
               },
               items: const [
                 DropdownMenuItem(
-                    value: ThemeMode.system, child: Text('System')),
-                DropdownMenuItem(
-                    value: ThemeMode.light, child: Text('Light')),
-                DropdownMenuItem(
-                    value: ThemeMode.dark, child: Text('Dark')),
+                  value: ThemeMode.system,
+                  child: Text('System'),
+                ),
+                DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+                DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
               ],
             ),
           ),
@@ -640,8 +632,9 @@ class _SettingsFooter extends StatelessWidget {
     return FutureBuilder<PackageInfo>(
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
-        final version =
-            snapshot.data == null ? '' : 'v${snapshot.data!.version}';
+        final version = snapshot.data == null
+            ? ''
+            : 'v${snapshot.data!.version}';
 
         return Column(
           children: [

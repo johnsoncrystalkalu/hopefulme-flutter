@@ -27,6 +27,7 @@ import 'package:hopefulme_flutter/features/templates/presentation/screens/flyer_
 import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:flutter/services.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_detail_screen.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/widgets/interactive_update_card.dart';
@@ -313,7 +314,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoadingPhotosPreview = true;
     });
     try {
-      final page = await widget.profileRepository.fetchUserPhotos(_targetUsername);
+      final page = await widget.profileRepository.fetchUserPhotos(
+        _targetUsername,
+      );
       if (!mounted) {
         return;
       }
@@ -342,7 +345,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoadingArticlesPreview = true;
     });
     try {
-      final page = await widget.profileRepository.fetchUserBlogs(_targetUsername);
+      final page = await widget.profileRepository.fetchUserBlogs(
+        _targetUsername,
+      );
       if (!mounted) {
         return;
       }
@@ -467,7 +472,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (_) {
       if (mounted) {
-        AppToast.error(context, 'Unable to log out right now. Please try again.');
+        AppToast.error(
+          context,
+          'Unable to log out right now. Please try again.',
+        );
       }
     }
   }
@@ -735,7 +743,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isInitialLoading && dashboard == null) {
       return Scaffold(
         backgroundColor: colors.scaffold,
-        body: const Center(child: CircularProgressIndicator()),
+        body: const _ProfileLoadingSkeleton(),
       );
     }
 
@@ -866,6 +874,143 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileLoadingSkeleton extends StatelessWidget {
+  const _ProfileLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final baseColor = colors.surface;
+    final highlightColor = colors.surfaceRaised;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          Shimmer.fromColors(
+            baseColor: baseColor,
+            highlightColor: highlightColor,
+            child: Container(
+              height: 260,
+              width: double.infinity,
+              color: Colors.white,
+            ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  Shimmer.fromColors(
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Column(
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 38,
+                                backgroundColor: Colors.white,
+                              ),
+                              SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _ProfileSkeletonBar(
+                                      widthFactor: 0.62,
+                                      height: 16,
+                                    ),
+                                    SizedBox(height: 10),
+                                    _ProfileSkeletonBar(
+                                      widthFactor: 0.46,
+                                      height: 12,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 18),
+                          _ProfileSkeletonBar(widthFactor: 1, height: 12),
+                          SizedBox(height: 10),
+                          _ProfileSkeletonBar(widthFactor: 0.85, height: 12),
+                          SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _ProfileSkeletonBar(
+                                  widthFactor: 1,
+                                  height: 40,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: _ProfileSkeletonBar(
+                                  widthFactor: 1,
+                                  height: 40,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Shimmer.fromColors(
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
+                    child: const Column(
+                      children: [
+                        _ProfileSkeletonBar(widthFactor: 1, height: 54),
+                        SizedBox(height: 12),
+                        _ProfileSkeletonBar(widthFactor: 1, height: 140),
+                        SizedBox(height: 12),
+                        _ProfileSkeletonBar(widthFactor: 1, height: 140),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSkeletonBar extends StatelessWidget {
+  const _ProfileSkeletonBar({required this.widthFactor, required this.height});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
@@ -1438,10 +1583,7 @@ class _ProfileHeaderCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (canViewLastSeen)
-          _ProfileStatusRow(
-            profile: profile,
-            canViewLastSeen: canViewLastSeen,
-          ),
+          _ProfileStatusRow(profile: profile, canViewLastSeen: canViewLastSeen),
         if (mutualFollowers.isNotEmpty) ...[
           const SizedBox(height: 10),
           _MutualFollowersRow(mutualFollowers: mutualFollowers),

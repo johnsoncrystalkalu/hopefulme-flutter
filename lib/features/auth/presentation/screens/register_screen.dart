@@ -7,6 +7,7 @@ import 'package:hopefulme_flutter/features/auth/presentation/screens/login_scree
 import 'package:hopefulme_flutter/features/auth/presentation/widgets/auth_page_footer.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -27,6 +28,7 @@ class RegisterScreen extends StatefulWidget {
 enum _UsernameAvailability { idle, checking, available, taken, invalid }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  static const _registerDraftKey = 'register_screen_draft_v1';
   final _formKey = GlobalKey<FormState>();
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
@@ -34,6 +36,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _referrerController = TextEditingController();
   Timer? _usernameDebounce;
+  Timer? _draftSaveDebounce;
+  bool _isRestoringDraft = false;
 
   String _gender = 'male';
   String _selectedRole = '';
@@ -51,12 +55,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _usernameController.addListener(_onUsernameChanged);
+    _fullnameController.addListener(_onDraftFieldChanged);
+    _usernameController.addListener(_onDraftFieldChanged);
+    _emailController.addListener(_onDraftFieldChanged);
+    _passwordController.addListener(_onDraftFieldChanged);
+    _referrerController.addListener(_onDraftFieldChanged);
+    unawaited(_restoreDraft());
     unawaited(_loadRoleOptions());
   }
 
   @override
   void dispose() {
     _usernameDebounce?.cancel();
+    _draftSaveDebounce?.cancel();
+    _fullnameController.removeListener(_onDraftFieldChanged);
+    _usernameController.removeListener(_onDraftFieldChanged);
+    _emailController.removeListener(_onDraftFieldChanged);
+    _passwordController.removeListener(_onDraftFieldChanged);
+    _referrerController.removeListener(_onDraftFieldChanged);
     _fullnameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
@@ -72,6 +88,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _usernameState == _UsernameAvailability.checking ||
       _usernameState == _UsernameAvailability.taken ||
       _usernameState == _UsernameAvailability.invalid;
+
+  void _onDraftFieldChanged() {
+    if (_isRestoringDraft) {
+      return;
+    }
+    _draftSaveDebounce?.cancel();
+    _draftSaveDebounce = Timer(const Duration(milliseconds: 350), _saveDraft);
+  }
+
+  Future<void> _restoreDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_registerDraftKey);
+    if (!mounted || raw == null || raw.trim().isEmpty) {
+      return;
+    }
+    final data = raw.split('\u001F');
+    if (data.length < 7) {
+      return;
+    }
+
+    _isRestoringDraft = true;
+    _fullnameController.text = data[0];
+    _usernameController.text = data[1];
+    _emailController.text = data[2];
+    _passwordController.text = data[3];
+    _referrerController.text = data[4];
+
+    if (!mounted) {
+      _isRestoringDraft = false;
+      return;
+    }
+    setState(() {
+      _gender = data[5].trim().isEmpty ? _gender : data[5].trim();
+      _selectedRole = data[6];
+    });
+    _isRestoringDraft = false;
+  }
+
+  Future<void> _saveDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = <String>[
+      _fullnameController.text,
+      _usernameController.text,
+      _emailController.text,
+      _passwordController.text,
+      _referrerController.text,
+      _gender,
+      _selectedRole,
+    ].join('\u001F');
+    await prefs.setString(_registerDraftKey, payload);
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_registerDraftKey);
+  }
 
   Color? _usernameAccentColor(AppThemeColors colors) {
     switch (_usernameState) {
@@ -206,6 +278,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (!mounted || !success) {
+      return;
+    }
+
+    await _clearDraft();
+    if (!mounted) {
       return;
     }
 
@@ -454,6 +531,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       setState(() {
                                         _selectedRole = value ?? '';
                                       });
+                                      unawaited(_saveDraft());
                                     },
                               validator: (value) {
                                 if ((value ?? '').trim().isEmpty) {
@@ -722,6 +800,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _gender = value;
     });
+    unawaited(_saveDraft());
   }
 
   InputDecoration _inputDecoration({

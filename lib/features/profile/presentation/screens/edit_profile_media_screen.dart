@@ -361,8 +361,11 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final profile = _profile;
-    final hasProfilePhoto = (profile?.mainPhotoUrl.trim().isNotEmpty ?? false) ||
-        _uploadedProfilePhotoDuringSession;
+    final hadExistingProfilePhoto =
+        profile?.mainPhotoUrl.trim().isNotEmpty ?? false;
+    final uploadedDuringSession = _uploadedProfilePhotoDuringSession;
+    final hasProfilePhoto =
+        hadExistingProfilePhoto || _uploadedProfilePhotoDuringSession;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -461,7 +464,9 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
-                                  'Profile photo saved. You can edit this later in Settings.',
+                                  uploadedDuringSession
+                                      ? 'Profile photo uploaded. You can edit this later in Settings.'
+                                      : 'You already have a profile photo. You can edit this later in Settings.',
                                   style: TextStyle(
                                     color: colors.textMuted,
                                     fontSize: 12,
