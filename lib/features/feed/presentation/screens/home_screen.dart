@@ -129,6 +129,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, RouteAware {
   static const _inAppNotificationsPrefKey = 'in_app_notifications_enabled';
+  static const _groupsNudgeSeenKeyPrefix = 'groups_tab_nudge_seen:';
+  static const _groupsNudgeFirstSeenAtKeyPrefix =
+      'groups_tab_nudge_first_seen_at:';
+  static const _groupsNudgeWindow = Duration(days: 7);
   static const _topbarRefreshInterval = Duration(seconds: 60);
   static const _maxHomeUpdatesRetained = 30;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -155,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen>
   AppLifecycleState? _appLifecycleState;
   ModalRoute<dynamic>? _subscribedRoute;
   bool _isHomeRouteVisible = false;
+  bool _showGroupsNudgeDot = false;
 
   @override
   void initState() {
@@ -607,14 +612,50 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadShellPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_inAppNotificationsPrefKey) ?? true;
+    final username = widget.authController.currentUser?.username.trim();
+    var showGroupsNudgeDot = false;
+    if (username != null && username.isNotEmpty) {
+      final seenKey = '$_groupsNudgeSeenKeyPrefix$username';
+      final firstSeenAtKey = '$_groupsNudgeFirstSeenAtKeyPrefix$username';
+      final hasSeen = prefs.getBool(seenKey) ?? false;
+      final now = DateTime.now();
+      final firstSeenRaw = prefs.getString(firstSeenAtKey);
+      DateTime? firstSeenAt = DateTime.tryParse(firstSeenRaw ?? '');
+      firstSeenAt ??= now;
+      if (firstSeenRaw == null || firstSeenRaw.trim().isEmpty) {
+        await prefs.setString(firstSeenAtKey, firstSeenAt.toIso8601String());
+      }
+      final withinWindow = now.difference(firstSeenAt) <= _groupsNudgeWindow;
+      showGroupsNudgeDot = !hasSeen && withinWindow;
+    }
     if (!mounted) {
       return;
     }
-    if (_inAppNotificationsEnabled == enabled) {
+    if (_inAppNotificationsEnabled == enabled &&
+        _showGroupsNudgeDot == showGroupsNudgeDot) {
       return;
     }
     setState(() {
       _inAppNotificationsEnabled = enabled;
+      _showGroupsNudgeDot = showGroupsNudgeDot;
+    });
+  }
+
+  Future<void> _markGroupsNudgeSeen() async {
+    if (!_showGroupsNudgeDot) {
+      return;
+    }
+    final username = widget.authController.currentUser?.username.trim();
+    if (username == null || username.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_groupsNudgeSeenKeyPrefix$username', true);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _showGroupsNudgeDot = false;
     });
   }
 
@@ -712,6 +753,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openGroups() async {
+    await _markGroupsNudgeSeen();
+    if (!mounted) {
+      return;
+    }
     if (widget.onMajorTabSelected != null) {
       await widget.onMajorTabSelected!(3);
       return;
@@ -853,6 +898,40 @@ class _HomeScreenState extends State<HomeScreen>
       username: username,
     );
     _resetBottomNavToHome();
+  }
+
+  Future<void> _openMessageThreadFromFeedUser(FeedUser user) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => MessageThreadScreen(
+          repository: widget.messageRepository,
+          profileRepository: widget.profileRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.authController.currentUser,
+          username: user.username,
+          title: user.displayName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRecentActiveViewer(
+    List<FeedUser> users,
+    int initialIndex,
+  ) async {
+    if (users.isEmpty || initialIndex < 0 || initialIndex >= users.length) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => _RecentActiveViewerScreen(
+          users: users,
+          initialIndex: initialIndex,
+          onOpenProfile: _openUserProfile,
+          onMessageUser: _openMessageThreadFromFeedUser,
+        ),
+      ),
+    );
   }
 
   Future<void> _openUpdateDetail(
@@ -1513,6 +1592,8 @@ class _HomeScreenState extends State<HomeScreen>
                                             onMeetNewFriendsTap:
                                                 _openMeetNewFriends,
                                             onOpenProfile: _openUserProfile,
+                                            onOpenStoryViewer:
+                                                _openRecentActiveViewer,
                                             onOpenUpdate: _openUpdateDetail,
                                             onOpenUpdateComment: (entry) =>
                                                 _openUpdateDetail(
@@ -1557,6 +1638,8 @@ class _HomeScreenState extends State<HomeScreen>
                                           onMeetNewFriendsTap:
                                               _openMeetNewFriends,
                                           onOpenProfile: _openUserProfile,
+                                          onOpenStoryViewer:
+                                              _openRecentActiveViewer,
                                           onOpenUpdate: _openUpdateDetail,
                                           onOpenUpdateComment: (entry) =>
                                               _openUpdateDetail(
@@ -1730,6 +1813,9 @@ class _HomeScreenState extends State<HomeScreen>
               child: MajorBottomNav(
                 selectedIndex: _selectedBottomNav,
                 unreadGroupsCount: _topBarSnapshot.value.unreadGroups,
+                showGroupsNudgeDot:
+                    _showGroupsNudgeDot &&
+                    _topBarSnapshot.value.unreadGroups <= 0,
                 onSelected: (index) async {
                   switch (index) {
                     case 2:
@@ -2830,6 +2916,7 @@ class _HomeContent extends StatelessWidget {
     required this.onCreateUpdate,
     required this.onMeetNewFriendsTap,
     required this.onOpenProfile,
+    required this.onOpenStoryViewer,
     required this.onOpenUpdate,
     required this.onOpenUpdateComment,
     required this.onOpenPost,
@@ -2854,6 +2941,8 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onCreateUpdate;
   final Future<void> Function() onMeetNewFriendsTap;
   final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function(List<FeedUser> users, int initialIndex)
+  onOpenStoryViewer;
   final Future<void> Function(FeedEntry entry) onOpenUpdate;
   final Future<void> Function(FeedEntry entry) onOpenUpdateComment;
   final Future<void> Function(FeedEntry entry) onOpenPost;
@@ -2991,7 +3080,7 @@ class _HomeContent extends StatelessWidget {
         const SizedBox(height: 9),
         _StoriesRow(
           users: data.onlineUsers,
-          onUserTap: onOpenProfile,
+          onUserTap: (index) => onOpenStoryViewer(data.onlineUsers, index),
           onCreateUpdate: onMeetNewFriendsTap,
         ),
         const SizedBox(height: 12),
@@ -3440,7 +3529,7 @@ class _StoriesRow extends StatelessWidget {
   });
 
   final List<FeedUser> users;
-  final Future<void> Function(String username) onUserTap;
+  final Future<void> Function(int index) onUserTap;
   final Future<void> Function() onCreateUpdate;
 
   @override
@@ -3488,7 +3577,7 @@ class _StoriesRow extends StatelessWidget {
 
           final user = users[index - 1];
           return InkWell(
-            onTap: () => onUserTap(user.username),
+            onTap: () => onUserTap(index - 1),
             borderRadius: BorderRadius.circular(999),
             child: SizedBox(
               width: 70,
@@ -3521,6 +3610,204 @@ class _StoriesRow extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RecentActiveViewerScreen extends StatefulWidget {
+  const _RecentActiveViewerScreen({
+    required this.users,
+    required this.initialIndex,
+    required this.onOpenProfile,
+    required this.onMessageUser,
+  });
+
+  final List<FeedUser> users;
+  final int initialIndex;
+  final Future<void> Function(String username) onOpenProfile;
+  final Future<void> Function(FeedUser user) onMessageUser;
+
+  @override
+  State<_RecentActiveViewerScreen> createState() =>
+      _RecentActiveViewerScreenState();
+}
+
+class _RecentActiveViewerScreenState extends State<_RecentActiveViewerScreen> {
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex.clamp(0, widget.users.length - 1);
+  }
+
+  void _showPrevious() {
+    if (_index <= 0) {
+      return;
+    }
+    setState(() {
+      _index -= 1;
+    });
+  }
+
+  void _showNext() {
+    if (_index >= widget.users.length - 1) {
+      return;
+    }
+    setState(() {
+      _index += 1;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final user = widget.users[_index];
+    final fullPhotoUrl = user.mainPhotoUrl.trim().isNotEmpty
+        ? ImageUrlResolver.resolveOriginal(user.mainPhotoUrl)
+        : ImageUrlResolver.resolveOriginal(user.photoUrl);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) > 200) {
+            Navigator.of(context).maybePop();
+          }
+        },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AppNetworkImage(
+                imageUrl: fullPhotoUrl,
+                fit: BoxFit.cover,
+                placeholderLabel: user.displayName,
+                placeholderIcon: Icons.person,
+                showShimmer: false,
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.62),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _showPrevious,
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _showNext,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 12,
+              left: 16,
+              right: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Connect With',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.86),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        VerifiedNameText(
+                          name: '@${user.username}',
+                          verified: user.isVerified,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.paddingOf(context).bottom + 20,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await widget.onMessageUser(user);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colors.brand,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                      label: const Text(
+                        'Message',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await widget.onOpenProfile(user.username);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.9)),
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      icon: const Icon(Icons.person_outline_rounded, size: 18),
+                      label: const Text(
+                        'View Profile',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

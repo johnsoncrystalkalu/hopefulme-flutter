@@ -25,7 +25,10 @@ class ProfileRepository {
     final normalizedUsername = username.trim().replaceFirst('@', '');
     final key = 'profile:$normalizedUsername';
     try {
-      final response = await _authRepository.get('profile/$normalizedUsername');
+      final response = await _authRepository.get(
+        'profile/$normalizedUsername',
+        queryParameters: const <String, dynamic>{'include_previews': 0},
+      );
       await _cache.save(key, response);
       return ProfileDashboard.fromJson(response);
     } catch (error) {

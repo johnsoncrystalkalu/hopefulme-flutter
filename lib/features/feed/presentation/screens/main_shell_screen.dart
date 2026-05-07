@@ -20,6 +20,7 @@ import 'package:hopefulme_flutter/features/templates/data/flyer_template_reposit
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
 import 'package:hopefulme_flutter/features/updates/presentation/screens/update_compose_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
@@ -58,8 +59,14 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
+  static const _groupsNudgeSeenKeyPrefix = 'groups_tab_nudge_seen:';
+  static const _groupsNudgeFirstSeenAtKeyPrefix =
+      'groups_tab_nudge_first_seen_at:';
+  static const _groupsNudgeWindow = Duration(days: 7);
+
   int _selectedIndex = 0;
   int _unreadGroupsCount = 0;
+  bool _showGroupsNudgeDot = false;
   final ValueNotifier<int> _homeRetapNotifier = ValueNotifier<int>(0);
   final ValueNotifier<UpdateDetail?> _pendingCreatedUpdateNotifier =
       ValueNotifier<UpdateDetail?>(null);
@@ -68,6 +75,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   void initState() {
     super.initState();
     _refreshUnreadGroupsCount();
+    _loadGroupsNudgeState();
   }
 
   @override
@@ -101,6 +109,49 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
   }
 
+  Future<void> _loadGroupsNudgeState() async {
+    final username = widget.authController.currentUser?.username.trim();
+    if (username == null || username.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final seenKey = '$_groupsNudgeSeenKeyPrefix$username';
+    final firstSeenAtKey = '$_groupsNudgeFirstSeenAtKeyPrefix$username';
+    final hasSeen = prefs.getBool(seenKey) ?? false;
+    final now = DateTime.now();
+    final firstSeenRaw = prefs.getString(firstSeenAtKey);
+    DateTime? firstSeenAt = DateTime.tryParse(firstSeenRaw ?? '');
+    firstSeenAt ??= now;
+    if (firstSeenRaw == null || firstSeenRaw.trim().isEmpty) {
+      await prefs.setString(firstSeenAtKey, firstSeenAt.toIso8601String());
+    }
+    final withinWindow = now.difference(firstSeenAt) <= _groupsNudgeWindow;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _showGroupsNudgeDot = !hasSeen && withinWindow;
+    });
+  }
+
+  Future<void> _markGroupsNudgeSeen() async {
+    if (!_showGroupsNudgeDot) {
+      return;
+    }
+    final username = widget.authController.currentUser?.username.trim();
+    if (username == null || username.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_groupsNudgeSeenKeyPrefix$username', true);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _showGroupsNudgeDot = false;
+    });
+  }
+
   Future<void> _onTabSelected(int index) async {
     if (!mounted) return;
     if (index == 2) {
@@ -130,6 +181,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
       }
       unawaited(_refreshUnreadGroupsCount());
       return;
+    }
+    if (index == 3) {
+      await _markGroupsNudgeSeen();
     }
     setState(() {
       _selectedIndex = index;
@@ -197,6 +251,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
           ? MajorBottomNav(
               selectedIndex: _selectedIndex,
               unreadGroupsCount: _unreadGroupsCount,
+              showGroupsNudgeDot:
+                  _showGroupsNudgeDot && _unreadGroupsCount <= 0,
               onSelected: (index) {
                 _onTabSelected(index);
               },

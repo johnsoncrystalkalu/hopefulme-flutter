@@ -7,22 +7,26 @@ class ProfileDashboard {
     required this.profile,
     required this.posts,
     required this.updates,
+    required this.photos,
     required this.blogs,
     required this.isFollowing,
     required this.totalPosts,
     required this.updatesCount,
     required this.photosCount,
+    required this.blogsCount,
     required this.mutualFollowers,
   });
 
   final ProfileSummary profile;
   final List<ProfileContentItem> posts;
   final List<ProfileContentItem> updates;
+  final List<ProfileContentItem> photos;
   final List<ProfileContentItem> blogs;
   final bool isFollowing;
   final int totalPosts;
   final int updatesCount;
   final int photosCount;
+  final int blogsCount;
   final List<ProfileMutualFollower> mutualFollowers;
 
   factory ProfileDashboard.fromJson(Map<String, dynamic> json) {
@@ -34,11 +38,13 @@ class ProfileDashboard {
       profile: profile,
       posts: _mapItems(json['posts']),
       updates: _mapItems(json['updates']),
+      photos: _mapItems(json['photos']),
       blogs: _mapItems(json['blogs']),
       isFollowing: json['is_following'] as bool? ?? false,
       totalPosts: parseInt(json['total_posts']),
       updatesCount: parseInt(json['updates_count']),
       photosCount: parseInt(json['photos_count']),
+      blogsCount: parseInt(json['blogs_count']),
       mutualFollowers:
           (json['mutual_followers'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map<String, dynamic>>()

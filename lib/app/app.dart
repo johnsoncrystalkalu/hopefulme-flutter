@@ -141,7 +141,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
       _authController.authRepository,
       cache: pageCache,
     );
-    _messageRepository = MessageRepository(_authController.authRepository);
+    _messageRepository = MessageRepository(
+      _authController.authRepository,
+      cache: pageCache,
+    );
     _groupRepository = GroupRepository(_authController.authRepository);
     _updateRepository = UpdateRepository(_authController.authRepository);
     _searchRepository = SearchRepository(

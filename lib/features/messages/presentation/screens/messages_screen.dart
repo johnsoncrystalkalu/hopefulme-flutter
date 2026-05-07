@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:heroicons/heroicons.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/utils/app_error_text.dart';
-import 'package:hopefulme_flutter/core/network/image_url_resolver.dart';
+import 'package:hopefulme_flutter/core/widgets/app_avatar.dart';
 import 'package:hopefulme_flutter/core/widgets/verified_name_text.dart';
 import 'package:hopefulme_flutter/core/utils/time_formatter.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
@@ -43,6 +44,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   List<ConversationListItem> _activeTodayItems = <ConversationListItem>[];
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _isLoadMoreScheduled = false;
   bool _hasMore = true;
   Object? _error;
   int _page = 1;
@@ -148,8 +150,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 220 &&
         !_isLoadingMore &&
+        !_isLoadMoreScheduled &&
         _hasMore) {
-      _loadMore();
+      _isLoadMoreScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _isLoadMoreScheduled = false;
+        _loadMore();
+      });
     }
   }
 
@@ -241,41 +248,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _activeTodayItems = _buildActiveTodayItems();
   }
 
-  int get _listItemCount => _items.length + (_activeTodayItems.isNotEmpty ? 1 : 0) + (_isLoadingMore ? 1 : 0);
-
-  Widget _buildListItem(BuildContext context, int index) {
-    if (_activeTodayItems.isNotEmpty && index == 0) {
-      return _ActiveTodaySection(
-        items: _activeTodayItems,
-        onOpenConversation: _openConversation,
-      );
-    }
-
-    final headerOffset = _activeTodayItems.isNotEmpty ? 1 : 0;
-    final conversationIndex = index - headerOffset;
-    if (conversationIndex < _items.length) {
-      final item = _items[conversationIndex];
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: _ConversationTile(
-          item: item,
-          onTap: () => _openConversation(item),
-        ),
-      );
-    }
-
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 16),
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final unreadTotal = _unreadTotal;
     final hasAnyItems = _items.isNotEmpty || _activeTodayItems.isNotEmpty;
     final showOfflineBanner = _error != null && hasAnyItems;
+    final itemCount = _items.length;
 
     return Scaffold(
       backgroundColor: colors.scaffold,
@@ -329,26 +308,57 @@ class _MessagesScreenState extends State<MessagesScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadInitial,
-              child: ListView(
+              child: CustomScrollView(
                 controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (showOfflineBanner)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _OfflineCachedBanner(
-                        message: AppErrorText.isOffline(_error)
-                            ? 'Showing saved conversations. Pull to refresh.'
-                            : 'Could not refresh now. Showing last loaded conversations.',
-                        onRetry: _loadInitial,
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: showOfflineBanner
+                          ? Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _OfflineCachedBanner(
+                                message: AppErrorText.isOffline(_error)
+                                    ? 'Showing saved conversations. Pull to refresh.'
+                                    : 'Could not refresh now. Showing last loaded conversations.',
+                                onRetry: _loadInitial,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                  if (_activeTodayItems.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverToBoxAdapter(
+                        child: _ActiveTodaySection(
+                          items: _activeTodayItems,
+                          onOpenConversation: _openConversation,
+                        ),
                       ),
                     ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _listItemCount,
-                    itemBuilder: _buildListItem,
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = _items[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ConversationTile(
+                            item: item,
+                            onTap: () => _openConversation(item),
+                          ),
+                        );
+                      }, childCount: itemCount),
+                    ),
                   ),
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -446,19 +456,12 @@ class _ActiveTodaySection extends StatelessWidget {
                       children: [
                         Stack(
                           children: [
-                            CircleAvatar(
+                            AppAvatar(
+                              imageUrl: item.otherUser.photoUrl,
+                              label: item.otherUser.displayName,
                               radius: 26,
-                              backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                                  ? NetworkImage(
-                                      ImageUrlResolver.avatar(
-                                        item.otherUser.photoUrl,
-                                        size: 80,
-                                      ),
-                                    )
-                                  : null,
-                              child: item.otherUser.photoUrl.isEmpty
-                                  ? const HeroIcon(HeroIcons.user)
-                                  : null,
+                              size: 80,
+                              showShimmer: false,
                             ),
                             if (item.otherUser.isOnline)
                               const Positioned(
@@ -531,19 +534,12 @@ class _ConversationTile extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  CircleAvatar(
+                  AppAvatar(
+                    imageUrl: item.otherUser.photoUrl,
+                    label: item.otherUser.displayName,
                     radius: 27,
-                    backgroundImage: item.otherUser.photoUrl.isNotEmpty
-                        ? NetworkImage(
-                            ImageUrlResolver.avatar(
-                              item.otherUser.photoUrl,
-                              size: 80,
-                            ),
-                          )
-                        : null,
-                    child: item.otherUser.photoUrl.isEmpty
-                        ? const HeroIcon(HeroIcons.user)
-                        : null,
+                    size: 80,
+                    showShimmer: false,
                   ),
                   if (item.otherUser.isOnline)
                     const Positioned(

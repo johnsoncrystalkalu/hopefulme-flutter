@@ -7,12 +7,14 @@ class MajorBottomNav extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.unreadGroupsCount = 0,
+    this.showGroupsNudgeDot = false,
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final int unreadGroupsCount;
+  final bool showGroupsNudgeDot;
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +109,7 @@ class MajorBottomNav extends StatelessWidget {
               icon: _BottomNavBadgeIcon(
                 icon: HeroIcons.users,
                 count: unreadGroupsCount,
+                showDot: showGroupsNudgeDot,
                 dotOnly: true,
                 iconSize: navIconSize,
                 boxSize: isCompactBottomNav ? 28 : 30,
@@ -115,6 +118,7 @@ class MajorBottomNav extends StatelessWidget {
               selectedIcon: _BottomNavBadgeIcon(
                 icon: HeroIcons.users,
                 count: unreadGroupsCount,
+                showDot: showGroupsNudgeDot,
                 dotOnly: true,
                 solid: true,
                 iconSize: navIconSize,
@@ -148,6 +152,7 @@ class _BottomNavBadgeIcon extends StatelessWidget {
   const _BottomNavBadgeIcon({
     required this.icon,
     required this.count,
+    this.showDot = false,
     this.dotOnly = false,
     this.solid = false,
     this.iconSize = 24,
@@ -157,6 +162,7 @@ class _BottomNavBadgeIcon extends StatelessWidget {
 
   final HeroIcons icon;
   final int count;
+  final bool showDot;
   final bool dotOnly;
   final bool solid;
   final double iconSize;
@@ -179,7 +185,7 @@ class _BottomNavBadgeIcon extends StatelessWidget {
             style: solid ? HeroIconStyle.solid : HeroIconStyle.outline,
           ),
         ),
-        if (count > 0)
+        if (count > 0 || showDot)
           Positioned(
             top: -2,
             right: -2,

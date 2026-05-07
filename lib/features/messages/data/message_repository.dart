@@ -1,43 +1,74 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
+import 'package:hopefulme_flutter/core/storage/page_cache.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hopefulme_flutter/features/auth/data/auth_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
 
 class MessageRepository {
-  MessageRepository(this._authRepository);
+  MessageRepository(this._authRepository, {PageCache? cache})
+    : _cache = cache ?? PageCache();
 
   final AuthRepository _authRepository;
+  final PageCache _cache;
 
   Future<List<ConversationListItem>> fetchConversations() async {
-    final response = await _authRepository.get(
-      'messages',
-      queryParameters: const <String, dynamic>{'all': 1},
-    );
-    final data = response['data'] as List<dynamic>? ?? <dynamic>[];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(ConversationListItem.fromJson)
-        .toList();
+    const key = 'messages:all';
+    try {
+      final response = await _authRepository.get(
+        'messages',
+        queryParameters: const <String, dynamic>{'all': 1},
+      );
+      await _cache.save(key, response);
+      final data = response['data'] as List<dynamic>? ?? <dynamic>[];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(ConversationListItem.fromJson)
+          .toList();
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        final data = cached['data'] as List<dynamic>? ?? <dynamic>[];
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ConversationListItem.fromJson)
+            .toList();
+      }
+      rethrow;
+    }
   }
 
   Future<List<ConversationListItem>> fetchActiveTodayConversations({
     int limit = 60,
   }) async {
     final normalizedLimit = limit.clamp(10, 100);
-    final response = await _authRepository.get(
-      'messages',
-      queryParameters: <String, dynamic>{
-        'active_today': 1,
-        'limit': normalizedLimit,
-      },
-    );
-    final data = response['data'] as List<dynamic>? ?? <dynamic>[];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(ConversationListItem.fromJson)
-        .toList();
+    final key = 'messages:active_today:$normalizedLimit';
+    try {
+      final response = await _authRepository.get(
+        'messages',
+        queryParameters: <String, dynamic>{
+          'active_today': 1,
+          'limit': normalizedLimit,
+        },
+      );
+      await _cache.save(key, response);
+      final data = response['data'] as List<dynamic>? ?? <dynamic>[];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(ConversationListItem.fromJson)
+          .toList();
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        final data = cached['data'] as List<dynamic>? ?? <dynamic>[];
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ConversationListItem.fromJson)
+            .toList();
+      }
+      rethrow;
+    }
   }
 
   Future<ConversationListPage> fetchConversationsPage({
@@ -45,14 +76,24 @@ class MessageRepository {
     int perPage = 10,
   }) async {
     final normalizedPerPage = perPage.clamp(8, 30);
-    final response = await _authRepository.get(
-      'messages',
-      queryParameters: <String, dynamic>{
-        'page': page,
-        'per_page': normalizedPerPage,
-      },
-    );
-    return ConversationListPage.fromJson(response);
+    final key = 'messages:page:$page:per_page:$normalizedPerPage';
+    try {
+      final response = await _authRepository.get(
+        'messages',
+        queryParameters: <String, dynamic>{
+          'page': page,
+          'per_page': normalizedPerPage,
+        },
+      );
+      await _cache.save(key, response);
+      return ConversationListPage.fromJson(response);
+    } catch (error) {
+      final cached = await _cache.read(key);
+      if (cached != null) {
+        return ConversationListPage.fromJson(cached);
+      }
+      rethrow;
+    }
   }
 
   Future<ConversationThread> fetchThread(

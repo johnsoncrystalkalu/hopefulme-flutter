@@ -58,6 +58,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   ProfileDashboard? _dashboard;
   List<ProfileContentItem> _cachedPhotos = const <ProfileContentItem>[];
+  List<ProfileContentItem> _cachedArticles = const <ProfileContentItem>[];
+  bool _isLoadingPhotosPreview = false;
+  bool _isLoadingArticlesPreview = false;
+  bool _hasLoadedPhotosPreview = false;
+  bool _hasLoadedArticlesPreview = false;
   Object? _profileLoadError;
   bool _isInitialLoading = true;
   _ProfileTab _selectedTab = _ProfileTab.timeline;
@@ -99,7 +104,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (cached != null) {
         setState(() {
           _dashboard = cached;
-          _cachedPhotos = _latestUpdatePhotos(cached);
+          _cachedPhotos = const <ProfileContentItem>[];
+          _cachedArticles = const <ProfileContentItem>[];
+          _hasLoadedPhotosPreview = false;
+          _hasLoadedArticlesPreview = false;
           _isInitialLoading = false;
         });
       }
@@ -114,7 +122,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       setState(() {
         _dashboard = fresh;
-        _cachedPhotos = _latestUpdatePhotos(fresh);
+        _cachedPhotos = const <ProfileContentItem>[];
+        _cachedArticles = const <ProfileContentItem>[];
+        _hasLoadedPhotosPreview = false;
+        _hasLoadedArticlesPreview = false;
         _profileLoadError = null;
         _isInitialLoading = false;
       });
@@ -198,7 +209,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isFollowing: result.$1,
           followersCount: result.$2,
         );
-        _cachedPhotos = _latestUpdatePhotos(_dashboard!);
       });
     } finally {
       if (mounted) {
@@ -279,6 +289,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleProfileTabSelected(_ProfileTab tab) async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedTab = tab;
+    });
+    if (tab == _ProfileTab.photos) {
+      await _ensurePhotosPreviewLoaded();
+    } else if (tab == _ProfileTab.articles) {
+      await _ensureArticlesPreviewLoaded();
+    }
+  }
+
+  Future<void> _ensurePhotosPreviewLoaded() async {
+    if (_hasLoadedPhotosPreview || _isLoadingPhotosPreview) {
+      return;
+    }
+    setState(() {
+      _isLoadingPhotosPreview = true;
+    });
+    try {
+      final page = await widget.profileRepository.fetchUserPhotos(_targetUsername);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedPhotos = page.items.take(4).toList();
+        _hasLoadedPhotosPreview = true;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingPhotosPreview = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _ensureArticlesPreviewLoaded() async {
+    if (_hasLoadedArticlesPreview || _isLoadingArticlesPreview) {
+      return;
+    }
+    setState(() {
+      _isLoadingArticlesPreview = true;
+    });
+    try {
+      final page = await widget.profileRepository.fetchUserBlogs(_targetUsername);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedArticles = page.items.take(2).toList();
+        _hasLoadedArticlesPreview = true;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingArticlesPreview = false;
+        });
+      }
+    }
   }
 
   Future<void> _openAccountSettings() async {
@@ -736,18 +818,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileTabs(
                         selectedTab: _selectedTab,
                         onSelected: (tab) {
-                          setState(() {
-                            _selectedTab = tab;
-                          });
+                          _handleProfileTabSelected(tab);
                         },
                         photosCount: dashboard.photosCount,
-                        articleCount: dashboard.blogs.length,
+                        articleCount: dashboard.blogsCount,
                       ),
                       const SizedBox(height: 18),
                       _ProfileBody(
                         selectedTab: _selectedTab,
                         dashboard: dashboard,
                         latestPhotos: _cachedPhotos,
+                        latestArticles: _cachedArticles,
+                        isLoadingPhotosPreview: _isLoadingPhotosPreview,
+                        isLoadingArticlesPreview: _isLoadingArticlesPreview,
                         currentUser: widget.currentUser,
                         isCurrentUser:
                             widget.currentUser?.username ==
@@ -895,11 +978,13 @@ ProfileDashboard _copyDashboardWithFollow({
     ),
     posts: source.posts,
     updates: source.updates,
+    photos: source.photos,
     blogs: source.blogs,
     isFollowing: isFollowing,
     totalPosts: source.totalPosts,
     updatesCount: source.updatesCount,
     photosCount: source.photosCount,
+    blogsCount: source.blogsCount,
     mutualFollowers: source.mutualFollowers,
   );
 }
@@ -1880,7 +1965,7 @@ class _ProfileTabs extends StatelessWidget {
             ),
             _TabButton(
               label: 'Photos',
-              // badge: '$photosCount',
+              badge: '$photosCount',
               selected: selectedTab == _ProfileTab.photos,
               onTap: () => onSelected(_ProfileTab.photos),
             ),
@@ -1902,6 +1987,9 @@ class _ProfileBody extends StatelessWidget {
     required this.selectedTab,
     required this.dashboard,
     required this.latestPhotos,
+    required this.latestArticles,
+    required this.isLoadingPhotosPreview,
+    required this.isLoadingArticlesPreview,
     required this.currentUser,
     required this.isCurrentUser,
     required this.onSeeAllPhotos,
@@ -1912,6 +2000,9 @@ class _ProfileBody extends StatelessWidget {
   final _ProfileTab selectedTab;
   final ProfileDashboard dashboard;
   final List<ProfileContentItem> latestPhotos;
+  final List<ProfileContentItem> latestArticles;
+  final bool isLoadingPhotosPreview;
+  final bool isLoadingArticlesPreview;
   final User? currentUser;
   final bool isCurrentUser;
   final Future<void> Function() onSeeAllPhotos;
@@ -1948,10 +2039,12 @@ class _ProfileBody extends StatelessWidget {
       ),
       _ProfileTab.photos => _PhotosPreviewTab(
         items: latestPhotos,
+        isLoading: isLoadingPhotosPreview,
         onViewAll: onSeeAllPhotos,
       ),
       _ProfileTab.articles => _ArticlesTab(
-        items: dashboard.blogs.take(2).toList(),
+        items: latestArticles,
+        isLoading: isLoadingArticlesPreview,
         onSeeAll: onSeeAllArticles,
       ),
     };
@@ -2351,10 +2444,15 @@ class _AboutTab extends StatelessWidget {
 }
 
 class _PhotosPreviewTab extends StatelessWidget {
-  const _PhotosPreviewTab({required this.items, required this.onViewAll});
+  const _PhotosPreviewTab({
+    required this.items,
+    required this.onViewAll,
+    required this.isLoading,
+  });
 
   final List<ProfileContentItem> items;
   final Future<void> Function() onViewAll;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -2376,7 +2474,9 @@ class _PhotosPreviewTab extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 16),
-          if (photos.isEmpty)
+          if (isLoading)
+            const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          else if (photos.isEmpty)
             const _EmptyState(label: 'No photos yet')
           else
             GridView.builder(
@@ -2431,10 +2531,15 @@ class _PhotosPreviewTab extends StatelessWidget {
 }
 
 class _ArticlesTab extends StatelessWidget {
-  const _ArticlesTab({required this.items, required this.onSeeAll});
+  const _ArticlesTab({
+    required this.items,
+    required this.onSeeAll,
+    required this.isLoading,
+  });
 
   final List<ProfileContentItem> items;
   final Future<void> Function() onSeeAll;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -2451,7 +2556,9 @@ class _ArticlesTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (items.isEmpty)
+          if (isLoading)
+            const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          else if (items.isEmpty)
             const _EmptyState(label: 'No articles yet')
           else ...[
             ...items.map(
@@ -2473,14 +2580,6 @@ class _ArticlesTab extends StatelessWidget {
       ),
     );
   }
-}
-
-List<ProfileContentItem> _latestUpdatePhotos(ProfileDashboard dashboard) {
-  final updates = dashboard.updates
-      .where((item) => item.photoUrl.isNotEmpty)
-      .toList();
-  updates.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  return updates.take(4).toList();
 }
 
 class _ProfileRail extends StatelessWidget {
