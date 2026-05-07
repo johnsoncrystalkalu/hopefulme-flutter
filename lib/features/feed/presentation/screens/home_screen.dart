@@ -3734,7 +3734,7 @@ class _RecentActiveViewerScreenState extends State<_RecentActiveViewerScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Connect with',
+                          'Connect',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.86),
                             fontSize: 16,

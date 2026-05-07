@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:heroicons/heroicons.dart';
@@ -65,24 +67,41 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> _loadInitial() async {
+    ConversationListPage? cachedPage;
+
     setState(() {
       _isLoading = true;
       _error = null;
       _isLoadingMore = false;
     });
 
+    cachedPage = await widget.repository.readCachedConversationsPage(
+      page: 1,
+      perPage: _pageSize,
+    );
+    if (mounted && cachedPage != null) {
+      final cached = cachedPage;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(cached.items);
+        _activeSourceItems
+          ..clear()
+          ..addAll(cached.items);
+        _page = cached.currentPage;
+        _hasMore = cached.hasMore;
+        _unreadTotal = cached.unreadTotal;
+        _recomputeActiveTodayItems();
+        _isLoading = false;
+      });
+      unawaited(_loadActiveTodayAfterConversations());
+    }
+
     try {
       final page = await widget.repository.fetchConversationsPage(
         page: 1,
         perPage: _pageSize,
       );
-
-      List<ConversationListItem> activeSource = page.items;
-      try {
-        activeSource = await widget.repository.fetchActiveTodayConversations();
-      } catch (_) {
-        // Fall back to page-1 items if active endpoint fetch fails.
-      }
 
       if (!mounted) {
         return;
@@ -93,21 +112,58 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ..addAll(page.items);
         _activeSourceItems
           ..clear()
-          ..addAll(activeSource);
+          ..addAll(page.items);
         _page = page.currentPage;
         _hasMore = page.hasMore;
         _unreadTotal = page.unreadTotal;
         _recomputeActiveTodayItems();
+        _error = null;
         _isLoading = false;
       });
+      unawaited(_loadActiveTodayAfterConversations());
     } catch (error) {
       if (!mounted) {
+        return;
+      }
+      if (cachedPage != null) {
+        setState(() {
+          _error = error;
+          _isLoading = false;
+        });
         return;
       }
       setState(() {
         _error = error;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadActiveTodayAfterConversations() async {
+    final cached = await widget.repository.readCachedActiveTodayConversations();
+    if (mounted && cached != null && cached.isNotEmpty) {
+      setState(() {
+        _activeSourceItems
+          ..clear()
+          ..addAll(cached);
+        _recomputeActiveTodayItems();
+      });
+    }
+
+    try {
+      final activeSource = await widget.repository
+          .fetchActiveTodayConversations();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _activeSourceItems
+          ..clear()
+          ..addAll(activeSource);
+        _recomputeActiveTodayItems();
+      });
+    } catch (_) {
+      // Keep fallback items from the conversations page.
     }
   }
 
@@ -367,10 +423,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 }
 
 class _OfflineCachedBanner extends StatelessWidget {
-  const _OfflineCachedBanner({
-    required this.message,
-    required this.onRetry,
-  });
+  const _OfflineCachedBanner({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -387,11 +440,7 @@ class _OfflineCachedBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.wifi_off_rounded,
-            size: 16,
-            color: colors.textMuted,
-          ),
+          Icon(Icons.wifi_off_rounded, size: 16, color: colors.textMuted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -403,10 +452,7 @@ class _OfflineCachedBanner extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

@@ -13,6 +13,35 @@ class MessageRepository {
   final AuthRepository _authRepository;
   final PageCache _cache;
 
+  Future<ConversationListPage?> readCachedConversationsPage({
+    int page = 1,
+    int perPage = 10,
+  }) async {
+    final normalizedPerPage = perPage.clamp(8, 30);
+    final key = 'messages:page:$page:per_page:$normalizedPerPage';
+    final cached = await _cache.read(key);
+    if (cached == null) {
+      return null;
+    }
+    return ConversationListPage.fromJson(cached);
+  }
+
+  Future<List<ConversationListItem>?> readCachedActiveTodayConversations({
+    int limit = 60,
+  }) async {
+    final normalizedLimit = limit.clamp(10, 100);
+    final key = 'messages:active_today:$normalizedLimit';
+    final cached = await _cache.read(key);
+    if (cached == null) {
+      return null;
+    }
+    final data = cached['data'] as List<dynamic>? ?? <dynamic>[];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(ConversationListItem.fromJson)
+        .toList();
+  }
+
   Future<List<ConversationListItem>> fetchConversations() async {
     const key = 'messages:all';
     try {
@@ -126,12 +155,7 @@ class MessageRepository {
     String username, {
     required int afterId,
   }) {
-    return fetchThread(
-      username,
-      afterId: afterId,
-      window: 30,
-      compact: true,
-    );
+    return fetchThread(username, afterId: afterId, window: 30, compact: true);
   }
 
   Future<ChatMessage> sendMessage(
@@ -175,25 +199,23 @@ class MessageRepository {
             files: [
               ...?switch (photo) {
                 final pickedPhoto? => [
-                    ApiMultipartFile(
-                      field: 'photo',
-                      filename: pickedPhoto.name,
-                      bytes: await pickedPhoto.readAsBytes(),
-                    ),
-                  ],
+                  ApiMultipartFile(
+                    field: 'photo',
+                    filename: pickedPhoto.name,
+                    bytes: await pickedPhoto.readAsBytes(),
+                  ),
+                ],
                 null => null,
               },
               ...?switch (audio) {
                 final pickedAudio? => [
-                    ApiMultipartFile(
-                      field: 'audio',
-                      filename: pickedAudio.name,
-                      path: pickedAudio.path,
-                      bytes: pickedAudio.path == null
-                          ? pickedAudio.bytes
-                          : null,
-                    ),
-                  ],
+                  ApiMultipartFile(
+                    field: 'audio',
+                    filename: pickedAudio.name,
+                    path: pickedAudio.path,
+                    bytes: pickedAudio.path == null ? pickedAudio.bytes : null,
+                  ),
+                ],
                 null => null,
               },
             ],
