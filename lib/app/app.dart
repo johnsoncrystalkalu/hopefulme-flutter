@@ -24,6 +24,8 @@ import 'package:hopefulme_flutter/features/auth/presentation/screens/reset_passw
 import 'package:hopefulme_flutter/features/auth/presentation/screens/register_screen.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/screens/verify_email_screen.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/data/daily_checkin_repository.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/presentation/screens/daily_checkin_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/main_shell_screen.dart';
@@ -837,6 +839,10 @@ class _HopefulMeAppState extends State<HopefulMeApp>
             return;
           }
           break;
+        case 'daily_goal_reminder':
+        case 'daily_checkin_reminder':
+          await _openDailyCheckinScreen();
+          return;
       }
 
       await _openNotificationsScreen();
@@ -886,6 +892,25 @@ class _HopefulMeAppState extends State<HopefulMeApp>
           searchRepository: _searchRepository,
           updateRepository: _updateRepository,
           currentUser: _authController.currentUser,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDailyCheckinScreen() {
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      return Future<void>.value();
+    }
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => DailyCheckinScreen(
+          repository: DailyCheckinRepository(_authController.authRepository),
+          firstName:
+              (_authController.currentUser?.displayName ??
+                      _authController.currentUser?.username ??
+                      '')
+                  .trim(),
         ),
       ),
     );

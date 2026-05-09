@@ -112,7 +112,7 @@ Widget build(BuildContext context) {
                     ),
                     Expanded(
                       child: Text(
-                        'Most active this month',
+                        'Most active users this month',
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 12,

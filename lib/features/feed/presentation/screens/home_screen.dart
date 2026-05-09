@@ -37,11 +37,14 @@ import 'package:hopefulme_flutter/features/content/presentation/screens/posts_fe
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/models/feed_dashboard.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/widgets/feed_special_cards.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/presentation/screens/daily_checkin_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/monthly_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/settings_screen.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/today_birthdays_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
 import 'package:hopefulme_flutter/features/groups/presentation/screens/groups_screen.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/data/daily_checkin_repository.dart'
+    as data_checkin;
 import 'package:hopefulme_flutter/features/messages/data/message_repository.dart';
 import 'package:hopefulme_flutter/features/messages/models/conversation_models.dart';
 import 'package:hopefulme_flutter/features/messages/presentation/screens/message_thread_screen.dart';
@@ -851,6 +854,36 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _openDailyCheckin() async {
+    _setActiveSidebarItem('Today\'s Check-in');
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => DailyCheckinScreen(
+          repository: data_checkin.DailyCheckinRepository(
+            widget.authController.authRepository,
+          ),
+          firstName:
+              (widget.authController.currentUser?.displayName ??
+                      widget.authController.currentUser?.username ??
+                      '')
+                  .trim(),
+          onOpenConnect: _openMeetNewFriends,
+          onOpenGroups: () async {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+            await _openGroups();
+          },
+          onOpenQuotes: () => _openPostsFeed(initialCategory: 'Quote'),
+          onSleepLogout: () async {
+            await _handleLogout();
+          },
+        ),
+      ),
+    );
+    _resetBottomNavToHome();
+  }
+
   Future<void> _openEditMedia() async {
     final username = widget.authController.currentUser?.username ?? '';
     if (username.trim().isEmpty) {
@@ -1485,6 +1518,7 @@ class _HomeScreenState extends State<HomeScreen>
         onSearchTap: _openSearch,
         onHomeTap: _goHome,
         onProfileTap: _openProfile,
+        onDailyCheckinTap: _openDailyCheckin,
         onPostsTap: _openPostsFeed,
         onBlogsTap: _openBlogsFeed,
         onActivitiesTap: _openActivities,
@@ -2502,6 +2536,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.onSearchTap,
     required this.onHomeTap,
     required this.onProfileTap,
+    required this.onDailyCheckinTap,
     required this.onPostsTap,
     required this.onBlogsTap,
     required this.onActivitiesTap,
@@ -2528,6 +2563,7 @@ class _HomeSidebar extends StatelessWidget {
   final Future<void> Function() onSearchTap;
   final Future<void> Function() onHomeTap;
   final Future<void> Function() onProfileTap;
+  final Future<void> Function() onDailyCheckinTap;
   final Future<void> Function() onPostsTap;
   final Future<void> Function() onBlogsTap;
   final Future<void> Function() onActivitiesTap;
@@ -2703,6 +2739,12 @@ class _HomeSidebar extends StatelessWidget {
                         'Profile',
                         activeItemLabel == 'Profile',
                         onTap: onProfileTap,
+                      ),
+                      _SidebarItemData(
+                        HeroIcons.checkBadge,
+                        'Today\'s Check-in',
+                        activeItemLabel == 'Today\'s Check-in',
+                        onTap: onDailyCheckinTap,
                       ),
                       _SidebarItemData(
                         HeroIcons.cog6Tooth,
@@ -4319,7 +4361,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                 // CTA row
                 Row(
                   children: [
-                    // Send wishes — orange accent
+                    // Send wishes - orange accent
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onSendWishes,
@@ -4347,7 +4389,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // View profiles — ghost button
+                    // View profiles - ghost button
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onDesignCard,
@@ -5368,3 +5410,5 @@ class _Avatar extends StatelessWidget {
     return letters.isEmpty ? 'U' : letters;
   }
 }
+
+

@@ -458,7 +458,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           child: LinearProgressIndicator(
                                             minHeight: 6,
                                             value: 2 / 3,
-                                            backgroundColor: colors.surfaceMuted,
+                                            backgroundColor:
+                                                colors.surfaceMuted,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
                                                   colors.brand,
@@ -564,7 +565,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 ),
                               ),
-                             
+
                               _LabeledField(
                                 label: 'Gender',
                                 child: Row(
@@ -919,7 +920,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ],
                         ),
                       ),
-                      if (!widget.showOnboardingIntro) const SizedBox(height: 18),
+                      if (!widget.showOnboardingIntro)
+                        const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(

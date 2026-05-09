@@ -1092,6 +1092,7 @@ ProfileDashboard _copyDashboardWithFollow({
       hobby: source.profile.hobby,
       role1: source.profile.role1,
       role2: source.profile.role2,
+      mentorshipMode: source.profile.mentorshipMode,
       rank: source.profile.rank,
       location: source.profile.location,
       countryFlagEmoji: source.profile.countryFlagEmoji,
@@ -1503,6 +1504,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 940;
+    final isMentor = profile.mentorshipMode.trim().toLowerCase() == 'mentor';
     final identityBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1558,6 +1560,15 @@ class _ProfileHeaderCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
+                ),
+              ),
+            if (isMentor)
+              Tooltip(
+                message: 'Mentor',
+                child: Icon(
+                  Icons.school_rounded,
+                  size: 18,
+                  color: context.appColors.brand,
                 ),
               ),
           ],

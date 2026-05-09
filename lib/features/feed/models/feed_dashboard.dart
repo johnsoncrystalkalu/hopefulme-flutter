@@ -98,6 +98,8 @@ class FeedUserPage {
     required this.items,
     required this.onlineUsers,
     required this.newMembers,
+    required this.mentors,
+    required this.mentees,
     required this.currentPage,
     required this.lastPage,
     required this.total,
@@ -106,6 +108,8 @@ class FeedUserPage {
   final List<FeedUser> items;
   final List<FeedUser> onlineUsers;
   final List<FeedUser> newMembers;
+  final List<FeedUser> mentors;
+  final List<FeedUser> mentees;
   final int currentPage;
   final int lastPage;
   final int total;
@@ -118,6 +122,8 @@ class FeedUserPage {
       items: _mapUsers(json['data']),
       onlineUsers: _mapUsers(json['online_users']),
       newMembers: _mapUsers(json['new_members']),
+      mentors: _mapUsers(json['mentors']),
+      mentees: _mapUsers(json['mentees']),
       currentPage: parseInt(meta['current_page'], fallback: 1),
       lastPage: parseInt(meta['last_page'], fallback: 1),
       total: parseInt(meta['total']),
@@ -303,6 +309,7 @@ class FeedUser {
     required this.lastSeen,
     required this.city,
     required this.state,
+    required this.role1,
     required this.birthdayDay,
     required this.birthdayMonth,
     required this.monthlyActivity,
@@ -319,6 +326,7 @@ class FeedUser {
   final String lastSeen;
   final String city;
   final String state;
+  final String role1;
   final int birthdayDay;
   final int birthdayMonth;
   final double monthlyActivity;
@@ -349,12 +357,15 @@ class FeedUser {
       photoUrl: ImageUrlResolver.resolve(
         json['photo_thumb_url']?.toString() ?? '',
       ),
-      mainPhotoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      mainPhotoUrl: ImageUrlResolver.resolve(
+        json['photo_url']?.toString() ?? '',
+      ),
       verified: json['verified']?.toString() ?? '',
       isOnline: parseBool(json['is_online']),
       lastSeen: json['last_seen']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
+      role1: json['role1']?.toString() ?? '',
       birthdayDay: parseInt(json['birthday_day']),
       birthdayMonth: parseInt(json['birthday_month']),
       monthlyActivity: parseDouble(json['monthly_activity']),

@@ -45,6 +45,7 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
   final List<FeedUser> _items = <FeedUser>[];
   List<FeedUser> _onlineUsers = const <FeedUser>[];
   List<FeedUser> _newMembers = const <FeedUser>[];
+  List<FeedUser> _mentors = const <FeedUser>[];
   List<FeedUser> _todayBirthdays = const <FeedUser>[];
   FeedUser? _friendOfTheDay;
   bool _isLoading = true;
@@ -90,6 +91,7 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
         _items.addAll(page.items);
         _onlineUsers = page.onlineUsers;
         _newMembers = page.newMembers;
+        _mentors = page.mentors;
         _todayBirthdays = birthdaysPage.items;
         _friendOfTheDay = dailyFriendResponse.friend;
         _hasMore = page.hasMore;
@@ -168,6 +170,21 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
     );
   }
 
+  Future<void> _openAllMentors() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => _AllMentorsScreen(
+          feedRepository: widget.feedRepository,
+          profileRepository: widget.profileRepository,
+          messageRepository: widget.messageRepository,
+          updateRepository: widget.updateRepository,
+          currentUser: widget.currentUser,
+          initialMentors: _mentors,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -205,6 +222,7 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
         title: const Text('Connect'),
+        actions: const [],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -239,14 +257,23 @@ class _MeetNewFriendsScreenState extends State<MeetNewFriendsScreen> {
                         onOpenProfile: _openProfile,
                       ),
                       SizedBox(height: showRail ? 22 : 20),
-                      if (_newMembers.isNotEmpty) ...[
-                        _NewestHeartsPanel(users: _newMembers, onTap: _openProfile),
-                        SizedBox(height: showRail ? 22 : 18),
-                      ],
                       if (_onlineUsers.isNotEmpty) ...[
                         _OnlinePanel(users: _onlineUsers, onTap: _openProfile),
                         SizedBox(height: showRail ? 22 : 18),
                       ],
+                      if (_newMembers.isNotEmpty) ...[
+                        _NewestHeartsPanel(
+                          users: _newMembers,
+                          onTap: _openProfile,
+                        ),
+                        SizedBox(height: showRail ? 22 : 18),
+                      ],
+                      _MentorshipDiscoveryPanel(
+                        mentors: _mentors,
+                        onTapProfile: _openProfile,
+                        onSeeAllTap: _openAllMentors,
+                      ),
+                      SizedBox(height: showRail ? 22 : 18),
                       // Temporarily hidden for future redesign:
                       // if (_todayBirthdays.isNotEmpty) ...[
                       //   _BirthdaysPanel(
@@ -338,9 +365,8 @@ class _BirthdaysPanel extends StatelessWidget {
                           child: ClipOval(
                             child: CircleAvatar(
                               radius: 22,
-                              backgroundImage: previewUsers[index]
-                                      .photoUrl
-                                      .isNotEmpty
+                              backgroundImage:
+                                  previewUsers[index].photoUrl.isNotEmpty
                                   ? NetworkImage(
                                       ImageUrlResolver.avatar(
                                         previewUsers[index].photoUrl,
@@ -435,7 +461,6 @@ class _MeetMainColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-      
         Row(
           children: [
             Text(
@@ -460,7 +485,7 @@ class _MeetMainColumn extends StatelessWidget {
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: width >= 760 ? 3 : 2,
-            childAspectRatio: 0.66,
+            childAspectRatio: 0.78,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
           ),
@@ -493,8 +518,8 @@ class _MeetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Text(
-     // 'Expand your circle and find people who inspire you.',
-     'A safe space to connect, grow, and find people who inspire you.',
+      // 'Expand your circle and find people who inspire you.',
+      'A safe space to connect, grow, and find people who inspire you.',
       style: TextStyle(
         color: colors.textSecondary,
         fontSize: 14,
@@ -603,7 +628,6 @@ class _FriendOfDayCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                   
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -639,9 +663,7 @@ class _FriendOfDayCard extends StatelessWidget {
                                 ],
                                 image: friendImageUrl.isNotEmpty
                                     ? DecorationImage(
-                                        image: NetworkImage(
-                                          friendImageUrl,
-                                        ),
+                                        image: NetworkImage(friendImageUrl),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
@@ -712,6 +734,8 @@ class _FriendOfDayCard extends StatelessWidget {
                             child: FilledButton(
                               onPressed: onHelloTap,
                               style: FilledButton.styleFrom(
+                                backgroundColor: colors.brand,
+                                foregroundColor: Colors.white,
                                 minimumSize: const Size.fromHeight(46),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
@@ -756,119 +780,120 @@ class _FriendSuggestionCard extends StatelessWidget {
   final VoidCallback onProfileTap;
   final VoidCallback onHelloTap;
 
-@override
-Widget build(BuildContext context) {
-  final colors = context.appColors;
-  final suggestionImageUrl = user.mainPhotoUrl.isNotEmpty
-      ? user.mainPhotoUrl
-      : user.photoUrl;
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final suggestionImageUrl = user.mainPhotoUrl.isNotEmpty
+        ? user.mainPhotoUrl
+        : user.photoUrl;
 
-  return InkWell(
-    onTap: onProfileTap,
-    borderRadius: BorderRadius.circular(30),
-    child: Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: colors.borderStrong),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.surface, width: 3),
-                  image: suggestionImageUrl.isNotEmpty
-                      ? DecorationImage(
-                          image: NetworkImage(suggestionImageUrl),
-                          fit: BoxFit.cover,
+    return InkWell(
+      onTap: onProfileTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colors.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.surface, width: 3),
+                    image: suggestionImageUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(suggestionImageUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                    color: colors.avatarPlaceholder,
+                  ),
+                  child: suggestionImageUrl.isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 34,
+                          color: colors.accentSoftText,
                         )
                       : null,
-                  color: colors.avatarPlaceholder,
                 ),
-                child: suggestionImageUrl.isEmpty
-                    ? Icon(
-                        Icons.person,
-                        size: 44,
-                        color: colors.accentSoftText,
-                      )
-                    : null,
-              ),
-              if (user.isOnline)
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: colors.success,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                if (user.isOnline)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: colors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          VerifiedNameText(
-            name: user.displayName,
-            verified: user.isVerified,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
+              ],
             ),
-          ),
 
-          const SizedBox(height: 4),
+            const SizedBox(height: 10),
 
-          Text(
-            user.cityState.isEmpty ? '@${user.username}' : user.cityState,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
-            ),
-          ),
-
-          const Spacer(), // ✅ pushes button down properly
-
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onHelloTap,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(36), // ↓ smaller button
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text(
-                'Connect',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            VerifiedNameText(
+              name: user.displayName,
+              verified: user.isVerified,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 4),
+
+            Text(
+              user.cityState.isEmpty ? '@${user.username}' : user.cityState,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onHelloTap,
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.brand,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(36), // ↓ smaller button
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Connect',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _OnlinePanel extends StatelessWidget {
@@ -915,7 +940,6 @@ class _OnlinePanel extends StatelessWidget {
                     ),
                   ),
                 ),
-               
               ],
             ),
           ),
@@ -935,7 +959,8 @@ class _OnlinePanel extends StatelessWidget {
               final user = previewUsers[index];
               final isRightColumn = index.isOdd;
               final isLastRow =
-                  index >= previewUsers.length - (previewUsers.length.isOdd ? 1 : 2);
+                  index >=
+                  previewUsers.length - (previewUsers.length.isOdd ? 1 : 2);
 
               return GestureDetector(
                 onTap: () => onTap(user.username),
@@ -944,16 +969,10 @@ class _OnlinePanel extends StatelessWidget {
                     border: Border(
                       right: isRightColumn
                           ? BorderSide.none
-                          : BorderSide(
-                              color: colors.border,
-                              width: 0.5,
-                            ),
+                          : BorderSide(color: colors.border, width: 0.5),
                       bottom: isLastRow
                           ? BorderSide.none
-                          : BorderSide(
-                              color: colors.border,
-                              width: 0.5,
-                            ),
+                          : BorderSide(color: colors.border, width: 0.5),
                     ),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -1101,7 +1120,7 @@ class _NewestHeartsPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Recently Joined',
+                'Just Joined',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -1110,7 +1129,7 @@ class _NewestHeartsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'NEW MEMBERS',
+                'MEET NEW MEMBERS',
                 style: TextStyle(
                   color: Color.fromRGBO(255, 255, 255, 0.62),
                   fontSize: 11,
@@ -1158,7 +1177,9 @@ class _NewestHeartsPanel extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '@${user.username}',
+                                user.role1.trim().isEmpty
+                                    ? 'Member'
+                                    : user.role1.trim(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1183,6 +1204,234 @@ class _NewestHeartsPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MentorshipDiscoveryPanel extends StatelessWidget {
+  const _MentorshipDiscoveryPanel({
+    required this.mentors,
+    required this.onTapProfile,
+    required this.onSeeAllTap,
+  });
+
+  final List<FeedUser> mentors;
+  final Future<void> Function(String username) onTapProfile;
+  final Future<void> Function() onSeeAllTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Mentorship',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onSeeAllTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.accentSoft,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'See all',
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Discover available mentors and connect with them',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _MentorshipUserRow(
+              users: mentors,
+              emptyLabel: 'No mentors available right now.',
+              actionLabel: 'View profile',
+              onTapProfile: onTapProfile,
+              onAction: (user) => onTapProfile(user.username),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MentorshipUserRow extends StatelessWidget {
+  const _MentorshipUserRow({
+    required this.users,
+    required this.emptyLabel,
+    required this.actionLabel,
+    required this.onTapProfile,
+    required this.onAction,
+  });
+
+  final List<FeedUser> users;
+  final String emptyLabel;
+  final String actionLabel;
+  final Future<void> Function(String username) onTapProfile;
+  final Future<void> Function(FeedUser user) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (users.isEmpty)
+          Text(
+            emptyLabel,
+            style: TextStyle(color: colors.textMuted, fontSize: 12),
+          )
+        else
+          ...users.take(12).map((user) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colors.accentSoft,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.school_rounded,
+                        size: 18,
+                        color: colors.accentSoftText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => onTapProfile(user.username),
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundImage: user.photoUrl.isNotEmpty
+                            ? NetworkImage(user.photoUrl)
+                            : null,
+                        child: user.photoUrl.isEmpty
+                            ? const Icon(Icons.person, size: 16)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => onTapProfile(user.username),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            VerifiedNameText(
+                              name: user.displayName,
+                              verified: user.isVerified,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    user.role1.trim().isEmpty
+                                        ? 'Mentor'
+                                        : user.role1.trim(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: colors.textMuted,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    FilledButton(
+                      onPressed: () => onAction(user),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colors.brand,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 7,
+                        ),
+                        minimumSize: const Size(0, 30),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.person_add_alt_1_rounded, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            actionLabel,
+                            style: const TextStyle(fontSize: 10.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 }
@@ -1214,4 +1463,293 @@ class _TagPill extends StatelessWidget {
     );
   }
 }
+
+class _AllMentorsScreen extends StatefulWidget {
+  const _AllMentorsScreen({
+    required this.feedRepository,
+    required this.profileRepository,
+    required this.messageRepository,
+    required this.updateRepository,
+    required this.currentUser,
+    required this.initialMentors,
+  });
+
+  final FeedRepository feedRepository;
+  final ProfileRepository profileRepository;
+  final MessageRepository messageRepository;
+  final UpdateRepository updateRepository;
+  final User? currentUser;
+  final List<FeedUser> initialMentors;
+
+  @override
+  State<_AllMentorsScreen> createState() => _AllMentorsScreenState();
+}
+
+class _AllMentorsScreenState extends State<_AllMentorsScreen> {
+  final List<FeedUser> _mentors = <FeedUser>[];
+  final Set<int> _mentorIds = <int>{};
+  int _page = 1;
+  int _lastPage = 1;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _addMentors(widget.initialMentors);
+    _loadInitial();
+  }
+
+  void _addMentors(List<FeedUser> users) {
+    for (final user in users) {
+      if (_mentorIds.add(user.id)) {
+        _mentors.add(user);
+      }
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final page = await widget.feedRepository.fetchMeetNewFriends(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _page = page.currentPage;
+        _lastPage = page.lastPage;
+        _addMentors(page.mentors);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || _page >= _lastPage) {
+      return;
+    }
+    setState(() {
+      _isLoadingMore = true;
+      _error = null;
+    });
+    try {
+      final nextPage = _page + 1;
+      final page = await widget.feedRepository.fetchMeetNewFriends(page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        _page = page.currentPage;
+        _lastPage = page.lastPage;
+        _addMentors(page.mentors);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openProfile(String username) {
+    return openUserProfile(
+      context,
+      profileRepository: widget.profileRepository,
+      messageRepository: widget.messageRepository,
+      updateRepository: widget.updateRepository,
+      currentUser: widget.currentUser,
+      username: username,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Scaffold(
+      backgroundColor: colors.scaffold,
+      appBar: AppBar(
+        title: const Text('All mentors'),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 14),
+            child: Icon(Icons.school_rounded),
+          ),
+        ],
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null && _mentors.isEmpty
+          ? AppStatusState.fromError(
+              error: _error!,
+              actionLabel: 'Try again',
+              onAction: _loadInitial,
+            )
+          : RefreshIndicator(
+              onRefresh: _loadInitial,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                itemCount: _mentors.length + 1,
+                separatorBuilder: (_, separatorIndex) =>
+                    const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  if (index == _mentors.length) {
+                    if (_page >= _lastPage) {
+                      return const SizedBox.shrink();
+                    }
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: FilledButton(
+                          onPressed: _isLoadingMore ? null : _loadMore,
+                          child: _isLoadingMore
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Load more'),
+                        ),
+                      ),
+                    );
+                  }
+                  final user = _mentors[index];
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colors.border.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            InkWell(
+                              onTap: () => _openProfile(user.username),
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundImage: user.photoUrl.isNotEmpty
+                                    ? NetworkImage(user.photoUrl)
+                                    : null,
+                                child: user.photoUrl.isEmpty
+                                    ? const Icon(Icons.person, size: 18)
+                                    : null,
+                              ),
+                            ),
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: colors.brand,
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: colors.surfaceRaised,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.school_rounded,
+                                  color: Colors.white,
+                                  size: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _openProfile(user.username),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                VerifiedNameText(
+                                  name: user.displayName,
+                                  verified: user.isVerified,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      user.role1.trim().isEmpty
+                                          ? 'Mentor'
+                                          : user.role1.trim(),
+                                      style: TextStyle(
+                                        color: colors.textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        FilledButton(
+                          onPressed: () => _openProfile(user.username),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colors.brand,
+                            foregroundColor: Colors.white,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person_add_alt_1_rounded, size: 14),
+                              SizedBox(width: 4),
+                              Text('Connect'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+    );
+  }
+}
+
 

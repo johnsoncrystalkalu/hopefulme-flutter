@@ -139,6 +139,7 @@ class ProfileSummary {
     required this.hobby,
     required this.role1,
     required this.role2,
+    required this.mentorshipMode,
     required this.rank,
     required this.location,
     required this.countryFlagEmoji,
@@ -179,6 +180,7 @@ class ProfileSummary {
   final String hobby;
   final String role1;
   final String role2;
+  final String mentorshipMode;
   final String rank;
   final String location;
   final String countryFlagEmoji;
@@ -231,6 +233,7 @@ class ProfileSummary {
       lastSeen: lastSeen,
       city: city,
       state: state,
+      role1: role1,
       birthdayDay: 0,
       birthdayMonth: 0,
       monthlyActivity: 0,
@@ -280,6 +283,10 @@ class ProfileSummary {
       hobby: json['hobby']?.toString() ?? '',
       role1: json['role1']?.toString() ?? '',
       role2: json['role2']?.toString() ?? '',
+      mentorshipMode:
+          json['mentorship_mode']?.toString() ??
+          json['mentor_profile']?.toString() ??
+          'none',
       rank: json['rank']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
       countryFlagEmoji: json['country_flag_emoji']?.toString() ?? '',
@@ -294,7 +301,9 @@ class ProfileSummary {
       photoUrl: ImageUrlResolver.resolve(
         json['photo_thumb_url']?.toString() ?? '',
       ),
-      mainPhotoUrl: ImageUrlResolver.resolve(json['photo_url']?.toString() ?? ''),
+      mainPhotoUrl: ImageUrlResolver.resolve(
+        json['photo_url']?.toString() ?? '',
+      ),
       coverUrl: ImageUrlResolver.resolve(json['cover_url']?.toString() ?? ''),
       followersCount: parseInt(json['followers_count']),
       followingCount: parseInt(json['following_count']),
@@ -389,10 +398,15 @@ class ProfileMutualFollower {
 }
 
 class ProfileEditOptions {
-  const ProfileEditOptions({required this.roles, required this.countries});
+  const ProfileEditOptions({
+    required this.roles,
+    required this.countries,
+    required this.mentorshipModes,
+  });
 
   final List<String> roles;
   final List<String> countries;
+  final List<String> mentorshipModes;
 
   factory ProfileEditOptions.fromJson(Map<String, dynamic> json) {
     return ProfileEditOptions(
@@ -404,6 +418,11 @@ class ProfileEditOptions {
           .map((item) => item.toString())
           .where((item) => item.trim().isNotEmpty)
           .toList(),
+      mentorshipModes:
+          (json['mentorship_modes'] as List<dynamic>? ?? const <dynamic>[])
+              .map((item) => item.toString())
+              .where((item) => item.trim().isNotEmpty)
+              .toList(),
     );
   }
 }

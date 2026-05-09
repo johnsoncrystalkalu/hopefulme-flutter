@@ -64,6 +64,8 @@ class AppNotification {
       'message' => 'mail',
       'welcome' => 'waving_hand',
       'inspiration' => 'auto_awesome',
+      'mentorship_request' => 'support_agent',
+      'mentorship_response' => 'support_agent',
       'referral_joined' => 'group_add',
       'store_order' => 'shopping_bag',
       'store_order_placed' => 'shopping_cart_checkout',

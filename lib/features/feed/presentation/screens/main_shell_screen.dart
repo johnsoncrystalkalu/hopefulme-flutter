@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/theme_controller.dart';
@@ -6,6 +6,8 @@ import 'package:hopefulme_flutter/core/widgets/major_bottom_nav.dart';
 import 'package:hopefulme_flutter/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:hopefulme_flutter/features/community/presentation/screens/meet_new_friends_screen.dart';
 import 'package:hopefulme_flutter/features/content/data/content_repository.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/data/daily_checkin_repository.dart';
+import 'package:hopefulme_flutter/features/daily_checkin/presentation/screens/daily_checkin_screen.dart';
 import 'package:hopefulme_flutter/features/feed/data/feed_repository.dart';
 import 'package:hopefulme_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:hopefulme_flutter/features/groups/data/group_repository.dart';
@@ -15,7 +17,6 @@ import 'package:hopefulme_flutter/features/messages/data/message_repository.dart
 import 'package:hopefulme_flutter/features/notifications/data/notification_repository.dart';
 import 'package:hopefulme_flutter/features/profile/data/profile_repository.dart';
 import 'package:hopefulme_flutter/features/search/data/search_repository.dart';
-import 'package:hopefulme_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:hopefulme_flutter/features/templates/data/flyer_template_repository.dart';
 import 'package:hopefulme_flutter/features/updates/data/update_repository.dart';
 import 'package:hopefulme_flutter/features/updates/models/update_detail.dart';
@@ -219,14 +220,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
             pendingCreatedUpdateNotifier: _pendingCreatedUpdateNotifier,
             homeRetapNotifier: _homeRetapNotifier,
           ),
-          SearchScreen(
-            repository: widget.searchRepository,
-            contentRepository: widget.contentRepository,
-            messageRepository: widget.messageRepository,
-            profileRepository: widget.profileRepository,
-            updateRepository: widget.updateRepository,
-            currentUser: currentUser,
-            showMajorBottomNav: false,
+          DailyCheckinScreen(
+            repository: DailyCheckinRepository(
+              widget.authController.authRepository,
+            ),
+            firstName: (currentUser?.displayName ?? currentUser?.username ?? '')
+                .trim(),
+            onOpenConnect: () => _onTabSelected(4),
+            onOpenGroups: () => _onTabSelected(3),
+            onOpenQuotes: () async {
+              // Reuse home flow to keep quote routing logic centralized.
+              _onTabSelected(0);
+            },
+            onSleepLogout: () async {
+              await widget.authController.logout();
+            },
           ),
           const SizedBox.shrink(),
           GroupsScreen(
@@ -261,3 +269,4 @@ class _MainShellScreenState extends State<MainShellScreen> {
     );
   }
 }
+
