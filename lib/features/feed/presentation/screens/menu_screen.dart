@@ -149,7 +149,7 @@ class MenuScreen extends StatelessWidget {
                     items: [
                       _MenuItemData(HeroIcons.home, 'Home', () => _runAction(context, onHomeTap), selected: activeItemLabel == 'Home'),
                       _MenuItemData(HeroIcons.newspaper, 'Post & News', () => _runAction(context, onPostsTap), selected: activeItemLabel == 'Post & News'),
-                      _MenuItemData(HeroIcons.sparkles, 'Activities', () => _runAction(context, onActivitiesTap), selected: activeItemLabel == 'Activities'),
+                      _MenuItemData(HeroIcons.sparkles, 'Updates', () => _runAction(context, onActivitiesTap), selected: activeItemLabel == 'Updates'),
                       _MenuItemData(HeroIcons.users, 'Group Chats', () => _runAction(context, onGroupsTap), selected: activeItemLabel == 'Group Chats'),
                       _MenuItemData(HeroIcons.userPlus, 'Meet New Friends', () => _runAction(context, onMeetNewFriendsTap), selected: activeItemLabel == 'Meet New Friends'),
                     ],

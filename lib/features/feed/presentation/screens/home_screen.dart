@@ -163,6 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
   ModalRoute<dynamic>? _subscribedRoute;
   bool _isHomeRouteVisible = false;
   bool _showGroupsNudgeDot = false;
+  bool _hasCheckedInToday = false;
 
   @override
   void initState() {
@@ -174,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen>
     _loadShellPreferences();
     _refreshTopbarData();
     _refreshUnreadGroups();
+    unawaited(_refreshDailyCheckinState());
     widget.pendingCreatedUpdateNotifier?.addListener(
       _handlePendingCreatedUpdate,
     );
@@ -337,6 +339,22 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     await _dashboardFuture;
+    await _refreshDailyCheckinState();
+  }
+
+  Future<void> _refreshDailyCheckinState() async {
+    try {
+      final repo = data_checkin.DailyCheckinRepository(
+        widget.authController.authRepository,
+      );
+      final today = await repo.fetchToday();
+      if (!mounted) return;
+      setState(() {
+        _hasCheckedInToday = today != null;
+      });
+    } catch (_) {
+      // Keep previous state silently.
+    }
   }
 
   void _seedHomeUpdatesFromDashboard(FeedDashboard dashboard) {
@@ -1071,7 +1089,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openActivities() async {
-    _setActiveSidebarItem('Activities');
+    _setActiveSidebarItem('Updates');
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => UpdatesFeedScreen(
@@ -1646,6 +1664,10 @@ class _HomeScreenState extends State<HomeScreen>
                                                 _openMonthlyBirthdays,
                                             onOpenTodayBirthdays:
                                                 _openTodayBirthdays,
+                                            onOpenDailyCheckin:
+                                                _openDailyCheckin,
+                                            hasCheckedInToday:
+                                                _hasCheckedInToday,
                                             updateRepository:
                                                 widget.updateRepository,
                                             isLoading:
@@ -1692,6 +1714,10 @@ class _HomeScreenState extends State<HomeScreen>
                                               _openMonthlyBirthdays,
                                           onOpenTodayBirthdays:
                                               _openTodayBirthdays,
+                                          onOpenDailyCheckin:
+                                              _openDailyCheckin,
+                                          hasCheckedInToday:
+                                              _hasCheckedInToday,
                                           updateRepository:
                                               widget.updateRepository,
                                           isLoading:
@@ -1732,6 +1758,28 @@ class _HomeScreenState extends State<HomeScreen>
                                   child: _HomeSuggestedFriendsCard(
                                     users: _homeSuggestedUsers,
                                     onOpenProfile: _openUserProfile,
+                                  ),
+                                ),
+                              ),
+                            if (_homeUpdates.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                                  child: _SectionHeader(
+                                    title: 'User Updates',
+                                    leading: Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: context.appColors.brand.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: HeroIcon(
+                                        HeroIcons.rectangleGroup,
+                                        color: context.appColors.brand,
+                                        size: 15,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2628,8 +2676,8 @@ class _HomeSidebar extends StatelessWidget {
 
                       _SidebarItemData(
                         HeroIcons.rectangleGroup,
-                        'Activities',
-                        activeItemLabel == 'Activities',
+                        'User Updates',
+                        activeItemLabel == 'User Updates',
                         onTap: onActivitiesTap,
                       ),
                         _SidebarItemData(
@@ -2742,8 +2790,8 @@ class _HomeSidebar extends StatelessWidget {
                       ),
                       _SidebarItemData(
                         HeroIcons.checkBadge,
-                        'Today\'s Check-in',
-                        activeItemLabel == 'Today\'s Check-in',
+                        'Check-in',
+                        activeItemLabel == 'Check-in',
                         onTap: onDailyCheckinTap,
                       ),
                       _SidebarItemData(
@@ -2970,6 +3018,8 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenFlyerTemplates,
     required this.onOpenMonthlyBirthdays,
     required this.onOpenTodayBirthdays,
+    required this.onOpenDailyCheckin,
+    required this.hasCheckedInToday,
     required this.updateRepository,
     required this.isLoading,
     required this.error,
@@ -2996,6 +3046,8 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onOpenFlyerTemplates;
   final Future<void> Function() onOpenMonthlyBirthdays;
   final Future<void> Function(List<FeedUser> users) onOpenTodayBirthdays;
+  final Future<void> Function() onOpenDailyCheckin;
+  final bool hasCheckedInToday;
   final UpdateRepository updateRepository;
   final bool isLoading;
   final Object? error;
@@ -3135,6 +3187,14 @@ class _HomeContent extends StatelessWidget {
           onCreateUpdate: onCreateUpdate,
           onOpenProfile: onOpenProfile,
         ),
+        if (data.showDailyCheckinBanner) ...[
+          const SizedBox(height: 12),
+          _HomeDailyCheckinBanner(
+            onTap: onOpenDailyCheckin,
+            firstName: user?.displayName ?? user?.username ?? '',
+            hasCheckedInToday: hasCheckedInToday,
+          ),
+        ],
         const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.only(top: 12),
@@ -3198,6 +3258,118 @@ class _HomeLoadingSkeleton extends StatelessWidget {
         SizedBox(height: 16),
         _FeedCardSkeleton(),
       ],
+    );
+  }
+}
+
+class _HomeDailyCheckinBanner extends StatelessWidget {
+  const _HomeDailyCheckinBanner({
+    required this.onTap,
+    required this.firstName,
+    required this.hasCheckedInToday,
+  });
+
+  final Future<void> Function() onTap;
+  final String firstName;
+  final bool hasCheckedInToday;
+
+  static const _bannerUrl = 'https://ahopefulme.com/img/misc/checkin.webp';
+
+  String _greetingTitle() {
+    final raw = firstName.trim();
+    final name = raw.isEmpty ? 'there' : raw.split(RegExp(r'\s+')).first;
+    return 'Hello, $name';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => onTap(),
+      child: Ink(
+        height: 132,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.border),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                _bannerUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, error, stackTrace) => Container(
+                  color: colors.surface,
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.22),
+                  ],
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    _greetingTitle(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasCheckedInToday
+                        ? 'You checked in today. Tap to view your entry.'
+                        : 'Track your mood, focus, and today\'s goal.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: isDark ? 0.14 : 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.34),
+                      ),
+                    ),
+                    child: Text(
+                      hasCheckedInToday ? 'View Today\'s Check-in' : 'Start Check-in',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -4216,7 +4388,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final previewUsers = users.take(5).toList();
+    final previewUsers = users.take(3).toList();
     final leadName = users.first.displayName;
     final othersCount = users.length - 1;
 
@@ -4226,7 +4398,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
         children: [
           // Header (plain style, aligned with Most Active card)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
             child: Row(
               children: [
                 Container(
@@ -4280,7 +4452,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
 
           // ── Body ─────────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -4289,25 +4461,25 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                   children: [
                     // Overlapping avatar stack
                     SizedBox(
-                      height: 40,
-                      width: (previewUsers.length * 28.0) + 16,
+                      height: 34,
+                      width: (previewUsers.length * 24.0) + 12,
                       child: Stack(
                         children: [
                           for (var i = 0; i < previewUsers.length; i++)
                             Positioned(
-                              left: i * 28.0,
+                              left: i * 24.0,
                               child: GestureDetector(
                                 onTap: () => onOpenProfile(
                                   previewUsers[i].username,
                                 ),
                                 child: Container(
-                                  width: 40,
-                                  height: 40,
+                                  width: 34,
+                                  height: 34,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: colors.surface,
-                                      width: 2.5,
+                                      width: 2,
                                     ),
                                     color: colors.avatarPlaceholder,
                                   ),
@@ -4315,7 +4487,7 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                                     child: _Avatar(
                                       imageUrl: previewUsers[i].photoUrl,
                                       label: previewUsers[i].displayName,
-                                      radius: 20,
+                                      radius: 17,
                                       backgroundColor: colors.avatarPlaceholder,
                                     ),
                                   ),
@@ -4331,9 +4503,9 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                         text: TextSpan(
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w500,
-                            height: 1.4,
+                            height: 1.25,
                           ),
                           children: [
                             TextSpan(
@@ -4345,10 +4517,10 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                             ),
                             if (othersCount > 0)
                               TextSpan(
-                                text: '\nand $othersCount other${othersCount == 1 ? '' : 's'} are celebrating',
+                                text: ' and $othersCount other${othersCount == 1 ? '' : 's'} are celebrating their birthday today.',
                               )
                             else
-                              const TextSpan(text: '\nis celebrating today'),
+                              const TextSpan(text: ' is celebrating their birthday today.'),
                           ],
                         ),
                       ),
@@ -4356,63 +4528,32 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 14),
-
-                // CTA row
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    // Send wishes - orange accent
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onSendWishes,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.textPrimary,
-                          minimumSize: const Size.fromHeight(40),
-                          side: BorderSide(color: colors.borderStrong),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: EdgeInsets.zero,
-                        ),
-                        icon: Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 15,
-                          color: colors.accent,
-                        ),
-                        label: const Text(
-                          'Send wishes',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _BirthdayPillAction(
+                          label: 'Send wishes',
+                          icon: Icons.chat_bubble_outline_rounded,
+                          onTap: onSendWishes,
+                          tint: const Color(0xFFEEF4FF),
+                          darkTint: const Color(0xFF1E2B45),
+                          iconColor: const Color(0xFF3252E6),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    // View profiles - ghost button
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onDesignCard,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.textPrimary,
-                          minimumSize: const Size.fromHeight(40),
-                          side: BorderSide(color: colors.borderStrong),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: EdgeInsets.zero,
-                        ),
-                        icon: Icon(
-                          Icons.photo_outlined,
-                          size: 15,
-                          color: colors.brand,
-                        ),
-                        label: const Text(
-                          'Create flyer',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _BirthdayPillAction(
+                          label: 'Create flyer',
+                          icon: Icons.photo_outlined,
+                          onTap: onDesignCard,
+                          tint: const Color(0xFFF3EEFF),
+                          darkTint: const Color(0xFF33254B),
+                          iconColor: const Color(0xFF7C3AED),
                         ),
                       ),
                     ),
@@ -4481,6 +4622,57 @@ class _FeedEntryCard extends StatelessWidget {
       onOpenHashtag: onOpenHashtag,
       onOpenLink: onOpenLink,
       updateRepository: updateRepository,
+    );
+  }
+}
+
+class _BirthdayPillAction extends StatelessWidget {
+  const _BirthdayPillAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.tint,
+    required this.darkTint,
+    required this.iconColor,
+  });
+
+  final String label;
+  final IconData icon;
+  final Future<void> Function() onTap;
+  final Color tint;
+  final Color darkTint;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: () => onTap(),
+      borderRadius: BorderRadius.circular(999),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark ? darkTint : tint,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.borderStrong),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: iconColor),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

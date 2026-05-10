@@ -3,6 +3,7 @@ import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/daily_checkin/data/daily_checkin_repository.dart';
 import 'package:hopefulme_flutter/features/daily_checkin/models/daily_checkin_models.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DailyCheckinScreen extends StatefulWidget {
   const DailyCheckinScreen({
@@ -27,6 +28,7 @@ class DailyCheckinScreen extends StatefulWidget {
 }
 
 class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
+  static const _checkinBannerUrl = 'https://ahopefulme.com/img/misc/checkin.webp';
   static const _moods = <(String, String)>[
     ('Happy', '🙂'),
     ('Calm', '😌'),
@@ -36,7 +38,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     ('Lonely', '😔'),
     ('Angry', '😡'),
     ('Anxious', '😰'),
-    ('Tired', '🥱'),
+    ('Tired', '😩'),
   ];
   static const _energyLevels = <String>['low', 'medium', 'high'];
   static const _focusAreas = <String>[
@@ -211,16 +213,6 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.asset(
-            'assets/images/checkin.webp',
-            width: double.infinity,
-            height: 136,
-            fit: BoxFit.cover,
-          ),
-        ),
-        const SizedBox(height: 12),
         const Text(
           '1. How are you feeling today?',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
@@ -249,7 +241,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                   color: selected ? const Color(0xFFF3EEFF) : colors.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: selected ? const Color(0xFF6D3FE3) : colors.border,
+                    color: selected ? const Color(0xFF3252E6) : colors.border,
                     width: selected ? 1.5 : 1,
                   ),
                 ),
@@ -260,7 +252,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                     const SizedBox(height: 4),
                     Text(
                       item.$1,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: selected ? const Color(0xFF1F2937) : colors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -307,7 +303,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         ),
         const SizedBox(height: 14),
         const Text(
-          '4. Anything on your mind? (optional)',
+          '4. Journal (optional)',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         const SizedBox(height: 8),
@@ -317,6 +313,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           minLines: 3,
           maxLines: 5,
           decoration: const InputDecoration(hintText: 'Write your thoughts...'),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '5. Goal',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         const SizedBox(height: 10),
         TextField(
@@ -353,14 +354,14 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           min: 0,
           max: 100,
           divisions: 20,
-          activeColor: const Color(0xFF6D3FE3),
-          inactiveColor: const Color(0xFF6D3FE3).withValues(alpha: 0.2),
+          activeColor: const Color(0xFF3252E6),
+          inactiveColor: const Color(0xFF3252E6).withValues(alpha: 0.2),
           onChanged: (v) => setState(() => _progress = v),
         ),
         const SizedBox(height: 10),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF6D3FE3),
+            backgroundColor: const Color(0xFF3252E6),
             foregroundColor: Colors.white,
           ),
           onPressed: _isSaving ? null : _save,
@@ -372,6 +373,15 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                 )
               : const Text('Save Check-in'),
         ),
+        const SizedBox(height: 8),
+        Text(
+          'Private to you: only you can see your daily check-in. Entries are automatically cleared after 30 days.',
+          style: TextStyle(
+            color: colors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }
@@ -382,26 +392,20 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.asset(
-            'assets/images/checkin.webp',
-            width: double.infinity,
-            height: 136,
-            fit: BoxFit.cover,
+        _checkinBanner(
+          title: _greetingWithName(),
+          subtitle: 'You are a special person. Your journey matters. Keep going.',
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Today\'s Check-in (Visible only to you)',
+          style: TextStyle(
+            color: colors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          _greetingWithName(),
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'You are a special person. Your journey matters. Keep going.',
-          style: TextStyle(color: colors.textMuted),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         IntrinsicHeight(
           child: Row(
             children: [
@@ -415,20 +419,45 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _InfoCard(
-                  title: "Today's Focus",
+                  title: '🎯',
                   subtitle: entry == null ? '-' : entry.focusArea.replaceAll('_', ' '),
-                  meta: entry == null ? '' : 'Status: ${entry.status.replaceAll('_', ' ')}',
-                  progress: entry?.progress ?? 0,
+                  meta: "Today's focus",
                 ),
               ),
             ],
           ),
         ),
+        if ((entry?.goal ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _EntryNoteCard(
+            title: "Today's Goal",
+            content: entry!.goal.trim(),
+            icon: Icons.track_changes_outlined,
+            meta: 'Status: ${entry.status.replaceAll('_', ' ')}',
+            progress: entry.progress,
+          ),
+        ],
+        if ((entry?.content ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _EntryNoteCard(
+            title: 'Journal',
+            content: entry!.content.trim(),
+            icon: Icons.menu_book_outlined,
+          ),
+        ],
         const SizedBox(height: 12),
-        OutlinedButton.icon(
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF59E0B),
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: () => setState(() => _showLanding = false),
           icon: const Icon(Icons.edit_outlined),
-          label: const Text('Update check-in'),
+          label: const Text('Update Check-in'),
         ),
         if (_suggestions.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -439,21 +468,34 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             ),
           ),
         ],
+        if (_isSupportMood(entry?.mood ?? _mood)) ...[
+          const SizedBox(height: 18),
+          _NeedNowSection(
+            onOpenGroups: widget.onOpenGroups,
+            onOpenQuotes: widget.onOpenQuotes,
+            onSleepLogout: widget.onSleepLogout,
+          ),
+        ],
         const SizedBox(height: 8),
         _GrowthWeekCard(summary: _weeklySummary),
         const SizedBox(height: 10),
         _SimpleMoodTrendCard(entries: _history),
-        // What do you need right now? hidden for now until routes are stable.
-        const SizedBox(height: 14),
-        Text(
-          'Daily check-ins are automatically deleted after 30 days for privacy. This feature is still being improved.',
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            height: 1.35,
-          ),
+        const SizedBox(height: 10),
+        _EntriesSection(
+          entries: _history.take(30).toList(),
+          moodEmojiFor: _emojiForMood,
+          onDelete: _deleteEntry,
         ),
+        const SizedBox(height: 14),
+        // Text(
+        //   'Daily check-ins are automatically deleted after 30 days for privacy. This feature is still being improved.',
+        //   style: TextStyle(
+        //     color: colors.textMuted,
+        //     fontSize: 10,
+        //     fontWeight: FontWeight.w500,
+        //     height: 1.35,
+        //   ),
+        // ),
       ],
     );
   }
@@ -468,8 +510,515 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     if (key.contains('lonely')) return '😔';
     if (key.contains('angry')) return '😡';
     if (key.contains('anxious')) return '😰';
-    if (key.contains('tired')) return '🥱';
+    if (key.contains('tired')) return '🫩';
     return '🙂';
+  }
+
+  bool _isSupportMood(String mood) {
+    final key = mood.trim().toLowerCase();
+    return key.contains('stressed') ||
+        key.contains('lonely') ||
+        key.contains('anxious') ||
+        key.contains('tired') ||
+        key.contains('sad') ||
+        key.contains('angry');
+  }
+
+  Widget _checkinBanner({String? title, String? subtitle}) {
+    final showOverlayText =
+        (title ?? '').trim().isNotEmpty || (subtitle ?? '').trim().isNotEmpty;
+    return SizedBox(
+      width: double.infinity,
+      height: 136,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              _checkinBannerUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, error, stackTrace) => Image.asset(
+                'assets/images/checkin.webp',
+                fit: BoxFit.cover,
+              ),
+            ),
+            if (showOverlayText)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.14),
+                      Colors.black.withValues(alpha: 0.28),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            if (showOverlayText)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if ((title ?? '').trim().isNotEmpty)
+                      Text(
+                        title!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    if ((subtitle ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteEntry(DailyCheckinEntry entry) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete entry?'),
+        content: const Text('This will remove this check-in entry.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (entry.id <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete this entry right now.')),
+      );
+      return;
+    }
+    try {
+      await widget.repository.deleteEntry(entry.id);
+      if (!mounted) return;
+      setState(() {
+        _history = _history.where((item) => item.id != entry.id).toList();
+        if (_todayEntry?.id == entry.id) {
+          _todayEntry = null;
+        }
+      });
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Entry deleted.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $error')),
+      );
+    }
+  }
+}
+
+class _EntriesSection extends StatelessWidget {
+  const _EntriesSection({
+    required this.entries,
+    required this.moodEmojiFor,
+    required this.onDelete,
+  });
+
+  final List<DailyCheckinEntry> entries;
+  final String Function(String?) moodEmojiFor;
+  final Future<void> Function(DailyCheckinEntry entry) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recent Check-ins',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        if (entries.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.border),
+            ),
+            child: Text(
+              'No past entries yet.',
+              style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ...entries.map((entry) {
+          final moodText = entry.mood.trim().isEmpty ? '-' : entry.mood.trim();
+          final goalText = entry.goal.trim().isEmpty ? 'No goal set' : entry.goal.trim();
+          final journal = entry.content.trim();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _exactDate(entry.checkinDate),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      ),
+                      const Spacer(),
+                      Text(
+                        moodEmojiFor(entry.mood),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            onDelete(entry);
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Mood: $moodText'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Goal: $goalText',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        'Status: ${entry.status.replaceAll('_', ' ')}',
+                        style: TextStyle(color: colors.textMuted, fontSize: 12),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${entry.progress.clamp(0, 100)}%',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: (entry.progress.clamp(0, 100)) / 100,
+                      minHeight: 7,
+                      backgroundColor: const Color(0xFF3252E6).withValues(alpha: 0.16),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3252E6)),
+                    ),
+                  ),
+                  if (journal.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Journal: $journal',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: colors.textSecondary, height: 1.35),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  static String _exactDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    final date = parsed.toLocal();
+    return '${_weekday(date.weekday)}, ${date.day}${_ordinal(date.day)} ${_month(date.month)}, ${date.year}';
+  }
+
+  static String _weekday(int weekday) {
+    const names = <String>['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return names[(weekday - 1).clamp(0, 6)];
+  }
+
+  static String _month(int month) {
+    const names = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return names[(month - 1).clamp(0, 11)];
+  }
+
+  static String _ordinal(int day) {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+}
+
+class _NeedNowSection extends StatelessWidget {
+  const _NeedNowSection({
+    this.onOpenGroups,
+    this.onOpenQuotes,
+    this.onSleepLogout,
+  });
+
+  final Future<void> Function()? onOpenGroups;
+  final Future<void> Function()? onOpenQuotes;
+  final Future<void> Function()? onSleepLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'What do you need right now?',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.75,
+          children: [
+            _NeedNowCard(
+              emoji: '💜',
+              title: 'Encouraging Words',
+              background: const Color(0xFFF1EAFE),
+              darkBackground: const Color(0xFF2F2546),
+              onTap: onOpenQuotes,
+            ),
+            _NeedNowCard(
+              emoji: '👥',
+              title: 'Talk to Someone',
+              background: const Color(0xFFE7F0FF),
+              darkBackground: const Color(0xFF22324A),
+              onTap: onOpenGroups,
+            ),
+            _NeedNowCard(
+              emoji: '😴',
+              title: 'Rest and Sleep',
+              background: const Color(0xFFFFF0DA),
+              darkBackground: const Color(0xFF433726),
+              onTap: onSleepLogout,
+            ),
+            _NeedNowCard(
+              emoji: '🎵',
+              title: 'Listen to Music',
+              background: const Color(0xFFEAF7EF),
+              darkBackground: const Color(0xFF20392C),
+              onTap: () async {
+                final uri = Uri.parse('https://open.spotify.com');
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NeedNowCard extends StatelessWidget {
+  const _NeedNowCard({
+    required this.emoji,
+    required this.title,
+    required this.background,
+    required this.darkBackground,
+    this.onTap,
+  });
+
+  final String emoji;
+  final String title;
+  final Color background;
+  final Color darkBackground;
+  final Future<void> Function()? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap == null ? null : () => onTap!.call(),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: isDark ? darkBackground : background,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryNoteCard extends StatelessWidget {
+  const _EntryNoteCard({
+    required this.title,
+    required this.content,
+    required this.icon,
+    this.meta,
+    this.progress,
+  });
+
+  final String title;
+  final String content;
+  final IconData icon;
+  final String? meta;
+  final int? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF3252E6)),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 13,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if ((meta ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              meta!,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (progress != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text(
+                  'Progress',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                Text(
+                  '${progress!.clamp(0, 100)}%',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: (progress!.clamp(0, 100)) / 100,
+                minHeight: 7,
+                backgroundColor: const Color(0xFF3252E6).withValues(alpha: 0.16),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF3252E6),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
@@ -537,9 +1086,9 @@ class _InfoCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: (progress!.clamp(0, 100)) / 100,
                 minHeight: 7,
-                backgroundColor: const Color(0xFF6D3FE3).withValues(alpha: 0.16),
+                backgroundColor: const Color(0xFF3252E6).withValues(alpha: 0.16),
                 valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF6D3FE3),
+                  Color(0xFF3252E6),
                 ),
               ),
             ),
@@ -564,7 +1113,7 @@ class _GrowthWeekCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF6D3FE3),
+        color: const Color(0xFF3252E6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -611,7 +1160,7 @@ class _SimpleMoodTrendCard extends StatelessWidget {
     'happy': '🙂',
     'hopeful': '😊',
     'calm': '😌',
-    'tired': '🥱',
+    'tired': '🫩',
     'stressed': '😟',
     'anxious': '😰',
     'sad': '🙁',
@@ -653,7 +1202,7 @@ class _SimpleMoodTrendCard extends StatelessWidget {
                       height: (score * 10).toDouble(),
                       width: 12,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6D3FE3).withValues(alpha: 0.85),
+                        color: const Color(0xFF3252E6).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),

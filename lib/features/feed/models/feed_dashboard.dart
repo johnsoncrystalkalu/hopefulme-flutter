@@ -11,6 +11,7 @@ class FeedDashboard {
     required this.todayBirthdays,
     required this.trendingQuotes,
     required this.postCategories,
+    required this.showDailyCheckinBanner,
     this.isFromCache = false,
   });
 
@@ -22,6 +23,7 @@ class FeedDashboard {
   final List<FeedUser> todayBirthdays;
   final List<QuoteCard> trendingQuotes;
   final List<String> postCategories;
+  final bool showDailyCheckinBanner;
   final bool isFromCache;
 
   factory FeedDashboard.fromJson(
@@ -46,6 +48,10 @@ class FeedDashboard {
           .map((item) => item.toString())
           .where((item) => item.trim().isNotEmpty)
           .toList(),
+      showDailyCheckinBanner: parseBool(
+        json['show_daily_checkin_banner'],
+        fallback: true,
+      ),
       isFromCache: isFromCache,
     );
   }

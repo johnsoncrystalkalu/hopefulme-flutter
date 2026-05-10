@@ -511,7 +511,7 @@ class _MyGroupCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                            group.unreadCount > 99 ? '99+' : '${group.unreadCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -659,7 +659,7 @@ class _DiscoverGroupCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                              group.unreadCount > 99 ? '99+' : '${group.unreadCount}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -748,7 +748,7 @@ class _CommunityCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            group.unreadCount > 9 ? '9+' : '${group.unreadCount}',
+                            group.unreadCount > 99 ? '99+' : '${group.unreadCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
