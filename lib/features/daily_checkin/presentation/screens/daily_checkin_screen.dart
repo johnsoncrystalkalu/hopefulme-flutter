@@ -476,7 +476,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             onSleepLogout: widget.onSleepLogout,
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
         _GrowthWeekCard(summary: _weeklySummary),
         const SizedBox(height: 10),
         _SimpleMoodTrendCard(entries: _history),

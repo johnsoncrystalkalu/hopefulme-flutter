@@ -1761,28 +1761,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   ),
                                 ),
                               ),
-                            if (_homeUpdates.isNotEmpty)
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                  child: _SectionHeader(
-                                    title: 'User Updates',
-                                    leading: Container(
-                                      width: 34,
-                                      height: 34,
-                                      decoration: BoxDecoration(
-                                        color: context.appColors.brand.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: HeroIcon(
-                                        HeroIcons.rectangleGroup,
-                                        color: context.appColors.brand,
-                                        size: 15,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                           
                             if (_homeUpdates.isNotEmpty)
                               SliverPadding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -2676,8 +2655,8 @@ class _HomeSidebar extends StatelessWidget {
 
                       _SidebarItemData(
                         HeroIcons.rectangleGroup,
-                        'User Updates',
-                        activeItemLabel == 'User Updates',
+                        'Activities',
+                        activeItemLabel == 'Activities',
                         onTap: onActivitiesTap,
                       ),
                         _SidebarItemData(
@@ -3337,7 +3316,7 @@ class _HomeDailyCheckinBanner extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     hasCheckedInToday
-                        ? 'You checked in today. Tap to view your entry.'
+                        ? 'You checked in today. Keep making progress.'
                         : 'Track your mood, focus, and today\'s goal.',
                     style: TextStyle(
                       color: Colors.white,
@@ -3356,7 +3335,7 @@ class _HomeDailyCheckinBanner extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      hasCheckedInToday ? 'View Today\'s Check-in' : 'Start Check-in',
+                      hasCheckedInToday ? 'Update Check-in' : 'Start Check-in',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -5340,64 +5319,6 @@ class _HomeFriendSuggestionCard extends StatelessWidget {
   }
 }
 
-class _ProfilePhotoReminderCard extends StatelessWidget {
-  const _ProfilePhotoReminderCard({required this.user, required this.onTap});
-
-  final User user;
-  final Future<void> Function() onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return _SurfaceCard(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Add a profile photo to complete your profile, get more followers, and make it easier for people to find you in the community',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 12,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: () => onTap(),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      minimumSize: const Size(0, 34),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      textStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    icon: const Icon(Icons.photo_camera_outlined, size: 15),
-                    label: const Text('Upload Photo'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _RightRail extends StatelessWidget {
   const _RightRail({

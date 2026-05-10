@@ -294,7 +294,7 @@ class _UpdatesFeedScreenState extends State<UpdatesFeedScreen> {
       backgroundColor: context.appColors.scaffold,
       appBar: buildAppScreenAppBar(
         context,
-        title: 'Updates',
+        title: 'Activities',
         subtitle: 'COMMUNITY',
       ),
       body: _isLoading
