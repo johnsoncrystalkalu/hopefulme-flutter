@@ -196,7 +196,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('Daily Check-in')),
         body: AppStatusState.fromError(
-          error: _error!,
+          error: _error ?? 'Unknown error',
           actionLabel: 'Try again',
           onAction: _load,
         ),
@@ -211,9 +211,11 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
   Widget _buildForm(BuildContext context) {
     final colors = context.appColors;
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         const Text(
           '1. How are you feeling today?',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
@@ -383,16 +385,19 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildLanding(BuildContext context) {
     final colors = context.appColors;
     final entry = _todayEntry;
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         _checkinBanner(
           title: _greetingWithName(),
           subtitle: 'You are a special person. Your journey matters. Keep going.',
@@ -430,17 +435,17 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           const SizedBox(height: 10),
           _EntryNoteCard(
             title: "Today's Goal",
-            content: entry!.goal.trim(),
+            content: entry?.goal.trim() ?? '',
             icon: Icons.track_changes_outlined,
-            meta: 'Status: ${entry.status.replaceAll('_', ' ')}',
-            progress: entry.progress,
+            meta: 'Status: ${(entry?.status ?? '').replaceAll('_', ' ')}',
+            progress: entry?.progress,
           ),
         ],
         if ((entry?.content ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 10),
           _EntryNoteCard(
             title: 'Journal',
-            content: entry!.content.trim(),
+            content: entry?.content.trim() ?? '',
             icon: Icons.menu_book_outlined,
           ),
         ],
@@ -495,7 +500,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         //     height: 1.35,
         //   ),
         // ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -564,7 +570,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                   children: [
                     if ((title ?? '').trim().isNotEmpty)
                       Text(
-                        title!,
+                        title ?? '',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -574,7 +580,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
                     if ((subtitle ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        subtitle!,
+                        subtitle ?? '',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -928,7 +934,7 @@ class _NeedNowCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: onTap == null ? null : () => onTap!.call(),
+      onTap: onTap,
       child: Ink(
         decoration: BoxDecoration(
           color: isDark ? darkBackground : background,
@@ -1005,7 +1011,7 @@ class _EntryNoteCard extends StatelessWidget {
           if ((meta ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              meta!,
+              meta ?? '',
               style: TextStyle(
                 color: colors.textMuted,
                 fontSize: 11,
@@ -1023,7 +1029,7 @@ class _EntryNoteCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${progress!.clamp(0, 100)}%',
+                  '${(progress ?? 0).clamp(0, 100)}%',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
               ],
@@ -1032,7 +1038,7 @@ class _EntryNoteCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
-                value: (progress!.clamp(0, 100)) / 100,
+                value: ((progress ?? 0).clamp(0, 100)) / 100,
                 minHeight: 7,
                 backgroundColor: const Color(0xFF3252E6).withValues(alpha: 0.16),
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -1065,7 +1071,6 @@ class _InfoCard extends StatelessWidget {
     final colors = context.appColors;
     final isEmojiTitle = title.runes.length <= 2;
     return Container(
-      height: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.surface,
@@ -1109,7 +1114,7 @@ class _InfoCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
-                value: (progress!.clamp(0, 100)) / 100,
+                value: ((progress ?? 0).clamp(0, 100)) / 100,
                 minHeight: 7,
                 backgroundColor: const Color(0xFF3252E6).withValues(alpha: 0.16),
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -1133,7 +1138,9 @@ class _GrowthWeekCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final checkins = summary?.checkinsCount ?? 0;
     final completedGoals = summary?.completedGoals ?? 0;
-    final commonMood = summary?.commonMood.trim().isNotEmpty == true ? summary!.commonMood : 'N/A';
+    final commonMood = summary?.commonMood.trim().isNotEmpty == true
+        ? (summary?.commonMood ?? 'N/A')
+        : 'N/A';
 
     return Container(
       padding: const EdgeInsets.all(14),
