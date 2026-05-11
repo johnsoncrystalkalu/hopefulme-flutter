@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:hopefulme_flutter/app/theme/app_theme.dart';
 import 'package:hopefulme_flutter/core/widgets/app_status_state.dart';
 import 'package:hopefulme_flutter/features/daily_checkin/data/daily_checkin_repository.dart';
@@ -30,15 +30,15 @@ class DailyCheckinScreen extends StatefulWidget {
 class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   static const _checkinBannerUrl = 'https://ahopefulme.com/img/misc/checkin.webp';
   static const _moods = <(String, String)>[
-    ('Happy', '🙂'),
-    ('Calm', '😌'),
-    ('Hopeful', '🟣'),
-    ('Stressed', '😟'),
-    ('Sad', '🙁'),
-    ('Lonely', '😔'),
-    ('Angry', '😡'),
-    ('Anxious', '😰'),
-    ('Tired', '😩'),
+    ('Happy', '??'),
+    ('Calm', '??'),
+    ('Hopeful', '??'),
+    ('Stressed', '??'),
+    ('Sad', '??'),
+    ('Lonely', '??'),
+    ('Angry', '??'),
+    ('Anxious', '??'),
+    ('Tired', '??'),
   ];
   static const _energyLevels = <String>['low', 'medium', 'high'];
   static const _focusAreas = <String>[
@@ -266,7 +266,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         ),
         const SizedBox(height: 14),
         const Text(
-          '2. What’s your energy level?',
+          '2. What�s your energy level?',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         const SizedBox(height: 8),
@@ -309,7 +309,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         const SizedBox(height: 8),
         TextField(
           controller: _contentController,
-          maxLength: 2000,
+          maxLength: 500,
           minLines: 3,
           maxLines: 5,
           decoration: const InputDecoration(hintText: 'Write your thoughts...'),
@@ -419,7 +419,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _InfoCard(
-                  title: '🎯',
+                  title: '??',
                   subtitle: entry == null ? '-' : entry.focusArea.replaceAll('_', ' '),
                   meta: "Today's focus",
                 ),
@@ -464,7 +464,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           ..._suggestions.take(3).map(
             (s) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('• $s'),
+              child: Text('� $s'),
             ),
           ),
         ],
@@ -502,16 +502,16 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
   String _emojiForMood(String? mood) {
     final key = (mood ?? '').toLowerCase();
-    if (key.contains('happy')) return '🙂';
-    if (key.contains('calm')) return '😌';
-    if (key.contains('hope')) return '😊';
-    if (key.contains('stress')) return '😟';
-    if (key.contains('sad')) return '🙁';
-    if (key.contains('lonely')) return '😔';
-    if (key.contains('angry')) return '😡';
-    if (key.contains('anxious')) return '😰';
-    if (key.contains('tired')) return '🫩';
-    return '🙂';
+    if (key.contains('happy')) return '??';
+    if (key.contains('calm')) return '??';
+    if (key.contains('hope')) return '??';
+    if (key.contains('stress')) return '??';
+    if (key.contains('sad')) return '??';
+    if (key.contains('lonely')) return '??';
+    if (key.contains('angry')) return '??';
+    if (key.contains('anxious')) return '??';
+    if (key.contains('tired')) return '??';
+    return '??';
   }
 
   bool _isSupportMood(String mood) {
@@ -757,8 +757,6 @@ class _EntriesSection extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Journal: $journal',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: colors.textSecondary, height: 1.35),
                     ),
                   ],
@@ -846,28 +844,28 @@ class _NeedNowSection extends StatelessWidget {
           childAspectRatio: 1.75,
           children: [
             _NeedNowCard(
-              emoji: '💜',
+              emoji: '??',
               title: 'Encouraging Words',
               background: const Color(0xFFF1EAFE),
               darkBackground: const Color(0xFF2F2546),
               onTap: onOpenQuotes,
             ),
             _NeedNowCard(
-              emoji: '👥',
+              emoji: '??',
               title: 'Talk to Someone',
               background: const Color(0xFFE7F0FF),
               darkBackground: const Color(0xFF22324A),
               onTap: onOpenGroups,
             ),
             _NeedNowCard(
-              emoji: '😴',
+              emoji: '??',
               title: 'Rest and Sleep',
               background: const Color(0xFFFFF0DA),
               darkBackground: const Color(0xFF433726),
               onTap: onSleepLogout,
             ),
             _NeedNowCard(
-              emoji: '🎵',
+              emoji: '??',
               title: 'Listen to Music',
               background: const Color(0xFFEAF7EF),
               darkBackground: const Color(0xFF20392C),
@@ -1157,15 +1155,15 @@ class _SimpleMoodTrendCard extends StatelessWidget {
   };
 
   static const _moodEmoji = <String, String>{
-    'happy': '🙂',
-    'hopeful': '😊',
-    'calm': '😌',
-    'tired': '🫩',
-    'stressed': '😟',
-    'anxious': '😰',
-    'sad': '🙁',
-    'lonely': '😔',
-    'angry': '😡',
+    'happy': '??',
+    'hopeful': '??',
+    'calm': '??',
+    'tired': '??',
+    'stressed': '??',
+    'anxious': '??',
+    'sad': '??',
+    'lonely': '??',
+    'angry': '??',
   };
 
   @override
@@ -1191,7 +1189,7 @@ class _SimpleMoodTrendCard extends StatelessWidget {
             children: recent.map((entry) {
               final key = entry.mood.trim().toLowerCase();
               final score = _scores[key] ?? 3;
-              final emoji = _moodEmoji[key] ?? '🙂';
+              final emoji = _moodEmoji[key] ?? '??';
               return Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
