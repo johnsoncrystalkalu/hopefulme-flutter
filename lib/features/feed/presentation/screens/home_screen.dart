@@ -989,6 +989,19 @@ class _HomeScreenState extends State<HomeScreen>
     FeedEntry entry, {
     bool autofocusComment = false,
   }) async {
+    final fallbackUser = entry.user ??
+        FeedUser.fromJson(
+          <String, dynamic>{
+            'id': widget.authController.currentUser?.id ?? 0,
+            'username': widget.authController.currentUser?.username ?? '',
+            'fullname': widget.authController.currentUser?.displayName ?? '',
+            'photo_thumb_url': widget.authController.currentUser?.photoUrl ?? '',
+            'photo_url': widget.authController.currentUser?.photoUrl ?? '',
+            'verified': widget.authController.currentUser?.isVerified == true
+                ? 'yes'
+                : 'no',
+          },
+        );
     final result = await Navigator.of(context).push<UpdateDetailResult>(
       MaterialPageRoute<UpdateDetailResult>(
         builder: (context) => UpdateDetailScreen(
@@ -1004,7 +1017,7 @@ class _HomeScreenState extends State<HomeScreen>
             likesCount: entry.likesCount,
             commentsCount: entry.commentsCount,
             createdAt: entry.createdAt,
-            user: entry.user!,
+            user: fallbackUser,
             comments: const [],
             isLiked: entry.isLiked,
             myReaction: entry.myReaction,

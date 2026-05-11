@@ -1770,8 +1770,13 @@ class _ProfileHeaderCard extends StatelessWidget {
               child: IconButton(
                 key: menuKey,
                 icon: const Icon(Icons.more_vert),
-                onPressed: () =>
-                    _showProfileMenu(context, profile.username, menuKey!),
+                onPressed: menuKey == null
+                    ? null
+                    : () => _showProfileMenu(
+                          context,
+                          profile.username,
+                          menuKey!,
+                        ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),

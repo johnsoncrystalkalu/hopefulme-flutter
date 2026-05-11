@@ -43,13 +43,25 @@ class ImageUrlResolver {
     return value?.trim().replaceAll('\\', '/') ?? '';
   }
 
+  static String _decodeRepeatedly(String value, {int maxPasses = 3}) {
+    var current = value;
+    for (var i = 0; i < maxPasses; i++) {
+      final decoded = Uri.decodeFull(current);
+      if (decoded == current) break;
+      current = decoded;
+    }
+    return current;
+  }
+
   static String _normalizeAbsoluteUrl(String value) {
-    final uri = Uri.tryParse(Uri.encodeFull(value));
+    final normalizedValue = _decodeRepeatedly(value);
+    final uri = Uri.tryParse(Uri.encodeFull(normalizedValue));
     return uri?.toString() ?? value;
   }
 
   static String _resolveRelativeUrl(String value) {
-    final normalizedValue = value.replaceFirst(RegExp(r'^\./+'), '');
+    final normalizedValue =
+        _decodeRepeatedly(value).replaceFirst(RegExp(r'^\./+'), '');
     final encodedValue = Uri.encodeFull(normalizedValue);
     return _baseUri.resolve(encodedValue).toString();
   }

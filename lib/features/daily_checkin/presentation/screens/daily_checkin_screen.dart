@@ -407,26 +407,24 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(
-                child: _InfoCard(
-                  title: _emojiForMood(entry?.mood),
-                  subtitle: entry == null ? 'Not saved yet' : entry.mood,
-                  meta: entry == null ? '' : 'Energy: ${entry.energyLevel}',
-                ),
+        Row(
+          children: [
+            Expanded(
+              child: _InfoCard(
+                title: _emojiForMood(entry?.mood),
+                subtitle: entry == null ? 'Not saved yet' : entry.mood,
+                meta: entry == null ? '' : 'Energy: ${entry.energyLevel}',
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _InfoCard(
-                  title: '\u{1F3AF}',
-                  subtitle: entry == null ? '-' : entry.focusArea.replaceAll('_', ' '),
-                  meta: "Today's focus",
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _InfoCard(
+                title: '\u{1F3AF}',
+                subtitle: entry == null ? '-' : entry.focusArea.replaceAll('_', ' '),
+                meta: "Today's focus",
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         if ((entry?.goal ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 10),
