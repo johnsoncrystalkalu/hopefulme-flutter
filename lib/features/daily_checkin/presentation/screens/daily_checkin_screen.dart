@@ -30,15 +30,15 @@ class DailyCheckinScreen extends StatefulWidget {
 class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   static const _checkinBannerUrl = 'https://ahopefulme.com/img/misc/checkin.webp';
   static const _moods = <(String, String)>[
-    ('Happy', '??'),
-    ('Calm', '??'),
-    ('Hopeful', '??'),
-    ('Stressed', '??'),
-    ('Sad', '??'),
-    ('Lonely', '??'),
-    ('Angry', '??'),
-    ('Anxious', '??'),
-    ('Tired', '??'),
+    ('Happy', '\u{1F642}'),
+    ('Calm', '\u{1F60C}'),
+    ('Hopeful', '\u{1F60A}'),
+    ('Stressed', '\u{1F61F}'),
+    ('Sad', '\u{1F641}'),
+    ('Lonely', '\u{1F614}'),
+    ('Angry', '\u{1F621}'),
+    ('Anxious', '\u{1F630}'),
+    ('Tired', '\u{1FAE9}'),
   ];
   static const _energyLevels = <String>['low', 'medium', 'high'];
   static const _focusAreas = <String>[
@@ -48,7 +48,8 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     'health',
     'personal_growth',
     'relationships',
-    'business',
+    'family',
+    'career',
     'skill_learning',
   ];
   static const _statuses = <String>[
@@ -266,7 +267,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
         ),
         const SizedBox(height: 14),
         const Text(
-          '2. What’s your energy level?',
+          '2. Whatâ€™s your energy level?',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         const SizedBox(height: 8),
@@ -419,7 +420,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _InfoCard(
-                  title: '??',
+                  title: '\u{1F3AF}',
                   subtitle: entry == null ? '-' : entry.focusArea.replaceAll('_', ' '),
                   meta: "Today's focus",
                 ),
@@ -464,7 +465,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
           ..._suggestions.take(3).map(
             (s) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('• $s'),
+              child: Text('â€¢ $s'),
             ),
           ),
         ],
@@ -502,16 +503,16 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
 
   String _emojiForMood(String? mood) {
     final key = (mood ?? '').toLowerCase();
-    if (key.contains('happy')) return '??';
-    if (key.contains('calm')) return '??';
-    if (key.contains('hope')) return '??';
-    if (key.contains('stress')) return '??';
-    if (key.contains('sad')) return '??';
-    if (key.contains('lonely')) return '??';
-    if (key.contains('angry')) return '??';
-    if (key.contains('anxious')) return '??';
-    if (key.contains('tired')) return '??';
-    return '??';
+    if (key.contains('happy')) return '\u{1F642}';
+    if (key.contains('calm')) return '\u{1F60C}';
+    if (key.contains('hope')) return '\u{1F60A}';
+    if (key.contains('stress')) return '\u{1F61F}';
+    if (key.contains('sad')) return '\u{1F641}';
+    if (key.contains('lonely')) return '\u{1F614}';
+    if (key.contains('angry')) return '\u{1F621}';
+    if (key.contains('anxious')) return '\u{1F630}';
+    if (key.contains('tired')) return '\u{1FAE9}';
+    return '\u{1F642}';
   }
 
   bool _isSupportMood(String mood) {
@@ -641,7 +642,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
   }
 }
 
-class _EntriesSection extends StatelessWidget {
+class _EntriesSection extends StatefulWidget {
   const _EntriesSection({
     required this.entries,
     required this.moodEmojiFor,
@@ -651,6 +652,13 @@ class _EntriesSection extends StatelessWidget {
   final List<DailyCheckinEntry> entries;
   final String Function(String?) moodEmojiFor;
   final Future<void> Function(DailyCheckinEntry entry) onDelete;
+
+  @override
+  State<_EntriesSection> createState() => _EntriesSectionState();
+}
+
+class _EntriesSectionState extends State<_EntriesSection> {
+  final Set<int> _expandedEntryIds = <int>{};
 
   @override
   Widget build(BuildContext context) {
@@ -663,7 +671,7 @@ class _EntriesSection extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         const SizedBox(height: 8),
-        if (entries.isEmpty)
+        if (widget.entries.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -677,10 +685,12 @@ class _EntriesSection extends StatelessWidget {
               style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600),
             ),
           ),
-        ...entries.map((entry) {
+        ...widget.entries.map((entry) {
           final moodText = entry.mood.trim().isEmpty ? '-' : entry.mood.trim();
           final goalText = entry.goal.trim().isEmpty ? 'No goal set' : entry.goal.trim();
           final journal = entry.content.trim();
+          final isExpanded = _expandedEntryIds.contains(entry.id);
+          final canExpand = journal.length > 220;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Container(
@@ -702,13 +712,13 @@ class _EntriesSection extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        moodEmojiFor(entry.mood),
+                        widget.moodEmojiFor(entry.mood),
                         style: const TextStyle(fontSize: 20),
                       ),
                       PopupMenuButton<String>(
                         onSelected: (value) {
                           if (value == 'delete') {
-                            onDelete(entry);
+                            widget.onDelete(entry);
                           }
                         },
                         itemBuilder: (context) => const [
@@ -757,8 +767,27 @@ class _EntriesSection extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Journal: $journal',
+                      maxLines: isExpanded ? null : 3,
+                      overflow:
+                          isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                       style: TextStyle(color: colors.textSecondary, height: 1.35),
                     ),
+                    if (canExpand)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedEntryIds.remove(entry.id);
+                              } else {
+                                _expandedEntryIds.add(entry.id);
+                              }
+                            });
+                          },
+                          child: Text(isExpanded ? 'Show less' : 'Read more'),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -844,28 +873,28 @@ class _NeedNowSection extends StatelessWidget {
           childAspectRatio: 1.75,
           children: [
             _NeedNowCard(
-              emoji: '??',
+              emoji: '\u{1F49C}',
               title: 'Encouraging Words',
               background: const Color(0xFFF1EAFE),
               darkBackground: const Color(0xFF2F2546),
               onTap: onOpenQuotes,
             ),
             _NeedNowCard(
-              emoji: '??',
+              emoji: '\u{1F465}',
               title: 'Talk to Someone',
               background: const Color(0xFFE7F0FF),
               darkBackground: const Color(0xFF22324A),
               onTap: onOpenGroups,
             ),
             _NeedNowCard(
-              emoji: '??',
+              emoji: '\u{1F634}',
               title: 'Rest and Sleep',
               background: const Color(0xFFFFF0DA),
               darkBackground: const Color(0xFF433726),
               onTap: onSleepLogout,
             ),
             _NeedNowCard(
-              emoji: '??',
+              emoji: '\u{1F3B5}',
               title: 'Listen to Music',
               background: const Color(0xFFEAF7EF),
               darkBackground: const Color(0xFF20392C),
@@ -1155,15 +1184,15 @@ class _SimpleMoodTrendCard extends StatelessWidget {
   };
 
   static const _moodEmoji = <String, String>{
-    'happy': '??',
-    'hopeful': '??',
-    'calm': '??',
-    'tired': '??',
-    'stressed': '??',
-    'anxious': '??',
-    'sad': '??',
-    'lonely': '??',
-    'angry': '??',
+    'happy': '\u{1F642}',
+    'hopeful': '\u{1F60A}',
+    'calm': '\u{1F60C}',
+    'tired': '\u{1FAE9}',
+    'stressed': '\u{1F61F}',
+    'anxious': '\u{1F630}',
+    'sad': '\u{1F641}',
+    'lonely': '\u{1F614}',
+    'angry': '\u{1F621}',
   };
 
   @override
@@ -1189,7 +1218,7 @@ class _SimpleMoodTrendCard extends StatelessWidget {
             children: recent.map((entry) {
               final key = entry.mood.trim().toLowerCase();
               final score = _scores[key] ?? 3;
-              final emoji = _moodEmoji[key] ?? '??';
+              final emoji = _moodEmoji[key] ?? '\u{1F642}';
               return Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
