@@ -38,7 +38,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     ('Lonely', '\u{1F614}'),
     ('Angry', '\u{1F621}'),
     ('Anxious', '\u{1F630}'),
-    ('Tired', '\u{1FAE9}'),
+    ('Tired', '\u{1F634}'),
   ];
   static const _energyLevels = <String>['low', 'medium', 'high'];
   static const _focusAreas = <String>[
@@ -515,7 +515,7 @@ class _DailyCheckinScreenState extends State<DailyCheckinScreen> {
     if (key.contains('lonely')) return '\u{1F614}';
     if (key.contains('angry')) return '\u{1F621}';
     if (key.contains('anxious')) return '\u{1F630}';
-    if (key.contains('tired')) return '\u{1FAE9}';
+    if (key.contains('tired')) return '\u{1F634}';
     return '\u{1F642}';
   }
 
@@ -1192,7 +1192,7 @@ class _SimpleMoodTrendCard extends StatelessWidget {
     'happy': '\u{1F642}',
     'hopeful': '\u{1F60A}',
     'calm': '\u{1F60C}',
-    'tired': '\u{1FAE9}',
+    'tired': '\u{1F634}',
     'stressed': '\u{1F61F}',
     'anxious': '\u{1F630}',
     'sad': '\u{1F641}',
