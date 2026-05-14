@@ -581,7 +581,7 @@ class _BlogsHeroHeader extends StatelessWidget {
             'Read thoughtful stories, encouragement, and reflections from voices across the HopefulMe community.',
             style: TextStyle(
               color: colors.textSecondary,
-              fontSize: 12,
+              fontSize: 13,
               height: 1.55,
             ),
           ),

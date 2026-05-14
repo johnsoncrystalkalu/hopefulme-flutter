@@ -175,13 +175,13 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     surfaceMuted: Color(0xFF121C2D), // Input fills, inset areas
     surfaceRaised: Color(0xFF162136), // Modals, bottom sheets
 
-    border: Color(0xFF172435), // Subtle structural border
-    borderStrong: Color(0xFF1D2C42), // Softer strong divider
+    border: Color(0xFF1C2B3F), // Subtle structural border
+    borderStrong: Color(0xFF253750), // Clearer divider for dark cards
 
     textPrimary: Color(0xFFF0F4FF), // Cool off-white with blue tint
-    textSecondary: Color(0xFF90A5BE), // Secondary copy
-    textMuted: Color(0xFF647890), // Readable muted copy
-    icon: Color(0xFF8095AF), // More visible muted icon tone
+    textSecondary: Color(0xFFAEC0D6), // Brighter secondary copy
+    textMuted: Color(0xFF8EA3BC), // Stronger muted copy for readability
+    icon: Color(0xFF99ACC3), // Lift icon visibility
 
     sidebar: Color(0xFF0C1220), // Deepest brand-tinted black
     sidebarSurface: Color.fromRGBO(61, 90, 254, 0.08), // Brand-tinted overlay
@@ -365,10 +365,9 @@ class AppTheme {
       textTheme: baseTextTheme,
       progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
-        backgroundColor: colors.surface,
-        surfaceTintColor: colors.surface,
-        foregroundColor: colors.textPrimary,
-        elevation: 0,
+        titleTextStyle: TextStyle(
+          fontSize: 16,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
