@@ -359,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _seedHomeUpdatesFromDashboard(FeedDashboard dashboard) {
     final updates = dashboard.feed
-        .where((entry) => entry.type == 'update' || entry.type == 'advert')
+        .where(_isHomeUpdatesEntry)
         .take(_maxHomeUpdatesRetained)
         .toList(growable: true);
     if (!mounted) {
@@ -418,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen>
       nextHomeUpdatesPage = page.currentPage;
       nextHasMoreHomeUpdates = page.hasMore;
       final filteredItems = page.items
-          .where((entry) => entry.type == 'update' || entry.type == 'advert')
+          .where(_isHomeUpdatesEntry)
           .toList(growable: false);
       nextHomeUpdates = _mergeFeedEntries(_homeUpdates, filteredItems);
     } catch (_) {
@@ -518,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (result.deleted) {
       setState(() {
         _homeUpdates = _homeUpdates
-            .where((entry) => !(entry.type == 'update' && entry.id == updateId))
+            .where((entry) => !(entry.type != 'advert' && entry.id == updateId))
             .toList(growable: true);
       });
       return;
@@ -538,6 +538,18 @@ class _HomeScreenState extends State<HomeScreen>
       }
     }
     return merged;
+  }
+
+  bool _isHomeUpdatesEntry(FeedEntry entry) {
+    final type = entry.type.trim().toLowerCase();
+    if (type == 'advert') {
+      return true;
+    }
+    if (type == 'post' || type == 'blog') {
+      return false;
+    }
+    // Treat legacy/custom update types (e.g. "photo") as updates.
+    return true;
   }
 
   Future<void> _refreshTopbarData({bool silent = false}) async {
