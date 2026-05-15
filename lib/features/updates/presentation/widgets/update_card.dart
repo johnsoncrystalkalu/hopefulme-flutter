@@ -70,10 +70,10 @@ class ReusableUpdateCard extends StatelessWidget {
     final colors = context.appColors;
     final String imageUrl = data.photoUrl;
     final bodyColor = data.isGeneratedActivity
-        ? colors.textMuted.withValues(alpha: 0.82)
+        ? colors.textSecondary
         : colors.textPrimary;
     final actionColor = data.isGeneratedActivity
-        ? colors.textMuted.withValues(alpha: 0.9)
+        ? colors.textSecondary
         : colors.brand;
 
     final header = Row(
@@ -207,7 +207,7 @@ class ReusableUpdateCard extends StatelessWidget {
                         text: data.body,
                         style: TextStyle(
                           color: bodyColor,
-                          fontSize: data.isGeneratedActivity ? 12.5 : 13.75,
+                          fontSize: data.isGeneratedActivity ? 12.75 : 13.75,
                           height: 1.62,
                           fontWeight: data.isGeneratedActivity
                               ? FontWeight.w400

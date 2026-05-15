@@ -1159,12 +1159,10 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                         text: detail.status,
                                         style: TextStyle(
                                           color: isGeneratedActivity
-                                              ? colors.textMuted.withValues(
-                                                  alpha: 0.82,
-                                                )
+                                              ? colors.textSecondary
                                               : colors.textPrimary,
                                           fontSize: isGeneratedActivity
-                                              ? 12.5
+                                              ? 12.75
                                               : 13.75,
                                           height: 1.62,
                                           fontWeight: isGeneratedActivity
