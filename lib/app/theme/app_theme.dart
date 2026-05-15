@@ -369,7 +369,7 @@ class AppTheme {
         surfaceTintColor: colors.surface,
         foregroundColor: colors.textPrimary,
         titleTextStyle: TextStyle(
-          fontSize: 16,
+          fontSize: 18,
         //  fontWeight: FontWeight.w700,
           color: colors.textPrimary,
           fontFamily: 'Inter',
