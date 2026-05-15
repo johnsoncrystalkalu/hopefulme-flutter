@@ -370,7 +370,7 @@ class AppTheme {
         foregroundColor: colors.textPrimary,
         titleTextStyle: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+        //  fontWeight: FontWeight.w700,
           color: colors.textPrimary,
           fontFamily: 'Inter',
         ),

@@ -3334,7 +3334,7 @@ class _HomeDailyCheckinBanner extends StatelessWidget {
                     _greetingTitle(),
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -3345,7 +3345,7 @@ class _HomeDailyCheckinBanner extends StatelessWidget {
                         : 'Track your mood, focus, and today\'s goal.',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -3363,7 +3363,7 @@ class _HomeDailyCheckinBanner extends StatelessWidget {
                       hasCheckedInToday ? 'Update Check-in' : 'Start Check-in',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
