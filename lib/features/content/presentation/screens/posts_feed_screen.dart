@@ -560,7 +560,7 @@ class _FeedStylePostCard extends StatelessWidget {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: colors.textMuted,
+                      color: colors.textPrimary,
                       fontSize: 14,
                       height: 1.55,
                     ),

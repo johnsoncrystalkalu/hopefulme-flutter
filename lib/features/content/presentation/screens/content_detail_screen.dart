@@ -1357,7 +1357,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 RichDisplayText(
                                   text: detail.body,
                                   style: TextStyle(
-                                    color: colors.textSecondary,
+                                    color: colors.textPrimary,
                                     fontSize: 15,
                                     height: 1.7,
                                   ),
@@ -1804,7 +1804,7 @@ class _ContentCommentTile extends StatelessWidget {
                 RichDisplayText(
                   text: comment.body,
                   style: TextStyle(
-                    color: colors.textSecondary,
+                    color: colors.textPrimary,
                     fontSize: 13.5,
                     height: 1.45,
                   ),
@@ -1942,7 +1942,7 @@ class _ContentReplyTile extends StatelessWidget {
           RichDisplayText(
             text: reply.body,
             style: TextStyle(
-              color: colors.textSecondary,
+              color: colors.textPrimary,
               fontSize: 12.5,
               height: 1.45,
             ),

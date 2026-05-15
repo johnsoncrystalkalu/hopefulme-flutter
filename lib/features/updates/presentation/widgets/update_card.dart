@@ -71,7 +71,7 @@ class ReusableUpdateCard extends StatelessWidget {
     final String imageUrl = data.photoUrl;
     final bodyColor = data.isGeneratedActivity
         ? colors.textMuted.withValues(alpha: 0.82)
-        : colors.textSecondary;
+        : colors.textPrimary;
     final actionColor = data.isGeneratedActivity
         ? colors.textMuted.withValues(alpha: 0.9)
         : colors.brand;

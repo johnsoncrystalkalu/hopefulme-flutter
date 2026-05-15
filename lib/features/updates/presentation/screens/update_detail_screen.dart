@@ -1162,7 +1162,7 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                               ? colors.textMuted.withValues(
                                                   alpha: 0.82,
                                                 )
-                                              : colors.textSecondary,
+                                              : colors.textPrimary,
                                           fontSize: isGeneratedActivity
                                               ? 12.5
                                               : 13.75,
@@ -2005,7 +2005,7 @@ class _CommentTile extends StatelessWidget {
                 RichDisplayText(
                   text: comment.comment,
                   style: TextStyle(
-                    color: colors.textSecondary,
+                    color: colors.textPrimary,
                     fontSize: 13.5,
                     height: 1.45,
                   ),
@@ -2111,7 +2111,7 @@ class _ReplyTile extends StatelessWidget {
           RichDisplayText(
             text: reply.comment,
             style: TextStyle(
-              color: colors.textSecondary,
+              color: colors.textPrimary,
               fontSize: 12.5,
               height: 1.45,
             ),

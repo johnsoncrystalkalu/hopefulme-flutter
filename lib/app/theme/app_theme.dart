@@ -111,7 +111,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   );
 
   // ─── LIGHT ───────────────────────────────────────────────────────────────
-  // Twitter true white — brand blue pops on pure white.
+  // HopefulMe true white — brand blue pops on pure white.
   // Borders get a faint blue tint so even hairlines feel on-brand.
   static const light = AppThemeColors(
     brand: AppColors.brand,
@@ -120,7 +120,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     heroEnd: AppColors.brand,
     accent: AppColors.accent,
 
-    scaffold: Color(0xFFf9fafc), // Twitter true white
+    scaffold: Color(0xFFf9fafc), // HopefulMe true white
     surface: Color(0xFFFFFFFF), // Flush — no separation needed
     surfaceMuted: Color(0xFFf9fafc), // Faint brand-blue input bg
     surfaceRaised: Color(0xFFEEF1FF), // Brand-tinted raised panels
@@ -128,9 +128,9 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     border: Color(0xFFEEF0F8), // Brand-tinted hairline
     borderStrong: Color(0xFFD5DAF0), // Visible brand-tinted divider
 
-    textPrimary: Color(0xFF0F1419), // Twitter ink black
+    textPrimary: Color(0xFF0F1419), // HopefulMe ink black
     textSecondary: Color(0xFF2D3748), // Dark slate
-    textMuted: Color(0xFF536471), // Twitter grey
+    textMuted: Color(0xFF536471), // HopefulMe grey
     icon: Color(0xFF536471),
 
     sidebar: Color(0xFF111827), // Match dark scaffold
@@ -154,7 +154,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   );
 
   // ─── DARK ────────────────────────────────────────────────────────────────
-  // Twitter Dim structure + brand blue baked into every surface layer.
+  // HopefulMe Dim structure + brand blue baked into every surface layer.
   // The result: a dark mode that is unmistakably yours.
   //
   // Elevation stack:
@@ -181,7 +181,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     textPrimary: Color(0xFFF0F4FF), // Cool off-white with blue tint
     textSecondary: Color(0xFFAEC0D6), // Brighter secondary copy
     textMuted: Color(0xFF8EA3BC), // Stronger muted copy for readability
-    icon: Color(0xFF99ACC3), // Lift icon visibility
+    icon: Color(0xFFAEC0D6), // Lift icon visibility
 
     sidebar: Color(0xFF0C1220), // Deepest brand-tinted black
     sidebarSurface: Color.fromRGBO(61, 90, 254, 0.08), // Brand-tinted overlay

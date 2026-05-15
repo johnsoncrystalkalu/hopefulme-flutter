@@ -210,7 +210,7 @@ class _ProfileArticlesScreenState extends State<ProfileArticlesScreen> {
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: colors.textSecondary,
+                                    color: colors.textPrimary,
                                     fontSize: 14,
                                     height: 1.55,
                                   ),

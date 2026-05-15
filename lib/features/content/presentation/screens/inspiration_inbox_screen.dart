@@ -524,7 +524,7 @@ class _InspirationInboxTile extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: colors.textSecondary,
+                color: colors.textPrimary,
                 fontSize: 13,
                 height: 1.45,
               ),
