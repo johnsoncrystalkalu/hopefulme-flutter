@@ -365,10 +365,20 @@ class AppTheme {
       textTheme: baseTextTheme,
       progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.brand),
       appBarTheme: AppBarTheme(
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
+        foregroundColor: colors.textPrimary,
         titleTextStyle: TextStyle(
           fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: colors.textPrimary,
+          fontFamily: 'Inter',
         ),
+        iconTheme: IconThemeData(color: colors.textPrimary),
+        actionsIconTheme: IconThemeData(color: colors.textPrimary),
+        elevation: 0,
       ),
+
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: colors.surface,
