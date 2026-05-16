@@ -1,6 +1,7 @@
 import 'package:hopefulme_flutter/core/network/api_client.dart';
 import 'package:hopefulme_flutter/core/network/api_exception.dart';
 import 'package:hopefulme_flutter/features/auth/models/user.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   AuthRepository(this._apiClient);
@@ -46,12 +47,14 @@ class AuthRepository {
   Future<Map<String, dynamic>> delete(String path) => _apiClient.delete(path);
 
   Future<User> login({required String login, required String password}) async {
+    final deviceOs = _detectDeviceOs();
     final response = await _apiClient.post(
       'auth/login',
       body: <String, dynamic>{
         'login': login,
         'password': password,
         'device_name': 'App',
+        'device_os': deviceOs,
       },
     );
 
@@ -67,6 +70,7 @@ class AuthRepository {
     required String password,
     String? referrer,
   }) async {
+    final deviceOs = _detectDeviceOs();
     final normalizedReferrer = referrer?.trim().replaceFirst('@', '');
     final response = await _apiClient.post(
       'auth/register',
@@ -79,6 +83,7 @@ class AuthRepository {
         'password': password,
         'password_confirmation': password,
         'device_name': 'App',
+        'device_os': deviceOs,
         if (normalizedReferrer != null && normalizedReferrer.isNotEmpty)
           'referrer': normalizedReferrer,
       },
@@ -289,6 +294,24 @@ class AuthRepository {
     final user = User.fromJson(userJson ?? <String, dynamic>{});
     await _apiClient.tokenStorage.saveCachedUser(user);
     return user;
+  }
+
+  String _detectDeviceOs() {
+    if (kIsWeb) {
+      return 'web';
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.android:
+        return 'android';
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return 'desktop';
+      default:
+        return 'unknown';
+    }
   }
 }
 

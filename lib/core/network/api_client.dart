@@ -223,22 +223,44 @@ class ApiClient {
   }
 
   Map<String, String> _headersForToken(String? token) {
+    final clientOs = _detectClientOs();
     return <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'X-App-Client': _appClientHeaderValue,
       'X-Client-Platform': _clientPlatformHeaderValue,
+      'X-Client-OS': clientOs,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
   Map<String, String> _multipartHeadersForToken(String? token) {
+    final clientOs = _detectClientOs();
     return <String, String>{
       'Accept': 'application/json',
       'X-App-Client': _appClientHeaderValue,
       'X-Client-Platform': _clientPlatformHeaderValue,
+      'X-Client-OS': clientOs,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
+  }
+
+  String _detectClientOs() {
+    if (kIsWeb) {
+      return 'web';
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.android:
+        return 'android';
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return 'desktop';
+      default:
+        return 'unknown';
+    }
   }
 
   Future<Map<String, dynamic>> _sendJsonRequest(
