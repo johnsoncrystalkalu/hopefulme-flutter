@@ -87,9 +87,7 @@ class AppDeepLinkNavigator {
     // and transition jitter when opening from notifications/external intents.
     Navigator.of(context).popUntil((route) => route.isFirst);
 
-    if (segments.length == 1 &&
-        _looksLikeProfileSegment(segments.first) &&
-        !_looksLikeStaticPageSlug(segments.first)) {
+    if (segments.length == 1 && _looksLikeProfileSegment(segments.first)) {
       await openUserProfile(
         context,
         profileRepository: profileRepository,
@@ -117,8 +115,6 @@ class AppDeepLinkNavigator {
     }
 
     switch (segments.first.toLowerCase()) {
-      case 'page':
-        return _openWebPage(context, normalized, title: 'HopefulMe');
       case 'welcome':
         Navigator.of(
           context,
@@ -446,6 +442,8 @@ class AppDeepLinkNavigator {
         return _openWebPage(context, normalized, title: 'About');
       case 'contact':
         return _openWebPage(context, normalized, title: 'Contact');
+        case 'page':
+      return _openWebPage(context, normalized, title: 'HopefulMe');
       case 'profile':
         if (segments.length >= 2) {
           await openUserProfile(
@@ -542,27 +540,6 @@ class AppDeepLinkNavigator {
 
     final normalized = segment.toLowerCase();
     return !reserved.contains(normalized) && !normalized.startsWith('@');
-  }
-
-  bool _looksLikeStaticPageSlug(String segment) {
-    final normalized = segment.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-
-    // Most CMS/static website pages are hyphenated slugs.
-    if (normalized.contains('-')) {
-      return true;
-    }
-
-    const knownStaticPages = <String>{
-      'aboutus',
-      'howitworks',
-      'partnership',
-      'volunteer',
-      'moremenu',
-    };
-    return knownStaticPages.contains(normalized);
   }
 
   int? _extractLeadingInt(String? raw) {
