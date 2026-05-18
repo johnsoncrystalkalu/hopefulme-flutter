@@ -1800,7 +1800,7 @@ class _ContentCommentTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 RichDisplayText(
                   text: comment.body,
                   style: TextStyle(
@@ -1927,18 +1927,7 @@ class _ContentReplyTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          if (replyTimestamp.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              replyTimestamp,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           RichDisplayText(
             text: reply.body,
             style: TextStyle(
@@ -1950,6 +1939,17 @@ class _ContentReplyTile extends StatelessWidget {
             onHashtagTap: onHashtagTap,
             onLinkTap: onLinkTap,
           ),
+          if (replyTimestamp.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              replyTimestamp,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );

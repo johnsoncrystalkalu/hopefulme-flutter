@@ -956,27 +956,11 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
               appBar: AppBar(
                 backgroundColor: context.appColors.surface,
                 surfaceTintColor: context.appColors.surface,
-                centerTitle: true,
                 leading: IconButton(
                   onPressed: _close,
                   icon: const Icon(Icons.arrow_back),
                 ),
-                title: RichText(
-                  text: TextSpan(
-                    // children: [
-                    //   TextSpan(
-                    //     text: 'HopefulMe',
-                    //     style: TextStyle(
-                    //       color: context.appColors.icon,
-                    //       fontSize: 16,
-                    //       fontWeight: FontWeight.w400,
-                    //       letterSpacing: -0.5,
-                    //     ),
-                    //   ),
-                     
-                    // ],
-                  ),
-                ),
+                title: const Text(''),
                 actions: [
                   if (detail != null)
                     PopupMenuButton<String>(
@@ -1100,26 +1084,13 @@ class _UpdateDetailScreenState extends State<UpdateDetailScreen>
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 3,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: colors.accentSoft,
-                                                    borderRadius: BorderRadius.circular(999),
-                                                    border: Border.all(
-                                                      color: colors.borderStrong,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    'HopefulMe',
-                                                    style: TextStyle(
-                                                      color: colors.accentSoftText,
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.w800,
-                                                      letterSpacing: 0.2,
-                                                    ),
+                                                Text(
+                                                  'HopefulMe',
+                                                  style: TextStyle(
+                                                    color: colors.accentSoftText,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 0.2,
                                                   ),
                                                 ),
                                               ],
@@ -1942,24 +1913,59 @@ class _CommentTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                InkWell(
+                  onTap: onProfileTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: VerifiedNameText(
+                    name: comment.user.displayName,
+                    verified: comment.user.isVerified,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                RichDisplayText(
+                  text: comment.comment,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 13.5,
+                    height: 1.45,
+                  ),
+                  onMentionTap: onMentionTap,
+                  onHashtagTap: onHashtagTap,
+                  onLinkTap: onLinkTap,
+                ),
+                if (commentTimestamp.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    commentTimestamp,
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: onProfileTap,
-                        borderRadius: BorderRadius.circular(8),
-                        child: VerifiedNameText(
-                          name: comment.user.displayName,
-                          verified: comment.user.isVerified,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    InkWell(
+                      onTap: onReplyTap,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Text(
+                        'Reply',
+                        style: TextStyle(
+                          color: colors.brand,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
-                    if (isOwner)
+                    if (isOwner) ...[
+                      const Spacer(),
                       PopupMenuButton<String>(
                         icon: Icon(
                           Icons.more_vert,
@@ -1997,43 +2003,8 @@ class _CommentTile extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ],
                   ],
-                ),
-                const SizedBox(height: 6),
-                RichDisplayText(
-                  text: comment.comment,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 13.5,
-                    height: 1.45,
-                  ),
-                  onMentionTap: onMentionTap,
-                  onHashtagTap: onHashtagTap,
-                  onLinkTap: onLinkTap,
-                ),
-                if (commentTimestamp.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    commentTimestamp,
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: onReplyTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Text(
-                    'Reply',
-                    style: TextStyle(
-                      color: colors.brand,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
                 ),
                 if (comment.replies.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -2094,18 +2065,7 @@ class _ReplyTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          if (replyTimestamp.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              replyTimestamp,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           RichDisplayText(
             text: reply.comment,
             style: TextStyle(
@@ -2117,6 +2077,17 @@ class _ReplyTile extends StatelessWidget {
             onHashtagTap: onHashtagTap,
             onLinkTap: onLinkTap,
           ),
+          if (replyTimestamp.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              replyTimestamp,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );

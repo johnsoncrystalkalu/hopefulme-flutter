@@ -83,7 +83,9 @@ class WebPageScreen extends StatefulWidget {
       return true;
     }
 
-    if (segments.length == 1 && !_reservedProfileLikePath(head)) {
+    if (segments.length == 1 &&
+        !_reservedProfileLikePath(head) &&
+        !_looksLikeStaticPageSlug(head)) {
       return true;
     }
 
@@ -112,6 +114,7 @@ class WebPageScreen extends StatefulWidget {
       'myprofile',
       'notifications',
       'outreach',
+      'page',
       'partnership',
       'play',
       'post',
@@ -132,6 +135,26 @@ class WebPageScreen extends StatefulWidget {
     };
 
     return reserved.contains(segment);
+  }
+
+  static bool _looksLikeStaticPageSlug(String segment) {
+    final normalized = segment.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    if (normalized.contains('-')) {
+      return true;
+    }
+
+    const knownStaticPages = <String>{
+      'aboutus',
+      'howitworks',
+      'partnership',
+      'volunteer',
+      'moremenu',
+    };
+    return knownStaticPages.contains(normalized);
   }
 
   static List<String> _stripRoutingPrefixes(List<String> segments) {

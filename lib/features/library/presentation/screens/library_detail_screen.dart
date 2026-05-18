@@ -91,7 +91,7 @@ class _LibraryDetailScreenState extends State<LibraryDetailScreen> {
     final colors = context.appColors;
     return Scaffold(
       backgroundColor: colors.scaffold,
-      appBar: AppBar(title: const Text('Library')),
+      appBar: AppBar(title: const Text('Library Resource')),
       body: FutureBuilder<LibraryDetailResponse>(
         future: _future,
         builder: (context, snapshot) {

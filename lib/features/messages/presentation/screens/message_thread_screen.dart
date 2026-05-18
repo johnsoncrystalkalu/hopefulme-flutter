@@ -3085,8 +3085,9 @@ extension on _MessageThreadScreenState {
   bool _shouldShowDateDivider(int index) {
     if (index < 0 || index >= _messages.length) return false;
     if (index == 0) return true;
-    final current = DateTime.tryParse(_messages[index].createdAt);
-    final previous = DateTime.tryParse(_messages[index - 1].createdAt);
+    final current = DateTime.tryParse(_messages[index].createdAt)?.toLocal();
+    final previous =
+        DateTime.tryParse(_messages[index - 1].createdAt)?.toLocal();
     if (current == null || previous == null) return false;
     return current.year != previous.year ||
         current.month != previous.month ||
@@ -3118,7 +3119,7 @@ extension on _MessageThreadScreenState {
 
   String _dateLabelForIndex(int index) {
     if (index < 0 || index >= _messages.length) return '';
-    final current = DateTime.tryParse(_messages[index].createdAt);
+    final current = DateTime.tryParse(_messages[index].createdAt)?.toLocal();
     if (current == null) return '';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -3165,6 +3166,7 @@ extension on _MessageThreadScreenState {
         (candidate) => _isSameLogicalMessage(message, candidate),
       );
       if (matchedIncoming) {
+        merged.remove(message.id);
         continue;
       }
       merged.putIfAbsent(message.id, () => message);
@@ -3259,6 +3261,14 @@ extension on _MessageThreadScreenState {
 
     final pendingText = pending.message.trim();
     final persistedText = persisted.message.trim();
+    String normalizedText(String value) {
+      final lower = value.trim().toLowerCase();
+      if (lower == 'shared a photo' || lower == 'sent a photo') return '';
+      if (lower == 'sent a voice note') return '';
+      return lower;
+    }
+    final normalizedPendingText = normalizedText(pendingText);
+    final normalizedPersistedText = normalizedText(persistedText);
     final pendingHasPhoto =
         (pending.localImageBytes != null) || pending.photoUrl.trim().isNotEmpty;
     final persistedHasPhoto = persisted.photoUrl.trim().isNotEmpty;
@@ -3282,8 +3292,12 @@ extension on _MessageThreadScreenState {
     final shouldRelaxTextMatch =
         (pendingIsVoicePlaceholder && persistedIsVoicePlaceholder) ||
         (pendingIsMediaPlaceholder && persistedIsMediaPlaceholder);
-    final sameText = shouldRelaxTextMatch || pendingText == persistedText;
-    final sameSender = pending.senderId == persisted.senderId;
+    final sameText =
+        shouldRelaxTextMatch ||
+        normalizedPendingText == normalizedPersistedText;
+    final pendingSenderUnknown = pending.senderId <= 0;
+    final sameSender =
+        pending.senderId == persisted.senderId || pendingSenderUnknown;
     final sameConversation =
         pending.conversationId > 0 &&
         pending.conversationId == persisted.conversationId;
@@ -3303,13 +3317,15 @@ extension on _MessageThreadScreenState {
               const Duration(minutes: 2)
         : true;
 
-    return sameText &&
+    final isSame =
+        sameText &&
         sameSender &&
         sameThread &&
         sameReplyTarget &&
         samePhotoShape &&
         sameAudioShape &&
         closeInTime;
+    return isSame;
   }
 }
 

@@ -1753,7 +1753,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       value: _formatCount(updatesCount),
-                      label: 'POSTS',
+                      label: 'UPDATES',
                       onTap: onPosts,
                     ),
                   ),

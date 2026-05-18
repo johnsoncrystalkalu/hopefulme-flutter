@@ -1438,12 +1438,21 @@ class _HomeScreenState extends State<HomeScreen>
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: const Text('Update posted'),
+        backgroundColor: context.appColors.surfaceRaised,
+        closeIconColor: context.appColors.textPrimary,
+        content: Text(
+          'Update posted',
+          style: TextStyle(
+            color: context.appColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         duration: const Duration(seconds: 4),
         dismissDirection: DismissDirection.horizontal,
         showCloseIcon: true,
         action: SnackBarAction(
           label: 'View',
+          textColor: context.appColors.brand,
           onPressed: () {
             unawaited(_openUpdateDetailById(createdUpdate.id));
           },

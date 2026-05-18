@@ -116,12 +116,10 @@ class _FullscreenNetworkImageScreenState
   late int _currentIndex;
   double _verticalDragOffset = 0;
   bool _isRunningAction = false;
+  int _activePointerCount = 0;
 
   // True while any zoom interaction is live (finger on screen + zoomed)
   bool _isZoomed = false;
-
-  // Used to debounce double-tap so it doesn't also fire a single-tap
-  DateTime? _lastTapTime;
 
   // ------------------------------------------------------------------
   // Zoom constants
@@ -434,7 +432,7 @@ class _FullscreenNetworkImageScreenState
         // ── Vertical swipe-to-dismiss ──────────────────────────────────
         // Only active when the image is at 1× scale.
         onVerticalDragUpdate: (details) {
-          if (_isZoomed) return;
+          if (_isZoomed || _activePointerCount > 1) return;
           final nextOffset = _verticalDragOffset + details.delta.dy;
           if (nextOffset <= 0) {
             if (_verticalDragOffset != 0) {
@@ -445,7 +443,7 @@ class _FullscreenNetworkImageScreenState
           setState(() => _verticalDragOffset = nextOffset);
         },
         onVerticalDragEnd: (details) {
-          if (_isZoomed) return;
+          if (_isZoomed || _activePointerCount > 1) return;
           final velocity = details.primaryVelocity ?? 0;
           if (velocity > 850 || _verticalDragOffset > 120) {
             Navigator.of(context).maybePop();
@@ -455,12 +453,22 @@ class _FullscreenNetworkImageScreenState
             setState(() => _verticalDragOffset = 0);
           }
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          transform: Matrix4.translationValues(0, translatedOffset, 0),
-          child: Stack(
-            children: [
+        child: Listener(
+          onPointerDown: (_) {
+            _activePointerCount += 1;
+          },
+          onPointerUp: (_) {
+            _activePointerCount = (_activePointerCount - 1).clamp(0, 10);
+          },
+          onPointerCancel: (_) {
+            _activePointerCount = (_activePointerCount - 1).clamp(0, 10);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            transform: Matrix4.translationValues(0, translatedOffset, 0),
+            child: Stack(
+              children: [
               Center(
                 child: GestureDetector(
                   onLongPress: _showImageActions,
@@ -495,6 +503,8 @@ class _FullscreenNetworkImageScreenState
                         transformationController: _zoomControllers[index],
                         minScale: 1.0,
                         maxScale: 5.0,
+                        boundaryMargin: const EdgeInsets.all(120),
+                        panAxis: PanAxis.free,
                         // Allow the image to be panned even when it fits the
                         // viewport — needed so double-tap zoom then pan works.
                         panEnabled: true,
@@ -638,10 +648,12 @@ class _FullscreenNetworkImageScreenState
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
