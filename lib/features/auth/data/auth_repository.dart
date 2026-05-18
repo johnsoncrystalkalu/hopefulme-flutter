@@ -53,7 +53,7 @@ class AuthRepository {
       body: <String, dynamic>{
         'login': login,
         'password': password,
-        'device_name': 'App',
+        'device_name': kIsWeb ? 'Web' : 'App',
         'device_os': deviceOs,
       },
     );
@@ -82,7 +82,7 @@ class AuthRepository {
         'gender': gender,
         'password': password,
         'password_confirmation': password,
-        'device_name': 'App',
+        'device_name': kIsWeb ? 'Web' : 'App',
         'device_os': deviceOs,
         if (normalizedReferrer != null && normalizedReferrer.isNotEmpty)
           'referrer': normalizedReferrer,
@@ -297,20 +297,17 @@ class AuthRepository {
   }
 
   String _detectDeviceOs() {
-    if (kIsWeb) {
-      return 'web';
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        return 'ios';
-      case TargetPlatform.android:
-        return 'android';
+    final platform = defaultTargetPlatform;
+    if (platform == TargetPlatform.android) return 'android';
+    if (platform == TargetPlatform.iOS) return 'ios';
+
+    switch (platform) {
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
         return 'desktop';
       default:
-        return 'unknown';
+        return kIsWeb ? 'web' : 'unknown';
     }
   }
 }

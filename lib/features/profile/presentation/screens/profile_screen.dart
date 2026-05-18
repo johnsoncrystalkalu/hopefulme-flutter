@@ -1573,28 +1573,30 @@ class _ProfileHeaderCard extends StatelessWidget {
               ),
           ],
         ),
+        if (profile.rank.trim().isNotEmpty || profile.locationLabel.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (profile.rank.trim().isNotEmpty)
+                _MetaInline(
+                  icon: Icons.workspace_premium_outlined,
+                  label: profile.rank.trim(),
+                ),
+                
+              if (profile.rank.trim().isNotEmpty &&
+                  profile.locationLabel.isNotEmpty)
+                const SizedBox(height: 8),
+              if (profile.locationLabel.isNotEmpty)
+                _MetaInline(
+                  icon: Icons.location_on_outlined,
+                  label: profile.locationLabel,
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (profile.rank.trim().isNotEmpty)
-              _MetaInline(
-                icon: Icons.workspace_premium_outlined,
-                label: profile.rank.trim(),
-              ),
-            if (profile.rank.trim().isNotEmpty &&
-                profile.locationLabel.isNotEmpty)
-              const SizedBox(height: 8),
-            if (profile.locationLabel.isNotEmpty)
-              _MetaInline(
-                icon: Icons.location_on_outlined,
-                label: profile.locationLabel,
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (canViewLastSeen)
-          _ProfileStatusRow(profile: profile, canViewLastSeen: canViewLastSeen),
+        _ProfileStatusRow(profile: profile, canViewLastSeen: canViewLastSeen),
         if (mutualFollowers.isNotEmpty) ...[
           const SizedBox(height: 10),
           _MutualFollowersRow(mutualFollowers: mutualFollowers),
@@ -1841,7 +1843,7 @@ class _ProfileStatusRow extends StatelessWidget {
                   ? 'Online'
                   : (canViewLastSeen
                         ? 'Last seen: ${profile.lastSeen}'
-                        : 'Active recently'),
+                        : 'Available'),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 11,
@@ -2842,7 +2844,6 @@ class _AdminProfilePanel extends StatelessWidget {
       MapEntry('Primary Email', profile.email),
       MapEntry('Sub Email', profile.subEmail),
       MapEntry('Invited By', profile.invitedBy),
-      MapEntry('LWP Status', profile.lwpStatus),
       MapEntry('Phone Number', profile.formattedPhoneNumber),
       MapEntry('Friend', profile.friend),
     ].where((entry) => entry.value.trim().isNotEmpty).toList();

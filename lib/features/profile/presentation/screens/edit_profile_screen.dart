@@ -645,18 +645,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           children: [
                             const SizedBox(height: 8),
                             if (widget.showOnboardingIntro)
-                              _LabeledField(
-                                label:
-                                    'Secondary Role (Your work, career, dream, or aspiration)',
-                                child: TextFormField(
-                                  controller: _secondaryRoleController,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  decoration: const InputDecoration(
-                                    hintText: '',
-                                  ),
-                                ),
-                              ),
+                            
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final isWide = constraints.maxWidth >= 620;
@@ -783,12 +772,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                             _LabeledField(
                               label: 'Phone Number',
-                              hint: 'Visible only to you..',
+                              hint: 'Visible only to you',
                               child: TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
                               ),
                             ),
+                              
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final isWide = constraints.maxWidth >= 620;
@@ -863,6 +853,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     : Column(children: [dayField, monthField]);
                               },
                             ),
+                            _LabeledField(
+                                label:
+                                    'Secondary Role (Career, Passion, or Aspiration)',
+                                child: TextFormField(
+                                  controller: _secondaryRoleController,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: const InputDecoration(
+                                    hintText: '',
+                                  ),
+                                ),
+                              ),
                             _LabeledField(
                               label: 'Hobbies & Interests',
                               child: TextFormField(

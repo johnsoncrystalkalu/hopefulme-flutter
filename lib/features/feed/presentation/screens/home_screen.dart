@@ -4366,22 +4366,6 @@ class _QuoteFullscreenViewer extends StatelessWidget {
   }
 }
 
-class _BirthdayCelebrationCard extends StatelessWidget {
-  const _BirthdayCelebrationCard({
-    required this.users,
-    required this.onOpenProfile,
-    required this.onViewAll,
-  });
-
-  final List<FeedUser> users;
-  final Future<void> Function(String username) onOpenProfile;
-  final Future<void> Function() onViewAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox.shrink();
-  }
-}
 
 class _BirthdayCelebrationStrip extends StatelessWidget {
   const _BirthdayCelebrationStrip({
@@ -4401,7 +4385,6 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final previewUsers = users.take(3).toList();
     final leadName = users.first.displayName;
     final othersCount = users.length - 1;
 
@@ -4409,27 +4392,22 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header (plain style, aligned with Most Active card)
+          // ── Header ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
             child: Row(
               children: [
-                Container(
+                const SizedBox(
                   width: 24,
                   height: 24,
                   child: Center(
-                    child: Text(
-                      '🎂',
-                      style: TextStyle(
-                        fontSize: 15,
-                      ),
-                    ),
+                    child: Text('🎂', style: TextStyle(fontSize: 15)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Today's Birthdays",
+                    "Birthday Celebrants",
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 12,
@@ -4461,118 +4439,140 @@ class _BirthdayCelebrationStrip extends StatelessWidget {
               ],
             ),
           ),
+
           Divider(height: 1, thickness: 0.5, color: colors.border),
 
-          // ── Body ─────────────────────────────────────────────────────────
+          // ── Body ────────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Avatar stack + name
-                Row(
-                  children: [
-                    // Overlapping avatar stack
-                    SizedBox(
-                      height: 34,
-                      width: (previewUsers.length * 24.0) + 12,
-                      child: Stack(
-                        children: [
-                          for (var i = 0; i < previewUsers.length; i++)
-                            Positioned(
-                              left: i * 24.0,
-                              child: GestureDetector(
-                                onTap: () => onOpenProfile(
-                                  previewUsers[i].username,
-                                ),
-                                child: Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: colors.surface,
-                                      width: 2,
-                                    ),
-                                    color: colors.avatarPlaceholder,
-                                  ),
-                                  child: ClipOval(
-                                    child: _Avatar(
-                                      imageUrl: previewUsers[i].photoUrl,
-                                      label: previewUsers[i].displayName,
-                                      radius: 17,
-                                      backgroundColor: colors.avatarPlaceholder,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: leadName,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            if (othersCount > 0)
-                              TextSpan(
-                                text: ' and $othersCount other${othersCount == 1 ? '' : 's'} are celebrating their birthday today.',
-                              )
-                            else
-                              const TextSpan(text: ' is celebrating their birthday today.'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Reserve space for text + gap; avatars get the rest
+                const double textMinWidth = 110;
+                const double gap = 10;
+                const double avatarSize = 48;
+                const double avatarStep = 34;
+                const double extraWidth = 14;
 
-                const SizedBox(height: 6),
-                Row(
+                final availableForStack =
+                    constraints.maxWidth - textMinWidth - gap;
+
+                // How many avatars fit without overflowing?
+                final maxFit = ((availableForStack - extraWidth) / avatarStep)
+                    .floor()
+                    .clamp(1, 7);
+
+                final previewUsers = users.take(maxFit).toList();
+                final stackWidth = (previewUsers.length * avatarStep) + extraWidth;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _BirthdayPillAction(
-                          label: 'Send wishes',
-                          icon: Icons.chat_bubble_outline_rounded,
-                          onTap: onSendWishes,
-                          tint: const Color(0xFFEEF4FF),
-                          darkTint: const Color(0xFF1E2B45),
-                          iconColor: const Color(0xFF3252E6),
+                    // Avatar stack + name in one row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          height: avatarSize,
+                          width: stackWidth,
+                          child: Stack(
+                            children: [
+                              for (var i = 0; i < previewUsers.length; i++)
+                                Positioned(
+                                  left: i * avatarStep,
+                                  child: GestureDetector(
+                                    onTap: () => onOpenProfile(
+                                      previewUsers[i].username,
+                                    ),
+                                    child: Container(
+                                      width: avatarSize,
+                                      height: avatarSize,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: colors.surface,
+                                          width: 2,
+                                        ),
+                                        color: colors.avatarPlaceholder,
+                                      ),
+                                      child: ClipOval(
+                                        child: _Avatar(
+                                          imageUrl: previewUsers[i].photoUrl,
+                                          label: previewUsers[i].displayName,
+                                          radius: 23,
+                                          backgroundColor:
+                                              colors.avatarPlaceholder,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: gap),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                height: 1.35,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: leadName,
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (othersCount > 0)
+                                  TextSpan(
+                                    text:
+                                        ' and $othersCount other${othersCount == 1 ? '' : 's'} are celebrating today.',
+                                  )
+                                else
+                                  const TextSpan(text: ' is celebrating today.'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: _BirthdayPillAction(
-                          label: 'Create flyer',
-                          icon: Icons.photo_outlined,
-                          onTap: onDesignCard,
-                          tint: const Color(0xFFF3EEFF),
-                          darkTint: const Color(0xFF33254B),
-                          iconColor: const Color(0xFF7C3AED),
+
+                    const SizedBox(height: 10),
+
+                    // Action buttons — full width, equal split
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _BirthdayPillAction(
+                            label: 'Send wishes',
+                            icon: Icons.chat_bubble_outline_rounded,
+                            onTap: onSendWishes,
+                            tint: const Color(0xFFEEF4FF),
+                            darkTint: const Color(0xFF1E2B45),
+                            iconColor: const Color(0xFF3252E6),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _BirthdayPillAction(
+                            label: 'Create flyer',
+                            icon: Icons.photo_outlined,
+                            onTap: onDesignCard,
+                            tint: const Color(0xFFF3EEFF),
+                            darkTint: const Color(0xFF33254B),
+                            iconColor: const Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],

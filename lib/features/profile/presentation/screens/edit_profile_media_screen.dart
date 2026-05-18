@@ -397,7 +397,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                           ),
                           primaryLabel: _isUploadingPhoto
                               ? 'Uploading...'
-                              : 'Change Photo',
+                              : 'Select Photo',
                           primaryIcon: Icons.photo_camera_outlined,
                           onPrimaryTap: _isUploadingPhoto
                               ? null
@@ -466,7 +466,7 @@ class _EditProfileMediaScreenState extends State<EditProfileMediaScreen> {
                                 child: Text(
                                   uploadedDuringSession
                                       ? 'Profile photo uploaded. You can edit this later in Settings.'
-                                      : 'You already have a profile photo. You can edit this later in Settings.',
+                                      : '',
                                   style: TextStyle(
                                     color: colors.textMuted,
                                     fontSize: 12,

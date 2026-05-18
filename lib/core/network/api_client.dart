@@ -8,7 +8,6 @@ import 'package:hopefulme_flutter/core/storage/token_storage.dart';
 
 class ApiClient {
   static const String _appClientHeaderValue = 'hopefulme_flutter';
-  static const String _clientPlatformHeaderValue = 'app/flutter';
 
   ApiClient({
     required this.baseUrl,
@@ -228,7 +227,7 @@ class ApiClient {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'X-App-Client': _appClientHeaderValue,
-      'X-Client-Platform': _clientPlatformHeaderValue,
+      'X-Client-Platform': kIsWeb ? 'web/flutter' : 'app/flutter',
       'X-Client-OS': clientOs,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
@@ -239,29 +238,26 @@ class ApiClient {
     return <String, String>{
       'Accept': 'application/json',
       'X-App-Client': _appClientHeaderValue,
-      'X-Client-Platform': _clientPlatformHeaderValue,
+      'X-Client-Platform': kIsWeb ? 'web/flutter' : 'app/flutter',
       'X-Client-OS': clientOs,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
-  String _detectClientOs() {
-    if (kIsWeb) {
-      return 'web';
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        return 'ios';
-      case TargetPlatform.android:
-        return 'android';
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'desktop';
-      default:
-        return 'unknown';
-    }
+String _detectClientOs() {
+  final platform = defaultTargetPlatform;
+  if (platform == TargetPlatform.android) return 'android';
+  if (platform == TargetPlatform.iOS) return 'ios';
+
+  switch (platform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.windows:
+    case TargetPlatform.linux:
+      return 'desktop';
+    default:
+      return kIsWeb ? 'web' : 'unknown';
   }
+}
 
   Future<Map<String, dynamic>> _sendJsonRequest(
     Future<(http.Response, String?)> Function() request,
